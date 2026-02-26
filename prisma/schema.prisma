@@ -1,0 +1,172 @@
+datasource db {
+  provider = "sqlite"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Article {
+  id             String   @id @default(uuid())
+  title          String
+  titleRu        String?
+  titleUz        String?
+  summary        String
+  summaryRu      String?
+  summaryUz      String?
+  content        String
+  contentRu      String?
+  contentUz      String?
+  image          String
+  imageCaption   String?
+  imageCaptionRu String?
+  imageCaptionUz String?
+  date           String
+  slug           String   @unique
+  author         String
+  url            String?  // Original source link
+  views          Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  viewRecords    ArticleView[]
+  categories     Category[]
+  @@map("articles")
+}
+
+model Category {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  articles  Article[]
+  @@map("categories")
+}
+
+model AboutContent {
+  id        String   @id @default(uuid())
+  title     String
+  titleRu   String?
+  titleUz   String?
+  content   String
+  contentRu String?
+  contentUz String?
+  image     String?
+  updatedAt DateTime @updatedAt
+  @@map("about_content")
+}
+
+model SiteVisit {
+  id                String   @id @default(uuid())
+  timestamp         DateTime @default(now())
+  visitorIdentifier String
+  @@map("site_visits")
+}
+
+model ArticleView {
+  id                String   @id @default(uuid())
+  articleId         String
+  timestamp         DateTime @default(now())
+  visitorIdentifier String
+  article           Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  @@map("article_views")
+}
+
+model Event {
+  id             String   @id @default(uuid())
+  title          String
+  titleRu        String?
+  titleUz        String?
+  description    String?
+  descriptionRu  String?
+  descriptionUz  String?
+  date           String
+  time           String
+  location       String
+  locationRu     String?
+  locationUz     String?
+  attendees      Int?
+  image          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  @@map("events")
+}
+
+model Media {
+  id        String   @id @default(uuid())
+  type      String   // "image" or "video"
+  title     String
+  titleRu   String?
+  titleUz   String?
+  url       String
+  thumbnail String?
+  duration  String?  // For videos
+  count     String?  // For galleries/images (e.g., "42 photos")
+  category  String?
+  createdAt DateTime @default(now())
+  @@map("media")
+}
+
+model Subscriber {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+  @@map("subscribers")
+}
+
+model ContactMessage {
+  id        String   @id @default(uuid())
+  name      String
+  email     String
+  subject   String
+  message   String
+  createdAt DateTime @default(now())
+  @@map("contact_messages")
+}
+
+model Source {
+  id            String    @id @default(uuid())
+  name          String
+  feedUrl       String    @unique
+  category      String?
+  enabled       Boolean   @default(true)
+  lastFetchedAt DateTime?
+  createdAt     DateTime  @default(now())
+  articles      ArticleRaw[]
+  @@map("sources")
+}
+
+model ArticleRaw {
+  id          String    @id @default(uuid())
+  sourceId    String
+  guid        String
+  url         String
+  title       String
+  description String?
+  author      String?
+  imageUrl    String?
+  publishedAt DateTime?
+  rawJson     String?
+  createdAt   DateTime  @default(now())
+  source      Source    @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  processed   ArticleProcessed?
+  @@unique([sourceId, guid])
+  @@unique([url])
+  @@map("articles_raw")
+}
+
+model ArticleProcessed {
+  id          String   @id @default(uuid())
+  rawId       String   @unique
+  headlineEn  String
+  headlineRu  String?
+  headlineUz  String?
+  summaryEn   String
+  summaryRu   String?
+  summaryUz   String?
+  contentEn   String?
+  contentRu   String?
+  contentUz   String?
+  categories  String?  // Comma separated
+  status      String   @default("pending_review") // "pending_review", "ready", "published", "failed", "archived"
+  createdAt   DateTime @default(now())
+  raw         ArticleRaw @relation(fields: [rawId], references: [id], onDelete: Cascade)
+  @@map("articles_processed")
+}
