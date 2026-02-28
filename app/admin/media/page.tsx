@@ -2,8 +2,52 @@
 
 import { useGlobalContext } from "@/lib/context";
 import { Plus, Trash2, Video, Image as ImageIcon, ExternalLink, Play, Eye, Edit2, Save, X, Loader2 } from "lucide-react";
+import Image from "next/image";
 import { useState } from "react";
 import { toast } from "sonner";
+
+function getYouTubeId(url: string): string | null {
+  try {
+    const u = new URL(url);
+
+    if (u.hostname === "youtu.be") return u.pathname.slice(1) || null;
+
+    const v = u.searchParams.get("v");
+    if (v) return v;
+
+    const parts = u.pathname.split("/").filter(Boolean);
+    const idx = parts.findIndex((p) => p === "shorts" || p === "embed");
+    if (idx !== -1 && parts[idx + 1]) return parts[idx + 1];
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function resolvePreviewSrc(item: {
+  type: string;
+  url?: string | null;
+  thumbnail?: string | null;
+}): string | undefined {
+  const url = item.url ?? undefined;
+  const thumb = item.thumbnail ?? undefined;
+
+  // Always use provided thumbnail first
+  if (thumb) return thumb;
+
+  // If it's a video, try to derive YouTube thumbnail
+  if (item.type === "video" && url) {
+    const ytId = getYouTubeId(url);
+    if (ytId) return `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
+
+    // No universal thumbnail for arbitrary video URLs without server-side work
+    return undefined;
+  }
+
+  // Non-video: url is probably an image
+  return url;
+}
 
 export default function AdminMediaPage() {
     const { media, addMedia, deleteMedia, isLoading, updateMedia } = useGlobalContext();
@@ -16,7 +60,9 @@ export default function AdminMediaPage() {
         thumbnail: "",
         category: "General",
     });
+    
 
+    
     const handleSaveEdit = async () => {
         if (!editingMedia) return;
         try {
@@ -204,49 +250,90 @@ export default function AdminMediaPage() {
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {media.map((item) => (
-                    <div key={item.id} className="group relative bg-card rounded-xl border border-border/40 overflow-hidden shadow-sm">
-                        <div className="aspect-video relative overflow-hidden bg-muted">
-                            <img
-                                src={item.type === "video" ? (item.thumbnail || (item.url.includes('v=') ? `https://img.youtube.com/vi/${item.url.split('v=')[1].split('&')[0]}/hqdefault.jpg` : item.url)) : (item.url || item.thumbnail)}
-                                alt={item.title}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                            />
-                            <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button
-                                    onClick={() => setEditingMedia(item)}
-                                    className="p-2 bg-white/90 backdrop-blur-sm text-primary rounded-lg shadow-sm hover:bg-white"
-                                >
-                                    <Edit2 className="h-4 w-4" />
-                                </button>
-                                <button
-                                    onClick={() => confirm("Delete this media?") && deleteMedia(item.id)}
-                                    className="p-2 bg-red-500/90 backdrop-blur-sm text-white rounded-lg shadow-sm hover:bg-red-500"
-                                >
-                                    <Trash2 className="h-4 w-4" />
-                                </button>
-                            </div>
-                            <div className="absolute bottom-2 right-2">
-                                {item.type === "video" ? <Video className="h-5 w-5 text-white drop-shadow-md" /> : <ImageIcon className="h-5 w-5 text-white drop-shadow-md" />}
-                            </div>
-                            <div className="absolute bottom-2 left-2">
-                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary font-bold uppercase tracking-wider">
-                                    {item.type === "video" ? <Play className="h-3 w-3 inline mr-1" /> : <Eye className="h-3 w-3 inline mr-1" />}
-                                    {item.type}
-                                </span>
-                            </div>
-                        </div>
-                        <div className="p-4">
-                            <h3 className="font-bold text-sm mb-1 truncate">{item.title}</h3>
-                            <div className="flex items-center justify-between">
-                                <span className="text-[10px] text-muted-foreground uppercase font-bold">{item.category}</span>
-                                <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                                    <ExternalLink className="h-4 w-4" />
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                ))}
+                {media.map((item) => {
+  const imgSrc = resolvePreviewSrc(item);
+
+  return (
+    <div
+      key={item.id}
+      className="group relative bg-card rounded-xl border border-border/40 overflow-hidden shadow-sm"
+    >
+      <div className="aspect-video relative overflow-hidden bg-muted">
+        {imgSrc ? (
+          <Image
+            src={imgSrc}
+            alt={item.title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+            loading="lazy"
+            referrerPolicy="no-referrer"
+            onError={(e) => {
+              // If derived URL fails, hide image and show fallback
+              const el = e.currentTarget;
+              el.style.display = "none";
+            }}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
+            No preview
+          </div>
+        )}
+
+        <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button
+            onClick={() => setEditingMedia(item)}
+            className="p-2 bg-white/90 backdrop-blur-sm text-primary rounded-lg shadow-sm hover:bg-white"
+          >
+            <Edit2 className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => confirm("Delete this media?") && deleteMedia(item.id)}
+            className="p-2 bg-red-500/90 backdrop-blur-sm text-white rounded-lg shadow-sm hover:bg-red-500"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="absolute bottom-2 right-2">
+          {item.type === "video" ? (
+            <Video className="h-5 w-5 text-white drop-shadow-md" />
+          ) : (
+            <ImageIcon className="h-5 w-5 text-white drop-shadow-md" />
+          )}
+        </div>
+
+        <div className="absolute bottom-2 left-2">
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary font-bold uppercase tracking-wider">
+            {item.type === "video" ? (
+              <Play className="h-3 w-3 inline mr-1" />
+            ) : (
+              <Eye className="h-3 w-3 inline mr-1" />
+            )}
+            {item.type}
+          </span>
+        </div>
+      </div>
+
+      <div className="p-4">
+        <h3 className="font-bold text-sm mb-1 truncate">{item.title}</h3>
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] text-muted-foreground uppercase font-bold">
+            {item.category}
+          </span>
+          {item.url ? (
+            <a
+              href={item.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:underline"
+            >
+              <ExternalLink className="h-4 w-4" />
+            </a>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+})}
             </div>
             {media.length === 0 && (
                 <div className="py-20 text-center border-2 border-dashed border-border/40 rounded-2xl">

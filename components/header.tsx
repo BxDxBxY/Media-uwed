@@ -50,10 +50,11 @@ export function Header() {
             <Link
               key={item.href}
               href={item.href}
-              className={`text-sm font-medium transition-all hover:text-primary h-full flex items-center relative px-1 ${pathname === item.href
+              className={`text-sm font-medium transition-all hover:text-primary h-full flex items-center relative px-1 ${
+                pathname === item.href
                   ? "text-primary font-bold"
                   : "text-muted-foreground"
-                }`}
+              }`}
             >
               {item.name}
               {pathname === item.href && (
@@ -66,7 +67,10 @@ export function Header() {
         {/* Actions */}
         <div className="hidden md:flex items-center gap-4">
           {isSearchOpen ? (
-            <form onSubmit={handleSearch} className="flex items-center animate-in fade-in slide-in-from-right-4">
+            <form
+              onSubmit={handleSearch}
+              className="flex items-center animate-in fade-in slide-in-from-right-4"
+            >
               <input
                 name="q"
                 type="text"
@@ -75,7 +79,11 @@ export function Header() {
                 className="h-9 w-48 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 onBlur={() => !isSearchOpen && setIsSearchOpen(false)}
               />
-              <button type="button" onClick={() => setIsSearchOpen(false)} className="ml-2 hover:text-destructive">
+              <button
+                type="button"
+                onClick={() => setIsSearchOpen(false)}
+                className="ml-2 hover:text-destructive"
+              >
                 <X className="h-4 w-4" />
               </button>
             </form>
@@ -107,19 +115,28 @@ export function Header() {
                 />
                 <div className="absolute right-0 top-full mt-2 w-24 bg-card border border-border rounded-md shadow-lg py-1 z-50 animate-in fade-in zoom-in-95">
                   <button
-                    onClick={() => { setLanguage("en"); setIsLangOpen(false); }}
+                    onClick={() => {
+                      setLanguage("en");
+                      setIsLangOpen(false);
+                    }}
                     className={`block w-full text-left px-4 py-2 text-sm hover:bg-muted ${language === "en" ? "text-primary font-bold" : ""}`}
                   >
                     English
                   </button>
                   <button
-                    onClick={() => { setLanguage("uz"); setIsLangOpen(false); }}
+                    onClick={() => {
+                      setLanguage("uz");
+                      setIsLangOpen(false);
+                    }}
                     className={`block w-full text-left px-4 py-2 text-sm hover:bg-muted ${language === "uz" ? "text-primary font-bold" : ""}`}
                   >
-                    O'zbek
+                    {`O'zbek`}
                   </button>
                   <button
-                    onClick={() => { setLanguage("ru"); setIsLangOpen(false); }}
+                    onClick={() => {
+                      setLanguage("ru");
+                      setIsLangOpen(false);
+                    }}
                     className={`block w-full text-left px-4 py-2 text-sm hover:bg-muted ${language === "ru" ? "text-primary font-bold" : ""}`}
                   >
                     Русский
@@ -131,7 +148,10 @@ export function Header() {
 
           <ModeToggle />
 
-          <Link href="/admin" className="p-2 hover:bg-muted rounded-full transition-colors">
+          <Link
+            href="/admin"
+            className="p-2 hover:bg-muted rounded-full transition-colors"
+          >
             <User className="h-5 w-5" />
           </Link>
         </div>
@@ -141,7 +161,11 @@ export function Header() {
           className="md:hidden p-2"
           onClick={() => setIsMenuOpen(!isMenuOpen)}
         >
-          {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          {isMenuOpen ? (
+            <X className="h-6 w-6" />
+          ) : (
+            <Menu className="h-6 w-6" />
+          )}
         </button>
       </div>
 
@@ -156,7 +180,10 @@ export function Header() {
                 placeholder={t.common.search}
                 className="flex-1 h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
               />
-              <button type="submit" className="p-2 bg-primary text-primary-foreground rounded-md">
+              <button
+                type="submit"
+                className="p-2 bg-primary text-primary-foreground rounded-md"
+              >
                 <Search className="h-5 w-5" />
               </button>
             </form>
@@ -164,8 +191,11 @@ export function Header() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`block text-sm font-medium py-2 hover:bg-muted/50 rounded-md px-2 ${pathname === item.href ? "text-primary font-bold bg-muted/30" : ""
-                  }`}
+                className={`block text-sm font-medium py-2 hover:bg-muted/50 rounded-md px-2 ${
+                  pathname === item.href
+                    ? "text-primary font-bold bg-muted/30"
+                    : ""
+                }`}
                 onClick={() => setIsMenuOpen(false)}
               >
                 {item.name}
@@ -178,7 +208,7 @@ export function Header() {
                     <button
                       key={lang}
                       onClick={() => setLanguage(lang)}
-                      className={`px-3 py-1 text-xs font-medium rounded-sm uppercase transition-colors ${language === lang ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                      className={`px-3 py-1 text-xs font-medium rounded-sm uppercase transition-colors ${language === lang ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
                     >
                       {lang}
                     </button>

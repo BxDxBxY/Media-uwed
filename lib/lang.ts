@@ -8,6 +8,7 @@ export const translations = {
       media: "Media",
       about: "About",
       admin: "Admin",
+      contact: "Contact",
     },
     common: {
       search: "Search...",
@@ -37,6 +38,7 @@ export const translations = {
       media: "Media",
       about: "Biz haqimizda",
       admin: "Admin",
+      contact: "Bog'lanish",
     },
     common: {
       search: "Qidirish...",
@@ -66,6 +68,7 @@ export const translations = {
       media: "Медиа",
       about: "О нас",
       admin: "Админ",
+      contact: "Контакты",
     },
     common: {
       search: "Поиск...",
