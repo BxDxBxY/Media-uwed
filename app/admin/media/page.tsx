@@ -184,7 +184,7 @@ export default function AdminMediaPage() {
                         <div className="space-y-1">
                             <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">Thumbnail URL (Optional)</label>
                             <input
-                                value={newMedia.thumbnail}
+                                value={newMedia.thumbnail || "https://i3.ytimg.com/vi/<insert-youtube-video-id-here>/hqdefault.jpg"}
                                 onChange={(e) => setNewMedia({ ...newMedia, thumbnail: e.target.value })}
                                 placeholder="Auto-fetched if YouTube"
                                 className="w-full bg-muted border-none rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-primary/20"
