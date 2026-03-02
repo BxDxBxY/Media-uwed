@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/admin-auth";
 import { headers } from "next/headers";
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
+    const unauthorized = requireAdmin(request);
+    if (unauthorized) return unauthorized;
+
     const headersList = await headers();
     const ip = headersList.get("x-forwarded-for") || "127.0.0.1";
     const date = new Date().toISOString().split("T")[0];
