@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/admin-auth";
 
 export async function GET() {
   try {
@@ -17,6 +18,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const unauthorized = requireAdmin(request);
+    if (unauthorized) return unauthorized;
+
     const { name, feedUrl, category } = await request.json();
     if (!name || !feedUrl) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 });
@@ -42,6 +46,9 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    const unauthorized = requireAdmin(request);
+    if (unauthorized) return unauthorized;
+
     const { id, enabled } = await request.json();
     if (!id) return NextResponse.json({ error: "Missing ID" }, { status: 400 });
 
@@ -60,6 +67,9 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    const unauthorized = requireAdmin(request);
+    if (unauthorized) return unauthorized;
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
     if (!id) return NextResponse.json({ error: "Missing ID" }, { status: 400 });

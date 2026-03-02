@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/admin-auth";
 import { headers } from "next/headers";
 
 export async function POST(request: Request) {
   try {
+    const unauthorized = requireAdmin(request);
+    if (unauthorized) return unauthorized;
+
     const { articleId } = await request.json();
     if (!articleId)
       return NextResponse.json({ error: "No articleId" }, { status: 400 });

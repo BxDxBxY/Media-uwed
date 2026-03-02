@@ -17,6 +17,10 @@ export function Header() {
   const pathname = usePathname();
   const t = translations[language];
 
+  if (pathname.startsWith("/admin")) {
+    return null;
+  }
+
   const navigation = [
     { name: t.nav.news, href: "/news" },
     { name: t.nav.events, href: "/events" },

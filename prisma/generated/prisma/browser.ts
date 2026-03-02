@@ -77,3 +77,8 @@ export type ArticleRaw = Prisma.ArticleRawModel
  * 
  */
 export type ArticleProcessed = Prisma.ArticleProcessedModel
+/**
+ * Model AdminUser
+ * 
+ */
+export type AdminUser = Prisma.AdminUserModel

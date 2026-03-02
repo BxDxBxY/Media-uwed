@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
-    "vercel-build": "prisma generate && prisma migrate deploy && next build",
+    "vercel-build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
@@ -19,7 +19,9 @@
     "seed:local": "node -e \"fetch('http://localhost:3000/api/admin/sources/seed', {method: 'POST'}).then(r => r.json()).then(console.log)\"",
     "pull:local": "node -e \"fetch('http://localhost:3000/api/cron/pull', {method: 'POST'}).then(r => r.json()).then(console.log)\"",
     "process:local": "node -e \"fetch('http://localhost:3000/api/cron/process', {method: 'POST'}).then(r => r.json()).then(console.log)\"",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "vercel-build:with-migrate": "prisma generate && prisma migrate deploy && next build",
+    "admin:create": "tsx scripts/create-admin.ts"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.4.1",
