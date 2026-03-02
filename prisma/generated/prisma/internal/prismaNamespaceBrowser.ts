@@ -64,6 +64,7 @@ export const ModelName = {
   Source: 'Source',
   ArticleRaw: 'ArticleRaw',
   ArticleProcessed: 'ArticleProcessed',
+  AdminApiKey: 'AdminApiKey',
   AdminUser: 'AdminUser'
 } as const
 
@@ -280,6 +281,21 @@ export const ArticleProcessedScalarFieldEnum = {
 } as const
 
 export type ArticleProcessedScalarFieldEnum = (typeof ArticleProcessedScalarFieldEnum)[keyof typeof ArticleProcessedScalarFieldEnum]
+
+
+export const AdminApiKeyScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  keyPrefix: 'keyPrefix',
+  keyHash: 'keyHash',
+  createdById: 'createdById',
+  lastUsedAt: 'lastUsedAt',
+  revokedAt: 'revokedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type AdminApiKeyScalarFieldEnum = (typeof AdminApiKeyScalarFieldEnum)[keyof typeof AdminApiKeyScalarFieldEnum]
 
 
 export const AdminUserScalarFieldEnum = {

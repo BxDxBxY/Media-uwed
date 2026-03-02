@@ -105,6 +105,11 @@ export type ArticleRaw = Prisma.ArticleRawModel
  */
 export type ArticleProcessed = Prisma.ArticleProcessedModel
 /**
+ * Model AdminApiKey
+ * 
+ */
+export type AdminApiKey = Prisma.AdminApiKeyModel
+/**
  * Model AdminUser
  * 
  */

@@ -397,6 +397,7 @@ export const ModelName = {
   Source: 'Source',
   ArticleRaw: 'ArticleRaw',
   ArticleProcessed: 'ArticleProcessed',
+  AdminApiKey: 'AdminApiKey',
   AdminUser: 'AdminUser'
 } as const
 
@@ -413,7 +414,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "article" | "category" | "aboutContent" | "siteVisit" | "articleView" | "event" | "media" | "subscriber" | "contactMessage" | "siteSettings" | "source" | "articleRaw" | "articleProcessed" | "adminUser"
+    modelProps: "article" | "category" | "aboutContent" | "siteVisit" | "articleView" | "event" | "media" | "subscriber" | "contactMessage" | "siteSettings" | "source" | "articleRaw" | "articleProcessed" | "adminApiKey" | "adminUser"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1379,6 +1380,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    AdminApiKey: {
+      payload: Prisma.$AdminApiKeyPayload<ExtArgs>
+      fields: Prisma.AdminApiKeyFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.AdminApiKeyFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AdminApiKeyPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.AdminApiKeyFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AdminApiKeyPayload>
+        }
+        findFirst: {
+          args: Prisma.AdminApiKeyFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AdminApiKeyPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.AdminApiKeyFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AdminApiKeyPayload>
+        }
+        findMany: {
+          args: Prisma.AdminApiKeyFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AdminApiKeyPayload>[]
+        }
+        create: {
+          args: Prisma.AdminApiKeyCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AdminApiKeyPayload>
+        }
+        createMany: {
+          args: Prisma.AdminApiKeyCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.AdminApiKeyCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AdminApiKeyPayload>[]
+        }
+        delete: {
+          args: Prisma.AdminApiKeyDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AdminApiKeyPayload>
+        }
+        update: {
+          args: Prisma.AdminApiKeyUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AdminApiKeyPayload>
+        }
+        deleteMany: {
+          args: Prisma.AdminApiKeyDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.AdminApiKeyUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.AdminApiKeyUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AdminApiKeyPayload>[]
+        }
+        upsert: {
+          args: Prisma.AdminApiKeyUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AdminApiKeyPayload>
+        }
+        aggregate: {
+          args: Prisma.AdminApiKeyAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateAdminApiKey>
+        }
+        groupBy: {
+          args: Prisma.AdminApiKeyGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AdminApiKeyGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.AdminApiKeyCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AdminApiKeyCountAggregateOutputType> | number
+        }
+      }
+    }
     AdminUser: {
       payload: Prisma.$AdminUserPayload<ExtArgs>
       fields: Prisma.AdminUserFieldRefs
@@ -1691,6 +1766,21 @@ export const ArticleProcessedScalarFieldEnum = {
 export type ArticleProcessedScalarFieldEnum = (typeof ArticleProcessedScalarFieldEnum)[keyof typeof ArticleProcessedScalarFieldEnum]
 
 
+export const AdminApiKeyScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  keyPrefix: 'keyPrefix',
+  keyHash: 'keyHash',
+  createdById: 'createdById',
+  lastUsedAt: 'lastUsedAt',
+  revokedAt: 'revokedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type AdminApiKeyScalarFieldEnum = (typeof AdminApiKeyScalarFieldEnum)[keyof typeof AdminApiKeyScalarFieldEnum]
+
+
 export const AdminUserScalarFieldEnum = {
   id: 'id',
   username: 'username',
@@ -1904,6 +1994,7 @@ export type GlobalOmitConfig = {
   source?: Prisma.SourceOmit
   articleRaw?: Prisma.ArticleRawOmit
   articleProcessed?: Prisma.ArticleProcessedOmit
+  adminApiKey?: Prisma.AdminApiKeyOmit
   adminUser?: Prisma.AdminUserOmit
 }
 

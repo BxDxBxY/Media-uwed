@@ -203,6 +203,22 @@ model ArticleProcessed {
 }
 
 
+
+model AdminApiKey {
+  id          String    @id @default(uuid())
+  name        String
+  keyPrefix   String
+  keyHash     String
+  createdById String
+  lastUsedAt  DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdBy   AdminUser @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@map("admin_api_keys")
+}
+
 model AdminUser {
   id           String   @id @default(uuid())
   username     String   @unique
@@ -210,7 +226,8 @@ model AdminUser {
   passwordHash String
   role         String   @default("admin")
   createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  updatedAt    DateTime      @updatedAt
+  apiKeys      AdminApiKey[]
 
   @@map("admin_users")
 }

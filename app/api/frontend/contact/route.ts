@@ -3,9 +3,14 @@ import { prisma } from "@/lib/prisma";
 
 export async function POST(request: Request) {
   try {
-    const { name, email, subject, message } = await request.json();
+    const body = await request.json();
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    const email = typeof body.email === "string" ? body.email.trim() : "";
+    const subject = typeof body.subject === "string" && body.subject.trim() ? body.subject.trim() : "General Inquiry";
+    const message = typeof body.message === "string" ? body.message.trim() : "";
+
     if (!name || !email || !message) {
-      return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+      return NextResponse.json({ error: "Name, email and message are required" }, { status: 400 });
     }
 
     const contact = await prisma.contactMessage.create({
@@ -13,7 +18,7 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ contact });
-  } catch (error: any) {
+  } catch {
     return NextResponse.json(
       { error: "Failed to send message" },
       { status: 500 },
