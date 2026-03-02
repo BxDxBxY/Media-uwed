@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/admin-auth";
 
 const SAMPLE_SOURCES = [
   {
@@ -30,8 +31,11 @@ const SAMPLE_SOURCES = [
   },
 ];
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
+    const unauthorized = requireAdmin(request);
+    if (unauthorized) return unauthorized;
+
     // Check if sources already exist
     const existingCount = await prisma.source.count();
 

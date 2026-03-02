@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { hashPassword } from "@/lib/admin-auth";
 
 // POST /api/frontend/seed - Seed database with initial data
 export async function POST() {
@@ -15,6 +16,25 @@ export async function POST() {
         eventsCount: existingEvents,
       });
     }
+
+    // Seed admin user
+    const adminEmail = "admin@uwed.local";
+    const adminUsername = "admin";
+    const adminPassword = process.env.DEMO_ADMIN_PASSWORD ?? "Admin123!";
+    await (prisma as any).adminUser.upsert({
+      where: { email: adminEmail },
+      update: {
+        username: adminUsername,
+        passwordHash: hashPassword(adminPassword),
+        role: "admin",
+      },
+      create: {
+        username: adminUsername,
+        email: adminEmail,
+        passwordHash: hashPassword(adminPassword),
+        role: "admin",
+      },
+    });
 
     // Seed Articles
     const articleData = [
@@ -136,6 +156,7 @@ export async function POST() {
       message: "Database seeded successfully",
       articlesCreated: articleData.length,
       eventsCreated: eventData.length,
+      adminCredentials: { username: adminUsername, email: adminEmail },
     });
   } catch (error) {
     console.error("Error seeding database:", error);
