@@ -8,7 +8,10 @@ import {
 
 export async function POST(request: Request) {
   try {
-    const { identity, password } = await request.json();
+    const body = await request.json();
+    const incomingIdentity = body.identity ?? body.username ?? body.email;
+    const identity = typeof incomingIdentity === "string" ? incomingIdentity.trim() : "";
+    const password = typeof body.password === "string" ? body.password : "";
 
     if (!identity || !password) {
       return NextResponse.json(
@@ -20,8 +23,8 @@ export async function POST(request: Request) {
     const admin = await (prisma as any).adminUser.findFirst({
       where: {
         OR: [
-          { username: String(identity).toLowerCase() },
-          { email: String(identity).toLowerCase() },
+          { username: { equals: identity, mode: "insensitive" } },
+          { email: { equals: identity, mode: "insensitive" } },
         ],
       },
     });
