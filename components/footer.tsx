@@ -1,11 +1,17 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Facebook, Twitter, Instagram, Youtube, Mail } from "lucide-react";
 import { useGlobalContext } from "@/lib/context";
 
 export function Footer() {
   const { articles, addSubscriber } = useGlobalContext();
+  const pathname = usePathname();
+
+  if (pathname.startsWith("/admin")) {
+    return null;
+  }
 
   // Dynamic Categories from Articles
   const categoryCounts = articles.reduce((acc, art) => {
