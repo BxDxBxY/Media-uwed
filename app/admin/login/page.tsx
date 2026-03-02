@@ -25,18 +25,10 @@ export default function AdminLoginPage() {
 
     setIsSubmitting(true);
     try {
-      const normalizedIdentity = identity.trim();
-      const isEmail = normalizedIdentity.includes("@");
-
       const response = await fetch("/api/admin/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          identity: normalizedIdentity,
-          username: isEmail ? undefined : normalizedIdentity,
-          email: isEmail ? normalizedIdentity : undefined,
-          password,
-        }),
+        body: JSON.stringify({ identity: identity.trim(), password }),
       });
 
       const result = await response.json();

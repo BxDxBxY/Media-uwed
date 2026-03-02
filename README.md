@@ -43,17 +43,6 @@ curl -X POST http://localhost:3000/api/frontend/seed
 
 If you want a custom password, set `DEMO_ADMIN_PASSWORD` before running the seed route.
 
-If you want to manually create/update an admin with a **hashed** password, run:
-
-```bash
-ADMIN_USERNAME=admin \
-ADMIN_EMAIL=admin@uwed.local \
-ADMIN_PASSWORD='Admin123!' \
-npm run admin:create
-```
-
-This command hashes `ADMIN_PASSWORD` and stores it in `passwordHash` correctly.
-
 ## News Ingestion Backend
 
 This project includes an automated news-ingestion pipeline that pulls articles from RSS feeds (BBC, CNN, Reuters, etc.) and processes them for display.

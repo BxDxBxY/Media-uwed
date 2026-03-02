@@ -6,20 +6,11 @@ import {
   verifyPassword,
 } from "@/lib/admin-auth";
 
-function pickIdentity(body: Record<string, unknown>) {
-  const candidates = [body.username, body.email, body.identity];
-  for (const value of candidates) {
-    if (typeof value === "string" && value.trim()) {
-      return value.trim();
-    }
-  }
-  return "";
-}
-
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as Record<string, unknown>;
-    const identity = pickIdentity(body);
+    const body = await request.json();
+    const incomingIdentity = body.identity ?? body.username ?? body.email;
+    const identity = typeof incomingIdentity === "string" ? incomingIdentity.trim() : "";
     const password = typeof body.password === "string" ? body.password : "";
 
     if (!identity || !password) {
