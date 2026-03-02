@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { PlusCircle, Search, MoreHorizontal, FileEdit, Trash2 } from "lucide-react";
+import { PlusCircle, Search, FileEdit, Trash2 } from "lucide-react";
 import { useGlobalContext } from "@/lib/context";
 import { useState } from "react";
 
@@ -35,16 +35,6 @@ export default function AdminArticlesPage() {
                   onChange={(e) => setSearchTerm(e.target.value)}
                />
             </div>
-            <select className="bg-background border border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-               <option>All Categories</option>
-               <option>News</option>
-               <option>Events</option>
-            </select>
-            <select className="bg-background border border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-               <option>All Status</option>
-               <option>Published</option>
-               <option>Draft</option>
-            </select>
          </div>
 
          <div className="rounded-xl border border-border/40 bg-card overflow-hidden">

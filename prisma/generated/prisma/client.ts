@@ -85,6 +85,11 @@ export type Subscriber = Prisma.SubscriberModel
  */
 export type ContactMessage = Prisma.ContactMessageModel
 /**
+ * Model SiteSettings
+ * 
+ */
+export type SiteSettings = Prisma.SiteSettingsModel
+/**
  * Model Source
  * 
  */

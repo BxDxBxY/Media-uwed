@@ -71,6 +71,8 @@ export interface ContactMessage {
     email: string;
     subject: string;
     message: string;
+    readAt?: string | null;
+    archivedAt?: string | null;
     createdAt?: string;
 }
 
