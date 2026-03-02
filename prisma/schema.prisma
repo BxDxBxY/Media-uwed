@@ -126,9 +126,30 @@ model ContactMessage {
   email     String
   subject   String
   message   String
+  readAt    DateTime?
+  archivedAt DateTime?
+  repliedAt  DateTime?
+  lastReplySubject String?
   createdAt DateTime @default(now())
 
   @@map("contact_messages")
+}
+
+model SiteSettings {
+  id                  String   @id @default("default")
+  siteName            String   @default("University Media Portal")
+  contactEmail        String   @default("admin@university.edu")
+  siteDescription     String   @default("The official news and media portal for University students and faculty.")
+  metaTitle           String   @default("University Media | Latest News & Events")
+  keywords            String   @default("university, news, events, campus life, research, education")
+  defaultLanguage     String   @default("en")
+  enableNotifications Boolean  @default(true)
+  enableComments      Boolean  @default(true)
+  moderateComments    Boolean  @default(true)
+  themeMode           String   @default("system")
+  updatedAt           DateTime @updatedAt
+
+  @@map("site_settings")
 }
 
 model Source {
@@ -184,6 +205,36 @@ model ArticleProcessed {
 }
 
 
+
+
+model AdminBroadcastLog {
+  id             String   @id @default(uuid())
+  audience       String
+  subject        String
+  message        String
+  recipientCount Int
+  sentCount      Int
+  failedCount    Int
+  createdAt      DateTime @default(now())
+
+  @@map("admin_broadcast_logs")
+}
+
+model AdminApiKey {
+  id          String    @id @default(uuid())
+  name        String
+  keyPrefix   String
+  keyHash     String
+  createdById String
+  lastUsedAt  DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdBy   AdminUser @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@map("admin_api_keys")
+}
+
 model AdminUser {
   id           String   @id @default(uuid())
   username     String   @unique
@@ -191,7 +242,8 @@ model AdminUser {
   passwordHash String
   role         String   @default("admin")
   createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  updatedAt    DateTime      @updatedAt
+  apiKeys      AdminApiKey[]
 
   @@map("admin_users")
 }

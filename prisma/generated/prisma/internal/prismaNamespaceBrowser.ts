@@ -60,9 +60,12 @@ export const ModelName = {
   Media: 'Media',
   Subscriber: 'Subscriber',
   ContactMessage: 'ContactMessage',
+  SiteSettings: 'SiteSettings',
   Source: 'Source',
   ArticleRaw: 'ArticleRaw',
   ArticleProcessed: 'ArticleProcessed',
+  AdminBroadcastLog: 'AdminBroadcastLog',
+  AdminApiKey: 'AdminApiKey',
   AdminUser: 'AdminUser'
 } as const
 
@@ -205,10 +208,32 @@ export const ContactMessageScalarFieldEnum = {
   email: 'email',
   subject: 'subject',
   message: 'message',
+  readAt: 'readAt',
+  archivedAt: 'archivedAt',
+  repliedAt: 'repliedAt',
+  lastReplySubject: 'lastReplySubject',
   createdAt: 'createdAt'
 } as const
 
 export type ContactMessageScalarFieldEnum = (typeof ContactMessageScalarFieldEnum)[keyof typeof ContactMessageScalarFieldEnum]
+
+
+export const SiteSettingsScalarFieldEnum = {
+  id: 'id',
+  siteName: 'siteName',
+  contactEmail: 'contactEmail',
+  siteDescription: 'siteDescription',
+  metaTitle: 'metaTitle',
+  keywords: 'keywords',
+  defaultLanguage: 'defaultLanguage',
+  enableNotifications: 'enableNotifications',
+  enableComments: 'enableComments',
+  moderateComments: 'moderateComments',
+  themeMode: 'themeMode',
+  updatedAt: 'updatedAt'
+} as const
+
+export type SiteSettingsScalarFieldEnum = (typeof SiteSettingsScalarFieldEnum)[keyof typeof SiteSettingsScalarFieldEnum]
 
 
 export const SourceScalarFieldEnum = {
@@ -259,6 +284,35 @@ export const ArticleProcessedScalarFieldEnum = {
 } as const
 
 export type ArticleProcessedScalarFieldEnum = (typeof ArticleProcessedScalarFieldEnum)[keyof typeof ArticleProcessedScalarFieldEnum]
+
+
+export const AdminBroadcastLogScalarFieldEnum = {
+  id: 'id',
+  audience: 'audience',
+  subject: 'subject',
+  message: 'message',
+  recipientCount: 'recipientCount',
+  sentCount: 'sentCount',
+  failedCount: 'failedCount',
+  createdAt: 'createdAt'
+} as const
+
+export type AdminBroadcastLogScalarFieldEnum = (typeof AdminBroadcastLogScalarFieldEnum)[keyof typeof AdminBroadcastLogScalarFieldEnum]
+
+
+export const AdminApiKeyScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  keyPrefix: 'keyPrefix',
+  keyHash: 'keyHash',
+  createdById: 'createdById',
+  lastUsedAt: 'lastUsedAt',
+  revokedAt: 'revokedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type AdminApiKeyScalarFieldEnum = (typeof AdminApiKeyScalarFieldEnum)[keyof typeof AdminApiKeyScalarFieldEnum]
 
 
 export const AdminUserScalarFieldEnum = {
