@@ -16,6 +16,44 @@ const defaultSettings = {
   themeMode: "system",
 };
 
+function normalizeSettingsPayload(payload: unknown) {
+  const body = (payload ?? {}) as Record<string, unknown>;
+
+  return {
+    siteName:
+      typeof body.siteName === "string" && body.siteName.trim()
+        ? body.siteName.trim()
+        : defaultSettings.siteName,
+    contactEmail:
+      typeof body.contactEmail === "string" && body.contactEmail.trim()
+        ? body.contactEmail.trim()
+        : defaultSettings.contactEmail,
+    siteDescription:
+      typeof body.siteDescription === "string" && body.siteDescription.trim()
+        ? body.siteDescription.trim()
+        : defaultSettings.siteDescription,
+    metaTitle:
+      typeof body.metaTitle === "string" && body.metaTitle.trim()
+        ? body.metaTitle.trim()
+        : defaultSettings.metaTitle,
+    keywords:
+      typeof body.keywords === "string" && body.keywords.trim()
+        ? body.keywords.trim()
+        : defaultSettings.keywords,
+    defaultLanguage:
+      body.defaultLanguage === "uz" || body.defaultLanguage === "ru"
+        ? body.defaultLanguage
+        : "en",
+    enableNotifications: Boolean(body.enableNotifications),
+    enableComments: Boolean(body.enableComments),
+    moderateComments: Boolean(body.moderateComments),
+    themeMode:
+      body.themeMode === "light" || body.themeMode === "dark"
+        ? body.themeMode
+        : "system",
+  };
+}
+
 export async function GET(request: Request) {
   try {
     const unauthorized = requireAdmin(request);
@@ -28,7 +66,8 @@ export async function GET(request: Request) {
     });
 
     return NextResponse.json({ settings });
-  } catch {
+  } catch (error) {
+    console.error("Failed to fetch settings", error);
     return NextResponse.json(
       { error: "Failed to fetch settings" },
       { status: 500 },
@@ -41,27 +80,17 @@ export async function PUT(request: Request) {
     const unauthorized = requireAdmin(request);
     if (unauthorized) return unauthorized;
 
-    const payload = await request.json();
+    const payload = normalizeSettingsPayload(await request.json());
 
     const settings = await prisma.siteSettings.upsert({
       where: { id: "default" },
-      update: {
-        siteName: payload.siteName,
-        contactEmail: payload.contactEmail,
-        siteDescription: payload.siteDescription,
-        metaTitle: payload.metaTitle,
-        keywords: payload.keywords,
-        defaultLanguage: payload.defaultLanguage,
-        enableNotifications: payload.enableNotifications,
-        enableComments: payload.enableComments,
-        moderateComments: payload.moderateComments,
-        themeMode: payload.themeMode,
-      },
+      update: payload,
       create: { id: "default", ...defaultSettings, ...payload },
     });
 
     return NextResponse.json({ settings });
-  } catch {
+  } catch (error) {
+    console.error("Failed to save settings", error);
     return NextResponse.json({ error: "Failed to save settings" }, { status: 500 });
   }
 }
