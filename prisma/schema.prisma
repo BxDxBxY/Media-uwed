@@ -128,8 +128,6 @@ model ContactMessage {
   message   String
   readAt    DateTime?
   archivedAt DateTime?
-  repliedAt  DateTime?
-  lastReplySubject String?
   createdAt DateTime @default(now())
 
   @@map("contact_messages")
@@ -205,20 +203,6 @@ model ArticleProcessed {
 }
 
 
-
-
-model AdminBroadcastLog {
-  id             String   @id @default(uuid())
-  audience       String
-  subject        String
-  message        String
-  recipientCount Int
-  sentCount      Int
-  failedCount    Int
-  createdAt      DateTime @default(now())
-
-  @@map("admin_broadcast_logs")
-}
 
 model AdminApiKey {
   id          String    @id @default(uuid())

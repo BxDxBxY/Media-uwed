@@ -34,11 +34,7 @@ export async function POST(
 
     await prisma.contactMessage.update({
       where: { id },
-      data: {
-        readAt: new Date(),
-        repliedAt: new Date(),
-        lastReplySubject: subject,
-      },
+      data: { readAt: new Date() },
     });
 
     return NextResponse.json({

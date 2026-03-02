@@ -64,7 +64,6 @@ export const ModelName = {
   Source: 'Source',
   ArticleRaw: 'ArticleRaw',
   ArticleProcessed: 'ArticleProcessed',
-  AdminBroadcastLog: 'AdminBroadcastLog',
   AdminApiKey: 'AdminApiKey',
   AdminUser: 'AdminUser'
 } as const
@@ -210,8 +209,6 @@ export const ContactMessageScalarFieldEnum = {
   message: 'message',
   readAt: 'readAt',
   archivedAt: 'archivedAt',
-  repliedAt: 'repliedAt',
-  lastReplySubject: 'lastReplySubject',
   createdAt: 'createdAt'
 } as const
 
@@ -284,20 +281,6 @@ export const ArticleProcessedScalarFieldEnum = {
 } as const
 
 export type ArticleProcessedScalarFieldEnum = (typeof ArticleProcessedScalarFieldEnum)[keyof typeof ArticleProcessedScalarFieldEnum]
-
-
-export const AdminBroadcastLogScalarFieldEnum = {
-  id: 'id',
-  audience: 'audience',
-  subject: 'subject',
-  message: 'message',
-  recipientCount: 'recipientCount',
-  sentCount: 'sentCount',
-  failedCount: 'failedCount',
-  createdAt: 'createdAt'
-} as const
-
-export type AdminBroadcastLogScalarFieldEnum = (typeof AdminBroadcastLogScalarFieldEnum)[keyof typeof AdminBroadcastLogScalarFieldEnum]
 
 
 export const AdminApiKeyScalarFieldEnum = {

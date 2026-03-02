@@ -397,7 +397,6 @@ export const ModelName = {
   Source: 'Source',
   ArticleRaw: 'ArticleRaw',
   ArticleProcessed: 'ArticleProcessed',
-  AdminBroadcastLog: 'AdminBroadcastLog',
   AdminApiKey: 'AdminApiKey',
   AdminUser: 'AdminUser'
 } as const
@@ -415,7 +414,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "article" | "category" | "aboutContent" | "siteVisit" | "articleView" | "event" | "media" | "subscriber" | "contactMessage" | "siteSettings" | "source" | "articleRaw" | "articleProcessed" | "adminBroadcastLog" | "adminApiKey" | "adminUser"
+    modelProps: "article" | "category" | "aboutContent" | "siteVisit" | "articleView" | "event" | "media" | "subscriber" | "contactMessage" | "siteSettings" | "source" | "articleRaw" | "articleProcessed" | "adminApiKey" | "adminUser"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1381,80 +1380,6 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
-    AdminBroadcastLog: {
-      payload: Prisma.$AdminBroadcastLogPayload<ExtArgs>
-      fields: Prisma.AdminBroadcastLogFieldRefs
-      operations: {
-        findUnique: {
-          args: Prisma.AdminBroadcastLogFindUniqueArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$AdminBroadcastLogPayload> | null
-        }
-        findUniqueOrThrow: {
-          args: Prisma.AdminBroadcastLogFindUniqueOrThrowArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$AdminBroadcastLogPayload>
-        }
-        findFirst: {
-          args: Prisma.AdminBroadcastLogFindFirstArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$AdminBroadcastLogPayload> | null
-        }
-        findFirstOrThrow: {
-          args: Prisma.AdminBroadcastLogFindFirstOrThrowArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$AdminBroadcastLogPayload>
-        }
-        findMany: {
-          args: Prisma.AdminBroadcastLogFindManyArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$AdminBroadcastLogPayload>[]
-        }
-        create: {
-          args: Prisma.AdminBroadcastLogCreateArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$AdminBroadcastLogPayload>
-        }
-        createMany: {
-          args: Prisma.AdminBroadcastLogCreateManyArgs<ExtArgs>
-          result: BatchPayload
-        }
-        createManyAndReturn: {
-          args: Prisma.AdminBroadcastLogCreateManyAndReturnArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$AdminBroadcastLogPayload>[]
-        }
-        delete: {
-          args: Prisma.AdminBroadcastLogDeleteArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$AdminBroadcastLogPayload>
-        }
-        update: {
-          args: Prisma.AdminBroadcastLogUpdateArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$AdminBroadcastLogPayload>
-        }
-        deleteMany: {
-          args: Prisma.AdminBroadcastLogDeleteManyArgs<ExtArgs>
-          result: BatchPayload
-        }
-        updateMany: {
-          args: Prisma.AdminBroadcastLogUpdateManyArgs<ExtArgs>
-          result: BatchPayload
-        }
-        updateManyAndReturn: {
-          args: Prisma.AdminBroadcastLogUpdateManyAndReturnArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$AdminBroadcastLogPayload>[]
-        }
-        upsert: {
-          args: Prisma.AdminBroadcastLogUpsertArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$AdminBroadcastLogPayload>
-        }
-        aggregate: {
-          args: Prisma.AdminBroadcastLogAggregateArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.AggregateAdminBroadcastLog>
-        }
-        groupBy: {
-          args: Prisma.AdminBroadcastLogGroupByArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.AdminBroadcastLogGroupByOutputType>[]
-        }
-        count: {
-          args: Prisma.AdminBroadcastLogCountArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.AdminBroadcastLogCountAggregateOutputType> | number
-        }
-      }
-    }
     AdminApiKey: {
       payload: Prisma.$AdminApiKeyPayload<ExtArgs>
       fields: Prisma.AdminApiKeyFieldRefs
@@ -1767,8 +1692,6 @@ export const ContactMessageScalarFieldEnum = {
   message: 'message',
   readAt: 'readAt',
   archivedAt: 'archivedAt',
-  repliedAt: 'repliedAt',
-  lastReplySubject: 'lastReplySubject',
   createdAt: 'createdAt'
 } as const
 
@@ -1841,20 +1764,6 @@ export const ArticleProcessedScalarFieldEnum = {
 } as const
 
 export type ArticleProcessedScalarFieldEnum = (typeof ArticleProcessedScalarFieldEnum)[keyof typeof ArticleProcessedScalarFieldEnum]
-
-
-export const AdminBroadcastLogScalarFieldEnum = {
-  id: 'id',
-  audience: 'audience',
-  subject: 'subject',
-  message: 'message',
-  recipientCount: 'recipientCount',
-  sentCount: 'sentCount',
-  failedCount: 'failedCount',
-  createdAt: 'createdAt'
-} as const
-
-export type AdminBroadcastLogScalarFieldEnum = (typeof AdminBroadcastLogScalarFieldEnum)[keyof typeof AdminBroadcastLogScalarFieldEnum]
 
 
 export const AdminApiKeyScalarFieldEnum = {
@@ -2085,7 +1994,6 @@ export type GlobalOmitConfig = {
   source?: Prisma.SourceOmit
   articleRaw?: Prisma.ArticleRawOmit
   articleProcessed?: Prisma.ArticleProcessedOmit
-  adminBroadcastLog?: Prisma.AdminBroadcastLogOmit
   adminApiKey?: Prisma.AdminApiKeyOmit
   adminUser?: Prisma.AdminUserOmit
 }

@@ -45,17 +45,6 @@ export async function POST(request: Request) {
       text: messageBody,
     });
 
-    await prisma.adminBroadcastLog.create({
-      data: {
-        audience,
-        subject,
-        message: messageBody,
-        recipientCount: recipientList.length,
-        sentCount: result.sent.length,
-        failedCount: result.failed.length,
-      },
-    });
-
     return NextResponse.json({
       recipients: recipientList.length,
       sent: result.sent.length,

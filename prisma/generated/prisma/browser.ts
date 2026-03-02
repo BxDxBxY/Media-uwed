@@ -83,11 +83,6 @@ export type ArticleRaw = Prisma.ArticleRawModel
  */
 export type ArticleProcessed = Prisma.ArticleProcessedModel
 /**
- * Model AdminBroadcastLog
- * 
- */
-export type AdminBroadcastLog = Prisma.AdminBroadcastLogModel
-/**
  * Model AdminApiKey
  * 
  */

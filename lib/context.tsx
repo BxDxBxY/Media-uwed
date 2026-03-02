@@ -73,8 +73,6 @@ export interface ContactMessage {
     message: string;
     readAt?: string | null;
     archivedAt?: string | null;
-    repliedAt?: string | null;
-    lastReplySubject?: string | null;
     createdAt?: string;
 }
 
