@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useGlobalContext } from "@/lib/context";
 import { Mail, Phone, MapPin, Send, MessageSquare } from "lucide-react";
-import { toast } from "sonner";
 
 export default function ContactPage() {
     const { addMessage } = useGlobalContext();
@@ -21,6 +20,8 @@ export default function ContactPage() {
         try {
             await addMessage(formData);
             setFormData({ name: "", email: "", subject: "General Inquiry", message: "" });
+        } catch {
+            // toast handled in context
         } finally {
             setIsSubmitting(false);
         }

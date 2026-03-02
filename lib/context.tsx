@@ -71,6 +71,8 @@ export interface ContactMessage {
     email: string;
     subject: string;
     message: string;
+    readAt?: string | null;
+    archivedAt?: string | null;
     createdAt?: string;
 }
 
@@ -404,11 +406,17 @@ export function GlobalProvider({ children }: { children: ReactNode }) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(messageData)
             });
-            if (!res.ok) throw new Error('Failed to send message');
+
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                throw new Error(body?.error || 'Failed to send message');
+            }
+
             toast.success("Message sent! We'll get back to you soon.");
         } catch (error) {
             console.error(error);
-            toast.error("Error sending message");
+            toast.error(error instanceof Error ? error.message : "Error sending message");
+            throw error;
         }
     };
 

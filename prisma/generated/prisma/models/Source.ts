@@ -361,14 +361,6 @@ export type SourceScalarRelationFilter = {
   isNot?: Prisma.SourceWhereInput
 }
 
-export type BoolFieldUpdateOperationsInput = {
-  set?: boolean
-}
-
-export type NullableDateTimeFieldUpdateOperationsInput = {
-  set?: Date | string | null
-}
-
 export type SourceCreateNestedOneWithoutArticlesInput = {
   create?: Prisma.XOR<Prisma.SourceCreateWithoutArticlesInput, Prisma.SourceUncheckedCreateWithoutArticlesInput>
   connectOrCreate?: Prisma.SourceCreateOrConnectWithoutArticlesInput
