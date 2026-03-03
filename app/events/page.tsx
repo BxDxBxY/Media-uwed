@@ -17,13 +17,17 @@ export default function EventsPage() {
       eventTimestamp: parseEventTimestamp({
         date: event.date,
         time: event.time,
-        startsAt: event.startsAt,
       }),
     }));
 
     const upcoming = parsedEvents
-      .filter(({ eventTimestamp }) => eventTimestamp !== null && eventTimestamp >= now)
-      .sort((a, b) => (a.eventTimestamp as number) - (b.eventTimestamp as number))
+      .filter(({ eventTimestamp }) => eventTimestamp === null || eventTimestamp >= now)
+      .sort((a, b) => {
+        if (a.eventTimestamp === null && b.eventTimestamp === null) return 0;
+        if (a.eventTimestamp === null) return 1;
+        if (b.eventTimestamp === null) return -1;
+        return a.eventTimestamp - b.eventTimestamp;
+      })
       .map(({ event }) => event);
 
     const past = parsedEvents
