@@ -85,6 +85,8 @@ model Event {
   descriptionUz String?
   date          String
   time          String
+  startsAt      DateTime?
+  endsAt        DateTime?
   location      String
   locationRu    String?
   locationUz    String?

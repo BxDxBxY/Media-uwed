@@ -37,6 +37,8 @@ export interface Event {
     descriptionUz?: string | null;
     date: string;
     time: string;
+    startsAt?: string | null;
+    endsAt?: string | null;
     location: string;
     locationRu?: string | null;
     locationUz?: string | null;

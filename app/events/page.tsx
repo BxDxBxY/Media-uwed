@@ -1,13 +1,51 @@
 "use client";
 
 import { useGlobalContext } from "@/lib/context";
-import { Calendar, MapPin, Users, ArrowRight, Loader2, Globe } from "lucide-react";
+import { parseEventTimestamp } from "@/lib/event-datetime";
+import { Calendar, MapPin, ArrowRight, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export default function EventsPage() {
   const { events, isLoading, language } = useGlobalContext();
   const [activeTab, setActiveTab] = useState<"upcoming" | "past">("upcoming");
+
+  const { upcomingEvents, pastEvents } = useMemo(() => {
+    const now = Date.now();
+    const parsedEvents = events.map((event) => ({
+      event,
+      eventTimestamp: parseEventTimestamp({
+        date: event.date,
+        time: event.time,
+        startsAt: event.startsAt,
+      }),
+    }));
+
+    const upcoming = parsedEvents
+      .filter(({ eventTimestamp }) => eventTimestamp !== null && eventTimestamp >= now)
+      .sort((a, b) => (a.eventTimestamp as number) - (b.eventTimestamp as number))
+      .map(({ event }) => event);
+
+    const past = parsedEvents
+      .filter(({ eventTimestamp }) => eventTimestamp !== null && eventTimestamp < now)
+      .sort((a, b) => (b.eventTimestamp as number) - (a.eventTimestamp as number))
+      .map(({ event }) => event);
+
+    return { upcomingEvents: upcoming, pastEvents: past };
+  }, [events]);
+
+  useEffect(() => {
+    if (upcomingEvents.length === 0 && pastEvents.length > 0) {
+      setActiveTab("past");
+      return;
+    }
+
+    if (upcomingEvents.length > 0 && activeTab === "past") {
+      setActiveTab("upcoming");
+    }
+  }, [activeTab, pastEvents.length, upcomingEvents.length]);
+
+  const visibleEvents = activeTab === "upcoming" ? upcomingEvents : pastEvents;
 
   const getLocalized = (event: any, key: string) => {
     if (language === "ru") {
@@ -57,7 +95,7 @@ export default function EventsPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {events.length > 0 ? events.map((event) => (
+        {visibleEvents.length > 0 ? visibleEvents.map((event) => (
           <Link
             href={`/events/${event.id}`}
             key={event.id}
