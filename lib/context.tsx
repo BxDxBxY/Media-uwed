@@ -21,6 +21,7 @@ export interface Article {
     imageCaptionRu?: string | null;
     imageCaptionUz?: string | null;
     category: string;
+    categories?: { id: string; name: string }[];
     date: string;
     slug: string;
     author: string;

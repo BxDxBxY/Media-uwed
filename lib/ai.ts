@@ -279,9 +279,13 @@ function detectCategories(title: string, description: string): string[] {
   if (/\bevent|conference|workshop|seminar|meeting|gathering\b/.test(t))
     add("Events");
   if (/\bcampus|dormitory|student life|community\b/.test(t)) add("Campus");
+  if (/\binterview|exclusive|q&a|conversation\b/.test(t)) add("Interviews");
+  if (/\bopinion|analysis|editorial|insight\b/.test(t)) add("Analysis");
+  if (/\buniversity|student|education|school|campus|academic|faculty\b/.test(t)) add("University");
+  if (/\bworld|international|global|foreign\b/.test(t)) add("World");
 
   if (cats.length === 0) add("News");
-  return cats.slice(0, 3);
+  return cats.slice(0, 4);
 }
 
 export async function processNewsAI(

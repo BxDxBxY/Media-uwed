@@ -1,17 +1,57 @@
 "use client";
 
-import { useGlobalContext } from "@/lib/context";
+import { useGlobalContext, type Article } from "@/lib/context";
 import { ArrowRight, Play, TrendingUp, Clock, ChevronRight } from "lucide-react";
 import Link from "next/link";
-import { toast } from "sonner";
+
+function getArticleCategories(article: Article): string[] {
+  const relationNames = (article.categories || []).map((c) => c.name).filter(Boolean);
+  const single = article.category ? [article.category] : [];
+  return [...new Set([...relationNames, ...single])];
+}
+
+function getPrimaryCategory(article: Article): string {
+  return getArticleCategories(article)[0] || "News";
+}
+
+function byCategory(articles: Article[], category: string) {
+  const key = category.toLowerCase();
+  return articles.filter((a) => getArticleCategories(a).some((c) => c.toLowerCase() === key));
+}
 
 export default function Home() {
   const { articles, isLoading, media } = useGlobalContext();
 
   const featuredArticle = articles[0];
   const latestNews = articles.slice(1, 4);
-  const trendingNews = articles.slice(4, 7);
+  const trendingNews = articles.slice(4, 9);
   const mainBreakingNews = articles.length > 0 ? articles[0].title : "Gathering latest campus updates...";
+
+  const worldCategory = byCategory(articles, "World");
+  const universityCategory = byCategory(articles, "University");
+  const analysisCategory = byCategory(articles, "Analysis");
+
+  const structuredBlocks = [
+    {
+      title: "World & Policy",
+      items: worldCategory.length > 0 ? worldCategory : articles,
+      reverse: false,
+    },
+    {
+      title: "University & Campus",
+      items: universityCategory.length > 0 ? universityCategory : articles.slice(2),
+      reverse: true,
+    },
+    {
+      title: "Interviews & Analysis",
+      items: analysisCategory.length > 0 ? analysisCategory : articles.slice(4),
+      reverse: false,
+    },
+  ];
+
+  const universityVideos = media
+    .filter((item) => item.type === "video" && (item.category || "").toLowerCase().includes("university"))
+    .slice(0, 3);
 
   if (isLoading) {
     return (
@@ -26,7 +66,6 @@ export default function Home() {
 
   return (
     <main className="min-h-screen">
-      {/* Breaking News Ticker */}
       <div className="bg-primary text-primary-foreground py-2 overflow-hidden border-y border-primary/20">
         <div className="container mx-auto px-4 flex items-center">
           <span className="bg-white text-primary text-[10px] font-black uppercase px-2 py-0.5 rounded mr-4 whitespace-nowrap animate-pulse">Breaking</span>
@@ -36,10 +75,8 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Hero Section */}
       <section className="container mx-auto px-4 py-8 md:py-12">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Featured Story */}
           <div className="lg:col-span-8">
             {featuredArticle ? (
               <Link href={`/article/${featuredArticle.slug}`} className="group block relative overflow-hidden rounded-3xl border border-border/40 bg-card shadow-sm hover:shadow-xl transition-all duration-500">
@@ -47,13 +84,9 @@ export default function Home() {
                   <img src={featuredArticle.image} alt={featuredArticle.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                 </div>
                 <div className="p-6 md:p-10">
-                  <span className="inline-block bg-primary/10 text-primary text-xs font-bold px-3 py-1 rounded-full mb-4 uppercase tracking-wider">{featuredArticle.category}</span>
-                  <h1 className="text-3xl md:text-5xl font-serif font-bold mb-4 leading-tight group-hover:text-primary transition-colors">
-                    {featuredArticle.title}
-                  </h1>
-                  <p className="text-muted-foreground text-lg mb-6 line-clamp-2 max-w-2xl">
-                    {featuredArticle.summary}
-                  </p>
+                  <span className="inline-block bg-primary/10 text-primary text-xs font-bold px-3 py-1 rounded-full mb-4 uppercase tracking-wider">{getPrimaryCategory(featuredArticle)}</span>
+                  <h1 className="text-3xl md:text-5xl font-serif font-bold mb-4 leading-tight group-hover:text-primary transition-colors">{featuredArticle.title}</h1>
+                  <p className="text-muted-foreground text-lg mb-6 line-clamp-2 max-w-2xl">{featuredArticle.summary}</p>
                   <div className="flex items-center gap-4 text-sm text-muted-foreground pt-4 border-t border-border/40">
                     <span className="font-bold text-foreground">By {featuredArticle.author}</span>
                     <span>•</span>
@@ -66,7 +99,6 @@ export default function Home() {
             )}
           </div>
 
-          {/* Side Highlights */}
           <div className="lg:col-span-4 space-y-8">
             <div className="flex items-center justify-between mb-4 pb-2 border-b border-border/40">
               <h3 className="font-serif text-xl font-bold flex items-center gap-2">
@@ -79,7 +111,7 @@ export default function Home() {
                 <Link key={article.id} href={`/article/${article.slug}`} className="flex gap-4 group">
                   <span className="text-4xl font-serif font-black text-muted/30 group-hover:text-primary/20 transition-colors">0{i + 1}</span>
                   <div>
-                    <span className="text-[10px] font-bold text-primary uppercase tracking-widest mb-1 block">{article.category}</span>
+                    <span className="text-[10px] font-bold text-primary uppercase tracking-widest mb-1 block">{getPrimaryCategory(article)}</span>
                     <h4 className="font-bold text-sm leading-tight group-hover:text-primary transition-colors line-clamp-2">{article.title}</h4>
                   </div>
                 </Link>
@@ -87,55 +119,10 @@ export default function Home() {
                 <p className="text-xs text-muted-foreground italic">More trending stories coming soon...</p>
               )}
             </div>
-
-            <div className="bg-muted/30 rounded-2xl p-6 border border-border/40">
-              <h3 className="font-serif text-lg font-bold mb-4">Join our Newsletter</h3>
-              <p className="text-sm text-muted-foreground mb-4">Weekly digest of university news, research, and campus stories.</p>
-              <form
-                className="space-y-2"
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  const form = e.currentTarget;
-                  const email = (form.elements.namedItem("email") as HTMLInputElement).value;
-                  if (!email) return;
-
-                  try {
-                    const res = await fetch("/api/frontend/subscribers", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ email }),
-                    });
-                    if (res.ok) {
-                      toast.success("Subscribed successfully!");
-                      form.reset();
-                    } else {
-                      toast.error("Subscription failed");
-                    }
-                  } catch (err) {
-                    toast.error("An error occurred");
-                  }
-                }}
-              >
-                <input
-                  name="email"
-                  type="email"
-                  required
-                  placeholder="Your email address"
-                  className="w-full px-4 py-2 rounded-lg border border-border bg-background text-sm outline-none focus:ring-2 focus:ring-primary/20"
-                />
-                <button
-                  type="submit"
-                  className="w-full bg-primary text-primary-foreground py-2 rounded-lg text-sm font-bold hover:opacity-90 transition-opacity"
-                >
-                  Subscribe
-                </button>
-              </form>
-            </div>
           </div>
         </div>
       </section>
 
-      {/* Latest News Grid */}
       <section className="bg-muted/10 py-16 border-y border-border/40">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between mb-10">
@@ -150,20 +137,61 @@ export default function Home() {
                 <div className="aspect-[3/2] overflow-hidden rounded-2xl mb-4 border border-border/40">
                   <img src={article.image} alt={article.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
                 </div>
-                <span className="text-[10px] font-bold text-primary uppercase tracking-widest mb-2 block">{article.category}</span>
+                <span className="text-[10px] font-bold text-primary uppercase tracking-widest mb-2 block">{getPrimaryCategory(article)}</span>
                 <h3 className="text-xl font-bold mb-3 group-hover:text-primary transition-colors leading-tight">{article.title}</h3>
                 <p className="text-muted-foreground text-sm line-clamp-2 mb-4">{article.summary}</p>
-                <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                  <span>{article.author}</span>
-                  <span>{article.date}</span>
-                </div>
               </Link>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Multimedia Highlights */}
+      <section className="container mx-auto px-4 py-16 space-y-14">
+        {structuredBlocks.map((block) => {
+          const lead = block.items[0];
+          const side = block.items.slice(1, 5);
+          if (!lead) return null;
+
+          return (
+            <div key={block.title}>
+              <div className="flex items-center justify-between mb-5">
+                <h3 className="text-2xl font-serif font-bold flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full bg-primary inline-block" />
+                  {block.title}
+                </h3>
+                <Link href="/news" className="text-sm font-semibold text-primary hover:underline">View all</Link>
+              </div>
+
+              <div className={`grid grid-cols-1 lg:grid-cols-12 gap-6 ${block.reverse ? "lg:[&>*:first-child]:order-2" : ""}`}>
+                <Link href={`/article/${lead.slug}`} className="lg:col-span-6 group rounded-2xl border border-border/40 overflow-hidden bg-card">
+                  <div className="aspect-[16/10] overflow-hidden">
+                    <img src={lead.image} alt={lead.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  </div>
+                  <div className="p-4">
+                    <h4 className="text-2xl font-bold leading-tight mb-3 group-hover:text-primary transition-colors">{lead.title}</h4>
+                    <p className="text-muted-foreground line-clamp-2">{lead.summary}</p>
+                  </div>
+                </Link>
+
+                <div className="lg:col-span-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {side.map((item) => (
+                    <Link key={item.id} href={`/article/${item.slug}`} className="group rounded-xl border border-border/40 overflow-hidden bg-card/50">
+                      <div className="aspect-[16/10] overflow-hidden">
+                        <img src={item.image} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      </div>
+                      <div className="p-3">
+                        <span className="text-[10px] font-bold text-primary uppercase">{getPrimaryCategory(item)}</span>
+                        <h5 className="font-bold mt-1 leading-tight line-clamp-2 group-hover:text-primary transition-colors">{item.title}</h5>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </section>
+
       <section className="container mx-auto px-4 py-16">
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -184,28 +212,41 @@ export default function Home() {
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity" />
               <div className="absolute bottom-0 left-0 p-6">
-                <div className="mb-2">
-                  {item.type === "video" ? (
-                    <span className="bg-primary text-primary-foreground p-1.5 rounded-full inline-block">
-                      <Play className="h-3 w-3 fill-current" />
-                    </span>
-                  ) : (
-                    <span className="bg-white/20 backdrop-blur-md text-white p-1.5 rounded-full inline-block">
-                      <TrendingUp className="h-3 w-3" />
-                    </span>
-                  )}
-                </div>
                 <h4 className="text-white font-bold text-sm line-clamp-2">{item.title}</h4>
               </div>
             </Link>
           ))}
-          {media.length === 0 && Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="aspect-[4/3] bg-muted rounded-3xl animate-pulse" />
-          ))}
         </div>
       </section>
 
-      {/* Inside University Banner */}
+      <section className="container mx-auto px-4 pb-16">
+        <div className="rounded-[2rem] bg-slate-950 border border-slate-800 p-8 md:p-12">
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-white text-3xl font-serif font-bold">Latest University Videos</h2>
+            <Link href="/media" className="text-slate-300 hover:text-white text-sm">View all videos</Link>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {(universityVideos.length > 0 ? universityVideos : media.filter((m) => m.type === "video").slice(0, 3)).map((item) => (
+              <Link key={item.id} href="/media" className="group rounded-xl overflow-hidden border border-slate-800 bg-slate-900/60">
+                <div className="aspect-video relative overflow-hidden">
+                  <img
+                    src={item.thumbnail || `https://img.youtube.com/vi/${item.url.split('v=')[1]}/hqdefault.jpg`}
+                    alt={item.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                  />
+                  <span className="absolute top-3 left-3 inline-flex items-center gap-1 bg-primary text-primary-foreground text-[10px] px-2 py-1 rounded uppercase font-bold">
+                    <Play className="h-3 w-3 fill-current" /> University
+                  </span>
+                </div>
+                <div className="p-4">
+                  <h4 className="text-white font-bold leading-tight line-clamp-2">{item.title}</h4>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <section className="container mx-auto px-4 py-16">
         <div className="bg-slate-900 rounded-[2.5rem] overflow-hidden relative min-h-[500px] flex items-center">
           <img
