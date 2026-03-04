@@ -1,4 +1,5 @@
 import axios from "axios";
+import { polishText } from "@/lib/text-clean";
 
 export interface ProcessedNews {
   headlineEn: string;
@@ -103,7 +104,7 @@ async function translateWithGeminiChunk(
   }
 }
 function cleanText(s: string) {
-  return (s || "").replace(/\s+/g, " ").trim();
+  return polishText((s || "").replace(/\s+/g, " "));
 }
 
 export function detectSourceLanguage(input: string): "en" | "ru" | "uz" {
@@ -219,6 +220,26 @@ async function translate(
   return cleanText(translatedChunks.join(" "));
 }
 
+async function translateWithPivot(
+  text: string,
+  source: "en" | "ru" | "uz",
+  target: "en" | "ru" | "uz",
+): Promise<string> {
+  const primary = await translate(text, source, target);
+  const normalizedSource = cleanText(text);
+
+  if (target === source || !normalizedSource) return primary;
+
+  const unchanged = cleanText(primary).toLowerCase() === normalizedSource.toLowerCase();
+  if (!unchanged || source === "en" || target === "en") return primary;
+
+  const pivot = await translate(text, source, "en");
+  if (!pivot || cleanText(pivot).toLowerCase() === normalizedSource.toLowerCase()) return primary;
+
+  const pivoted = await translate(pivot, "en", target);
+  return cleanText(pivoted) || primary;
+}
+
 function detectCategories(title: string, description: string): string[] {
   const t = `${title} ${description}`.toLowerCase();
   const cats: string[] = [];
@@ -277,35 +298,35 @@ export async function processNewsAI(
     const rewrittenContent = paraphraseBasic(detailedContent || description || title);
 
     const [headlineEn, headlineRu, headlineUz] = await Promise.all([
-      translate(rewrittenTitle, src, "en"),
-      translate(rewrittenTitle, src, "ru"),
-      translate(rewrittenTitle, src, "uz"),
+      translateWithPivot(rewrittenTitle, src, "en"),
+      translateWithPivot(rewrittenTitle, src, "ru"),
+      translateWithPivot(rewrittenTitle, src, "uz"),
     ]);
 
     const [summaryEn, summaryRu, summaryUz] = await Promise.all([
-      translate(rewrittenSummary, src, "en"),
-      translate(rewrittenSummary, src, "ru"),
-      translate(rewrittenSummary, src, "uz"),
+      translateWithPivot(rewrittenSummary, src, "en"),
+      translateWithPivot(rewrittenSummary, src, "ru"),
+      translateWithPivot(rewrittenSummary, src, "uz"),
     ]);
 
     const [contentEn, contentRu, contentUz] = await Promise.all([
-      translate(rewrittenContent, src, "en"),
-      translate(rewrittenContent, src, "ru"),
-      translate(rewrittenContent, src, "uz"),
+      translateWithPivot(rewrittenContent, src, "en"),
+      translateWithPivot(rewrittenContent, src, "ru"),
+      translateWithPivot(rewrittenContent, src, "uz"),
     ]);
 
     const categories = detectCategories(title, `${description || ""} ${detailedContent || ""}`);
 
     return {
-      headlineEn,
-      headlineRu,
-      headlineUz,
-      summaryEn,
-      summaryRu,
-      summaryUz,
-      contentEn,
-      contentRu,
-      contentUz,
+      headlineEn: polishText(headlineEn),
+      headlineRu: polishText(headlineRu),
+      headlineUz: polishText(headlineUz),
+      summaryEn: polishText(summaryEn),
+      summaryRu: polishText(summaryRu),
+      summaryUz: polishText(summaryUz),
+      contentEn: polishText(contentEn),
+      contentRu: polishText(contentRu),
+      contentUz: polishText(contentUz),
       categories,
     };
   } catch (error) {

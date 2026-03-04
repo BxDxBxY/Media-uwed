@@ -81,10 +81,14 @@ export async function POST(request: Request) {
         if (existingDetail.length > 200) {
           detailedContent = existingDetail;
         } else {
-          const details = await scrapeArticleDetails(raw.url);
-          detailedContent = details.content || "";
-          if (!finalImageUrl && details.imageUrl) {
-            finalImageUrl = details.imageUrl;
+          try {
+            const details = await scrapeArticleDetails(raw.url);
+            detailedContent = details.content || "";
+            if (!finalImageUrl && details.imageUrl) {
+              finalImageUrl = details.imageUrl;
+            }
+          } catch (scrapeError) {
+            console.warn(`Scrape failed for article ${raw.id}, continuing with RSS summary only`, scrapeError);
           }
 
           await prisma.articleRaw.update({
