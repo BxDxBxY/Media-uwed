@@ -20,6 +20,7 @@ export function AdminAssistantChat() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [model, setModel] = useState("local-fallback");
+  const [statusNote, setStatusNote] = useState("");
 
   const panelSize = useMemo(() => SIZES[sizeIdx], [sizeIdx]);
 
@@ -57,6 +58,11 @@ export function AdminAssistantChat() {
       });
       const data = await res.json().catch(() => ({}));
       setModel(data.model || model);
+      if (data.usedFallback) {
+        setStatusNote(data.fallbackReason || "Assistant fallback mode is active.");
+      } else {
+        setStatusNote("");
+      }
       setMessages((prev) => [
         ...prev,
         { role: "assistant", text: data.reply || data.error || "Assistant did not return a response." },
@@ -81,7 +87,7 @@ export function AdminAssistantChat() {
 
       {isOpen && (
         <div
-          className="fixed z-50 right-6 top-20 rounded-2xl border border-border/50 bg-card shadow-2xl flex flex-col overflow-hidden"
+          className="fixed z-50 right-6 top-20 rounded-2xl border border-border/50 bg-card/80 backdrop-blur-xl shadow-2xl flex flex-col overflow-hidden"
           style={{ width: panelSize.w, height: panelSize.h, maxHeight: "80vh" }}
         >
           <div className="px-4 py-3 border-b border-border/40 flex items-center justify-between gap-2">
@@ -121,6 +127,7 @@ export function AdminAssistantChat() {
               </div>
             ))}
             {isLoading && <p className="text-xs text-muted-foreground">Assistant is thinking...</p>}
+            {statusNote && <p className="text-[11px] text-amber-500">{statusNote}</p>}
           </div>
 
           <div className="p-3 border-t border-border/40 flex items-center gap-2">

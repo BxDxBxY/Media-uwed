@@ -18,6 +18,8 @@ const LIBRETRANSLATE_URL = "https://libretranslate.de/translate"; // public inst
 const MYMEMORY_URL = "https://api.mymemory.translated.net/get";
 
 const MAX_TRANSLATE_CHARS = 450;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_MODEL = process.env.GEMINI_TRANSLATE_MODEL || "gemini-2.0-flash";
 
 function chunkText(input: string, limit: number = MAX_TRANSLATE_CHARS): string[] {
   const text = cleanText(input);
@@ -56,6 +58,50 @@ function chunkText(input: string, limit: number = MAX_TRANSLATE_CHARS): string[]
   return chunks;
 }
 
+
+
+async function translateWithGeminiChunk(
+  chunk: string,
+  source: "en" | "ru" | "uz",
+  target: "en" | "ru" | "uz",
+): Promise<string | null> {
+  if (!GEMINI_API_KEY) return null;
+
+  try {
+    const prompt = [
+      "You are a professional news translator.",
+      `Translate the text from ${source} to ${target}.`,
+      "Return only translated text with no markdown, no explanations, no extra labels.",
+      "Keep names, numbers, and factual meaning accurate.",
+      "Input:",
+      chunk,
+    ].join("\n");
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+    const res = await axios.post(
+      url,
+      {
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.1,
+          maxOutputTokens: 800,
+        },
+      },
+      { timeout: 25_000 },
+    );
+
+    const out =
+      res.data?.candidates?.[0]?.content?.parts
+        ?.map((p: { text?: string }) => p?.text || "")
+        .join("\n")
+        .trim() || "";
+
+    return out ? cleanText(out) : null;
+  } catch (error) {
+    console.error("Gemini translation error:", error);
+    return null;
+  }
+}
 function cleanText(s: string) {
   return (s || "").replace(/\s+/g, " ").trim();
 }
@@ -111,7 +157,10 @@ function paraphraseBasic(text: string): string {
 }
 
 /**
- * Translation: try LibreTranslate (no auth) then MyMemory (no auth).
+ * Translation pipeline:
+ * 1) Gemini (if API key configured)
+ * 2) LibreTranslate
+ * 3) MyMemory
  * Returns original text if translation fails.
  */
 async function translate(
@@ -129,22 +178,26 @@ async function translate(
   for (const chunk of chunks) {
     let translatedChunk = "";
 
-    // 1) LibreTranslate
-    try {
-      const res = await axios.post(
-        LIBRETRANSLATE_URL,
-        { q: chunk, source, target, format: "text" },
-        { timeout: 20_000 },
-      );
-      const out = res.data?.translatedText;
-      if (typeof out === "string" && out.trim()) {
-        translatedChunk = cleanText(out);
+    translatedChunk = (await translateWithGeminiChunk(chunk, source, target)) || "";
+
+    // 2) LibreTranslate
+    if (!translatedChunk) {
+      try {
+        const res = await axios.post(
+          LIBRETRANSLATE_URL,
+          { q: chunk, source, target, format: "text" },
+          { timeout: 20_000 },
+        );
+        const out = res.data?.translatedText;
+        if (typeof out === "string" && out.trim()) {
+          translatedChunk = cleanText(out);
+        }
+      } catch {
+        // ignore, fallback below
       }
-    } catch {
-      // ignore, fallback below
     }
 
-    // 2) MyMemory
+    // 3) MyMemory
     if (!translatedChunk) {
       try {
         const url =
