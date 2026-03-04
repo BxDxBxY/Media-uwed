@@ -8,7 +8,7 @@ export async function GET(request: Request) {
     if (unauthorized) return unauthorized;
 
     const messages = await prisma.contactMessage.findMany({
-      where: { archivedAt: null },
+      where: { archivedAt: null, subject: { not: "__assistant_memory__" } },
       orderBy: { createdAt: "desc" },
     });
 

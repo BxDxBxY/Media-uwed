@@ -1,14 +1,35 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { fetchMultipleFeeds } from "@/lib/rss";
+import {
+  deriveTermsFromInstructions,
+  matchesRequirements,
+  normalizeKeywords,
+} from "@/lib/automation-filters";
 
 export const maxDuration = 60; // Allow up to 60 seconds for this endpoint
 
-export async function POST() {
+export async function POST(request: Request) {
   const startTime = Date.now();
 
   try {
-    // Get all enabled sources
+    const {
+      includeKeywords,
+      excludeKeywords,
+      aiInstructions,
+      aiStrictMode,
+    } = await request.json().catch(() => ({
+      includeKeywords: [],
+      excludeKeywords: [],
+      aiInstructions: "",
+      aiStrictMode: false,
+    }));
+
+    const include = normalizeKeywords(includeKeywords);
+    const exclude = normalizeKeywords(excludeKeywords);
+    const instructionTerms = deriveTermsFromInstructions(String(aiInstructions || ""));
+    const effectiveInclude = aiStrictMode ? [...new Set([...include, ...instructionTerms])] : include;
+
     const sources = await prisma.source.findMany({
       where: { enabled: true },
     });
@@ -23,18 +44,15 @@ export async function POST() {
     }
 
     const feedUrls = sources.map((s) => s.feedUrl);
-
-    // Fetch all feeds with concurrency limit of 5
     const feedResults = await fetchMultipleFeeds(feedUrls, 5);
 
     let totalItemsFetched = 0;
     let totalNewInserted = 0;
+    let skippedByRequirements = 0;
     const errors: Array<{ source: string; error: string }> = [];
 
-    // Process each source's results
     for (const source of sources) {
       const result = feedResults.get(source.feedUrl);
-
       if (!result) continue;
 
       if (result.error) {
@@ -46,10 +64,13 @@ export async function POST() {
       }
 
       totalItemsFetched += result.items.length;
-      console.log(result);
 
-      // Upsert items into ArticleRaw
-      for (const item of result.items) {
+      const filteredItems = result.items.filter((item) =>
+        matchesRequirements(item, effectiveInclude, exclude),
+      );
+      skippedByRequirements += result.items.length - filteredItems.length;
+
+      for (const item of filteredItems) {
         try {
           await prisma.articleRaw.upsert({
             where: {
@@ -59,7 +80,6 @@ export async function POST() {
               },
             },
             update: {
-              // Update fields in case RSS item changed
               title: item.title,
               description: item.description,
               author: item.author,
@@ -82,12 +102,10 @@ export async function POST() {
 
           totalNewInserted++;
         } catch (error) {
-          // Handle unique constraint violations (duplicate URLs)
           if (
             error instanceof Error &&
             error.message.includes("Unique constraint")
           ) {
-            // Skip duplicates silently
             continue;
           }
 
@@ -95,7 +113,6 @@ export async function POST() {
         }
       }
 
-      // Update source lastFetchedAt
       await prisma.source.update({
         where: { id: source.id },
         data: { lastFetchedAt: new Date() },
@@ -108,6 +125,8 @@ export async function POST() {
       sourcesChecked: sources.length,
       itemsFetched: totalItemsFetched,
       newInserted: totalNewInserted,
+      skippedByRequirements,
+      requirementsApplied: effectiveInclude.length > 0 || exclude.length > 0,
       errors: errors.length > 0 ? errors : undefined,
       durationMs: duration,
       message: `Processed ${sources.length} sources in ${duration}ms`,

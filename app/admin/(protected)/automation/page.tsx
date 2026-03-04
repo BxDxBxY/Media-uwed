@@ -56,6 +56,7 @@ export default function AutomationPage() {
     ]);
     const [assistantInput, setAssistantInput] = useState("");
     const [isAssistantLoading, setIsAssistantLoading] = useState(false);
+    const [assistantModel, setAssistantModel] = useState("local-fallback");
 
     const [page, setPage] = useState(1);
     const [sortBy, setSortBy] = useState<"newest" | "oldest">("newest");
@@ -101,6 +102,22 @@ export default function AutomationPage() {
     useEffect(() => {
         fetchReviewItems();
         fetchRawItems();
+
+        const loadAssistantMemory = async () => {
+            try {
+                const res = await fetch("/api/admin/assistant?limit=60");
+                if (!res.ok) return;
+                const data = await res.json();
+                setAssistantModel(data.model || "local-fallback");
+                if (Array.isArray(data.messages) && data.messages.length > 0) {
+                    setAssistantMessages(data.messages.map((msg: any) => ({ role: msg.role, text: msg.text })));
+                }
+            } catch (error) {
+                console.error("Failed to load assistant memory", error);
+            }
+        };
+
+        loadAssistantMemory();
     }, []);
 
     useEffect(() => {
@@ -158,7 +175,11 @@ export default function AutomationPage() {
         setIsProcessing(true);
         toast.info("Triggering news pull...");
         try {
-            const res = await fetch("/api/cron/pull", { method: "POST" });
+            const res = await fetch("/api/cron/pull", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ includeKeywords, excludeKeywords, aiInstructions, aiStrictMode }),
+            });
             const data = await res.json().catch(() => ({}));
             if (res.ok) {
                 toast.success(`Sync complete: Fetched ${data.itemsFetched ?? "?"} items.`);
@@ -452,6 +473,7 @@ export default function AutomationPage() {
             const data = await res.json().catch(() => ({}));
 
             if (res.ok) {
+                setAssistantModel(data.model || assistantModel);
                 setAssistantMessages((prev) => [...prev, { role: "assistant", text: data.reply || "No response available." }]);
             } else {
                 setAssistantMessages((prev) => [...prev, { role: "assistant", text: data.error || "Assistant failed to respond." }]);
@@ -1006,9 +1028,12 @@ export default function AutomationPage() {
                         </div>
                     </div>
                     <div className="p-6 rounded-xl border border-border/40 bg-card space-y-3">
-                        <h3 className="font-bold text-sm flex items-center gap-2">
-                            <MessageCircle className="h-4 w-4 text-primary" /> Admin AI Assistant
-                        </h3>
+                        <div className="flex items-center justify-between">
+                            <h3 className="font-bold text-sm flex items-center gap-2">
+                                <MessageCircle className="h-4 w-4 text-primary" /> Admin AI Assistant
+                            </h3>
+                            <span className="text-[10px] px-2 py-1 rounded bg-muted text-muted-foreground">{assistantModel}</span>
+                        </div>
                         <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
                             {assistantMessages.map((msg, idx) => (
                                 <div
