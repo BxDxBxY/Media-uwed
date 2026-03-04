@@ -1,54 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { processNewsAI } from "@/lib/ai";
-import { scrapeOgImage } from "@/lib/scraper";
+import { detectSourceLanguage, processNewsAI } from "@/lib/ai";
+import { scrapeArticleDetails } from "@/lib/scraper";
+import {
+  deriveTermsFromInstructions,
+  matchesRequirements,
+  normalizeKeywords,
+} from "@/lib/automation-filters";
 
 export const maxDuration = 300; // 5 minutes for AI processing
-
-const normalizeKeywords = (value: unknown): string[] => {
-  if (!value) return [];
-  if (Array.isArray(value)) {
-    return value.map((item) => String(item).trim().toLowerCase()).filter(Boolean);
-  }
-
-  return String(value)
-    .split(",")
-    .map((item) => item.trim().toLowerCase())
-    .filter(Boolean);
-};
-
-
-const deriveTermsFromInstructions = (instructions: string): string[] => {
-  const stopWords = new Set([
-    "the","and","for","with","from","that","this","into","your","about","only","avoid","should","need","must","news","article","articles","content","more","less","than","have","has","are","you","our","their","they","them","was","were","will","would","can","could","not"
-  ]);
-
-  return instructions
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, " ")
-    .split(/\s+/)
-    .map((word) => word.trim())
-    .filter((word) => word.length >= 4 && !stopWords.has(word))
-    .slice(0, 24);
-};
-
-const matchesRequirements = (
-  article: { title: string; description?: string | null },
-  includeKeywords: string[],
-  excludeKeywords: string[],
-): boolean => {
-  const haystack = `${article.title} ${article.description || ""}`.toLowerCase();
-
-  if (includeKeywords.length > 0 && !includeKeywords.some((keyword) => haystack.includes(keyword))) {
-    return false;
-  }
-
-  if (excludeKeywords.length > 0 && excludeKeywords.some((keyword) => haystack.includes(keyword))) {
-    return false;
-  }
-
-  return true;
-};
 
 export async function POST(request: Request) {
   try {
@@ -71,7 +31,6 @@ export async function POST(request: Request) {
     const instructionTerms = deriveTermsFromInstructions(String(aiInstructions || ""));
     const effectiveInclude = aiStrictMode ? [...new Set([...include, ...instructionTerms])] : include;
 
-    // Find ArticleRaw items that haven't been processed yet
     const unprocessedArticles = await prisma.articleRaw.findMany({
       where: {
         processed: { is: null },
@@ -83,7 +42,7 @@ export async function POST(request: Request) {
       orderBy: {
         createdAt: "desc",
       },
-      take: ids ? undefined : 50, // Process all selected, or 50 if generic trigger
+      take: ids ? undefined : 50,
     });
 
     const filteredArticles = unprocessedArticles.filter((raw) =>
@@ -104,33 +63,52 @@ export async function POST(request: Request) {
     let processedCount = 0;
     let failedCount = 0;
 
-    // Process each article
     for (const raw of filteredArticles) {
       try {
-        // Detect source language
-        let sourceLang: "en" | "ru" | "uz" = "en";
-        const sourceName = raw.source.name.toLowerCase();
-        const feedUrl = raw.source.feedUrl.toLowerCase();
+        let detailedContent = "";
+        let finalImageUrl = raw.imageUrl;
 
-        if (
-          sourceName.includes("(ru)") ||
-          sourceName.includes("tass") ||
-          sourceName.includes("ria") ||
-          feedUrl.includes(".ru/")
-        ) {
-          sourceLang = "ru";
-        } else if (
-          sourceName.includes("(uz)") ||
-          sourceName.includes("kun.uz") ||
-          feedUrl.includes(".uz/")
-        ) {
-          sourceLang = "uz";
+        let parsedRawJson: Record<string, unknown> = {};
+        try {
+          parsedRawJson = raw.rawJson ? JSON.parse(raw.rawJson) : {};
+        } catch {
+          parsedRawJson = {};
         }
+
+        const existingDetail =
+          typeof parsedRawJson.fullContent === "string" ? parsedRawJson.fullContent : "";
+
+        if (existingDetail.length > 200) {
+          detailedContent = existingDetail;
+        } else {
+          const details = await scrapeArticleDetails(raw.url);
+          detailedContent = details.content || "";
+          if (!finalImageUrl && details.imageUrl) {
+            finalImageUrl = details.imageUrl;
+          }
+
+          await prisma.articleRaw.update({
+            where: { id: raw.id },
+            data: {
+              imageUrl: finalImageUrl || null,
+              rawJson: JSON.stringify({
+                ...parsedRawJson,
+                fullContent: detailedContent || null,
+                detailFetchedAt: new Date().toISOString(),
+              }),
+            },
+          });
+        }
+
+        const sourceLang = detectSourceLanguage(
+          `${raw.title}\n${raw.description || ""}\n${detailedContent}`,
+        );
 
         const aiResult = await processNewsAI(
           raw.title,
           raw.description || "",
           sourceLang,
+          detailedContent,
         );
 
         if (!aiResult) {
@@ -138,13 +116,6 @@ export async function POST(request: Request) {
           continue;
         }
 
-        // Try to scrape image if missing
-        let finalImageUrl = raw.imageUrl;
-        if (!finalImageUrl) {
-          finalImageUrl = await scrapeOgImage(raw.url);
-        }
-
-        // Create processed article
         await prisma.articleProcessed.create({
           data: {
             rawId: raw.id,
@@ -154,21 +125,13 @@ export async function POST(request: Request) {
             summaryEn: aiResult.summaryEn,
             summaryRu: aiResult.summaryRu,
             summaryUz: aiResult.summaryUz,
-            contentEn: aiResult.summaryEn,
-            contentRu: aiResult.summaryRu,
-            contentUz: aiResult.summaryUz,
+            contentEn: aiResult.contentEn,
+            contentRu: aiResult.contentRu,
+            contentUz: aiResult.contentUz,
             categories: aiResult.categories.join(", "),
             status: "pending_review",
-            // We'll update the raw record if we found a new image url
           },
         });
-
-        if (finalImageUrl && finalImageUrl !== raw.imageUrl) {
-          await prisma.articleRaw.update({
-            where: { id: raw.id },
-            data: { imageUrl: finalImageUrl },
-          });
-        }
 
         processedCount++;
       } catch (error) {
@@ -183,6 +146,8 @@ export async function POST(request: Request) {
       totalAttempted: filteredArticles.length,
       skippedByRequirements: Math.max(0, unprocessedArticles.length - filteredArticles.length),
       requirementsApplied: effectiveInclude.length > 0 || exclude.length > 0,
+      aiStrictMode: Boolean(aiStrictMode),
+      aiInstructionTerms: instructionTerms.length,
       message: `Successfully processed ${processedCount} articles. Status: pending_review.`,
     });
   } catch (error) {

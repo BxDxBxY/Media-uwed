@@ -7,6 +7,9 @@ export interface ProcessedNews {
   summaryEn: string;
   summaryRu: string;
   summaryUz: string;
+  contentEn: string;
+  contentRu: string;
+  contentUz: string;
   categories: string[];
 }
 
@@ -18,12 +21,28 @@ function cleanText(s: string) {
   return (s || "").replace(/\s+/g, " ").trim();
 }
 
+export function detectSourceLanguage(input: string): "en" | "ru" | "uz" {
+  const text = cleanText(input).toLowerCase();
+  if (!text) return "en";
+
+  const cyrillicCount = (text.match(/[а-яё]/gi) || []).length;
+  const latinCount = (text.match(/[a-z]/gi) || []).length;
+
+  if (cyrillicCount > latinCount * 0.25) return "ru";
+
+  // Uzbek latin-specific letters / common tokens
+  if (/[ʻʼ’ʻ]/.test(text) || /\bo['’`]z\b|\bham\b|\buchun\b|\bva\b/.test(text)) {
+    return "uz";
+  }
+
+  return "en";
+}
+
 /**
  * Simple paraphrase (no AI):
  * - cleans whitespace
  * - removes common boilerplate
  * - applies light safe rewrites
- * This is not “LLM quality”, but it’s free and stable.
  */
 function paraphraseBasic(text: string): string {
   let t = cleanText(text);
@@ -141,16 +160,15 @@ export async function processNewsAI(
   title: string,
   description: string,
   sourceLanguage: "en" | "ru" | "uz" = "en",
+  detailedContent?: string,
 ): Promise<ProcessedNews | null> {
   try {
     const src = sourceLanguage;
 
-    // “Paraphrase” (clean editorial rewrite) in source language locally
-    // For non-English, paraphraseBasic might be less effective but still cleans whitespace
     const rewrittenTitle = paraphraseBasic(title);
     const rewrittenSummary = paraphraseBasic(description || title);
+    const rewrittenContent = paraphraseBasic(detailedContent || description || title);
 
-    // Translate into all 3 languages (translate function handles src === target)
     const [headlineEn, headlineRu, headlineUz] = await Promise.all([
       translate(rewrittenTitle, src, "en"),
       translate(rewrittenTitle, src, "ru"),
@@ -163,7 +181,13 @@ export async function processNewsAI(
       translate(rewrittenSummary, src, "uz"),
     ]);
 
-    const categories = detectCategories(title, description || "");
+    const [contentEn, contentRu, contentUz] = await Promise.all([
+      translate(rewrittenContent, src, "en"),
+      translate(rewrittenContent, src, "ru"),
+      translate(rewrittenContent, src, "uz"),
+    ]);
+
+    const categories = detectCategories(title, `${description || ""} ${detailedContent || ""}`);
 
     return {
       headlineEn,
@@ -172,6 +196,9 @@ export async function processNewsAI(
       summaryEn,
       summaryRu,
       summaryUz,
+      contentEn,
+      contentRu,
+      contentUz,
       categories,
     };
   } catch (error) {

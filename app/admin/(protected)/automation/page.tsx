@@ -14,6 +14,7 @@ import {
     ChevronRight,
     X,
     Save,
+    MessageCircle,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -50,6 +51,11 @@ export default function AutomationPage() {
         processing: true,
         translation: true,
     });
+    const [assistantMessages, setAssistantMessages] = useState<Array<{ role: "user" | "assistant"; text: string }>>([
+        { role: "assistant", text: "Hi! I’m your Admin Assistant. Ask me about automation workflow, moderation, sources, and publishing." },
+    ]);
+    const [assistantInput, setAssistantInput] = useState("");
+    const [isAssistantLoading, setIsAssistantLoading] = useState(false);
 
     const [page, setPage] = useState(1);
     const [sortBy, setSortBy] = useState<"newest" | "oldest">("newest");
@@ -74,7 +80,14 @@ export default function AutomationPage() {
     const fetchRawItems = async () => {
         setIsLoadingRaw(true);
         try {
-            const res = await fetch("/api/admin/automation/raw");
+            const params = new URLSearchParams({
+                includeKeywords,
+                excludeKeywords,
+                aiInstructions,
+                aiStrictMode: String(aiStrictMode),
+            });
+
+            const res = await fetch(`/api/admin/automation/raw?${params.toString()}`);
             if (!res.ok) return;
             const data = await res.json();
             setRawItems(data.items || []);
@@ -135,6 +148,10 @@ export default function AutomationPage() {
             setSelectedReviewIds([]);
         }
     }, [activeTab]);
+
+    useEffect(() => {
+        fetchRawItems();
+    }, [includeKeywords, excludeKeywords, aiInstructions, aiStrictMode]);
 
     const handleSync = async () => {
         if (!pipelineSettings.automatedPull) return toast.warning("Automated Pull is disabled in pipeline settings");
@@ -416,6 +433,34 @@ export default function AutomationPage() {
 
     const updatePipeline = (key: "automatedPull" | "processing" | "translation") => {
         setPipelineSettings((prev) => ({ ...prev, [key]: !prev[key] }));
+    };
+
+    const handleAssistantAsk = async () => {
+        const question = assistantInput.trim();
+        if (!question) return;
+
+        setAssistantMessages((prev) => [...prev, { role: "user", text: question }]);
+        setAssistantInput("");
+        setIsAssistantLoading(true);
+
+        try {
+            const res = await fetch("/api/admin/assistant", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ message: question }),
+            });
+            const data = await res.json().catch(() => ({}));
+
+            if (res.ok) {
+                setAssistantMessages((prev) => [...prev, { role: "assistant", text: data.reply || "No response available." }]);
+            } else {
+                setAssistantMessages((prev) => [...prev, { role: "assistant", text: data.error || "Assistant failed to respond." }]);
+            }
+        } catch {
+            setAssistantMessages((prev) => [...prev, { role: "assistant", text: "Network error while contacting assistant." }]);
+        } finally {
+            setIsAssistantLoading(false);
+        }
     };
 
     return (
@@ -960,6 +1005,43 @@ export default function AutomationPage() {
                             ))}
                         </div>
                     </div>
+                    <div className="p-6 rounded-xl border border-border/40 bg-card space-y-3">
+                        <h3 className="font-bold text-sm flex items-center gap-2">
+                            <MessageCircle className="h-4 w-4 text-primary" /> Admin AI Assistant
+                        </h3>
+                        <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                            {assistantMessages.map((msg, idx) => (
+                                <div
+                                    key={`${msg.role}-${idx}`}
+                                    className={`text-xs p-2 rounded-md ${msg.role === "assistant" ? "bg-muted text-foreground" : "bg-primary/10 text-foreground"}`}
+                                >
+                                    <span className="font-bold mr-1">{msg.role === "assistant" ? "AI" : "You"}:</span>
+                                    {msg.text}
+                                </div>
+                            ))}
+                            {isAssistantLoading && <p className="text-xs text-muted-foreground">Assistant is thinking...</p>}
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="text"
+                                className="w-full px-3 py-2 rounded-md border border-input bg-background text-xs"
+                                placeholder="Ask about moderation, processing, publishing..."
+                                value={assistantInput}
+                                onChange={(e) => setAssistantInput(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") handleAssistantAsk();
+                                }}
+                            />
+                            <button
+                                type="button"
+                                onClick={handleAssistantAsk}
+                                disabled={isAssistantLoading || !assistantInput.trim()}
+                                className="px-3 py-2 rounded-md bg-primary text-primary-foreground text-xs font-bold disabled:opacity-50"
+                            >
+                                Ask
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -995,6 +1077,12 @@ export default function AutomationPage() {
                                     />
                                 </div>
 
+                                {selectedReviewItem?.raw?.imageUrl && (
+                                    <div className="md:col-span-3 rounded-xl overflow-hidden border border-border/40">
+                                        <img src={selectedReviewItem.raw.imageUrl} alt="Article" className="w-full max-h-64 object-cover" />
+                                    </div>
+                                )}
+
                                 <div className="space-y-4">
                                     <label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground flex items-center gap-2">
                                         <div className="h-2 w-2 rounded-full bg-blue-500" /> English
@@ -1010,6 +1098,13 @@ export default function AutomationPage() {
                                         className="w-full bg-muted/30 p-3 rounded-lg border-none text-xs leading-relaxed"
                                         value={selectedReviewItem.summaryEn || ""}
                                         onChange={(e) => setSelectedReviewItem({ ...selectedReviewItem, summaryEn: e.target.value })}
+                                    />
+                                    <textarea
+                                        rows={8}
+                                        className="w-full bg-muted/20 p-3 rounded-lg border-none text-xs leading-relaxed"
+                                        value={selectedReviewItem.contentEn || ""}
+                                        onChange={(e) => setSelectedReviewItem({ ...selectedReviewItem, contentEn: e.target.value })}
+                                        placeholder="Detailed content (EN)"
                                     />
                                 </div>
 
@@ -1029,6 +1124,13 @@ export default function AutomationPage() {
                                         value={selectedReviewItem.summaryRu || ""}
                                         onChange={(e) => setSelectedReviewItem({ ...selectedReviewItem, summaryRu: e.target.value })}
                                     />
+                                    <textarea
+                                        rows={8}
+                                        className="w-full bg-muted/20 p-3 rounded-lg border-none text-xs leading-relaxed"
+                                        value={selectedReviewItem.contentRu || ""}
+                                        onChange={(e) => setSelectedReviewItem({ ...selectedReviewItem, contentRu: e.target.value })}
+                                        placeholder="Detailed content (RU)"
+                                    />
                                 </div>
 
                                 <div className="space-y-4">
@@ -1046,6 +1148,13 @@ export default function AutomationPage() {
                                         className="w-full bg-muted/30 p-3 rounded-lg border-none text-xs leading-relaxed"
                                         value={selectedReviewItem.summaryUz || ""}
                                         onChange={(e) => setSelectedReviewItem({ ...selectedReviewItem, summaryUz: e.target.value })}
+                                    />
+                                    <textarea
+                                        rows={8}
+                                        className="w-full bg-muted/20 p-3 rounded-lg border-none text-xs leading-relaxed"
+                                        value={selectedReviewItem.contentUz || ""}
+                                        onChange={(e) => setSelectedReviewItem({ ...selectedReviewItem, contentUz: e.target.value })}
+                                        placeholder="Detailed content (UZ)"
                                     />
                                 </div>
                             </div>
@@ -1073,6 +1182,9 @@ export default function AutomationPage() {
                                             summaryEn: selectedReviewItem.summaryEn,
                                             summaryRu: selectedReviewItem.summaryRu,
                                             summaryUz: selectedReviewItem.summaryUz,
+                                            contentEn: selectedReviewItem.contentEn,
+                                            contentRu: selectedReviewItem.contentRu,
+                                            contentUz: selectedReviewItem.contentUz,
                                             categories: selectedReviewItem.categories,
                                         })
                                     }
