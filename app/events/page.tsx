@@ -2,6 +2,7 @@
 
 import { useGlobalContext } from "@/lib/context";
 import { parseEventTimestamp } from "@/lib/event-datetime";
+import { getEventCoverImage } from "@/lib/event-images";
 import { Calendar, MapPin, ArrowRight, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -41,13 +42,8 @@ export default function EventsPage() {
   useEffect(() => {
     if (upcomingEvents.length === 0 && pastEvents.length > 0) {
       setActiveTab("past");
-      return;
     }
-
-    if (upcomingEvents.length > 0 && activeTab === "past") {
-      setActiveTab("upcoming");
-    }
-  }, [activeTab, pastEvents.length, upcomingEvents.length]);
+  }, [pastEvents.length, upcomingEvents.length]);
 
   const visibleEvents = activeTab === "upcoming" ? upcomingEvents : pastEvents;
 
@@ -107,7 +103,7 @@ export default function EventsPage() {
           >
             <div className="aspect-[16/9] overflow-hidden relative">
               <img
-                src={event.image || `https://picsum.photos/seed/${event.title}/800/600`}
+                src={getEventCoverImage(event.image, event.title)}
                 alt={event.title}
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
               />

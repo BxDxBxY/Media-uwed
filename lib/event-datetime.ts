@@ -74,16 +74,35 @@ const parseDateString = (value?: string | null): { year: number; monthIndex: num
   }
 
   const cleaned = value.replace(/,/g, " ").replace(/\s+/g, " ").trim();
-  const parts = cleaned.split(" ");
-  if (parts.length < 3) return null;
 
-  const [monthRaw, dayRaw, yearRaw] = parts;
-  const monthIndex = MONTH_INDEX[monthRaw.toLowerCase()];
-  const day = Number(dayRaw);
-  const year = Number(yearRaw);
+  const mdYParts = cleaned.split(" ");
+  if (mdYParts.length >= 3) {
+    const [monthRaw, dayRaw, yearRaw] = mdYParts;
+    const monthIndex = MONTH_INDEX[monthRaw.toLowerCase()];
+    const day = Number(dayRaw);
+    const year = Number(yearRaw);
 
-  if (monthIndex === undefined || Number.isNaN(day) || Number.isNaN(year)) return null;
-  return { year, monthIndex, day };
+    if (monthIndex !== undefined && !Number.isNaN(day) && !Number.isNaN(year)) {
+      return { year, monthIndex, day };
+    }
+  }
+
+  const numericMatch = cleaned.match(/^(\d{1,4})[./-](\d{1,2})[./-](\d{1,4})$/);
+  if (numericMatch) {
+    const a = Number(numericMatch[1]);
+    const b = Number(numericMatch[2]);
+    const c = Number(numericMatch[3]);
+
+    if (a > 31) {
+      return { year: a, monthIndex: b - 1, day: c };
+    }
+
+    if (c > 31) {
+      return { year: c, monthIndex: b - 1, day: a };
+    }
+  }
+
+  return null;
 };
 
 export const parseEventTimestamp = (input: EventDateInput): number | null => {
@@ -100,4 +119,3 @@ export const parseEventTimestamp = (input: EventDateInput): number | null => {
   const { hours, minutes } = parseTimeRangeStart(input.time);
   return new Date(parsedDate.year, parsedDate.monthIndex, parsedDate.day, hours, minutes).getTime();
 };
-
