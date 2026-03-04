@@ -1,6 +1,6 @@
 "use client";
 
-import { useGlobalContext, type Article } from "@/lib/context";
+import { useGlobalContext, type Article, type Media } from "@/lib/context";
 import { ArrowRight, Play, TrendingUp, Clock, ChevronRight } from "lucide-react";
 import Link from "next/link";
 
@@ -19,39 +19,70 @@ function byCategory(articles: Article[], category: string) {
   return articles.filter((a) => getArticleCategories(a).some((c) => c.toLowerCase() === key));
 }
 
+function uniqueArticles(articles: Article[]) {
+  const seen = new Set<string>();
+  return articles.filter((item) => {
+    if (seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  });
+}
+
+function uniqueMedia(items: Media[]) {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    if (seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  });
+}
+
+function getMediaPreview(item: Media): string {
+  if (item.type === "video") {
+    if (item.thumbnail) return item.thumbnail;
+    const match = item.url.match(/[?&]v=([^&]+)/);
+    if (match?.[1]) return `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`;
+  }
+  return item.url;
+}
+
 export default function Home() {
   const { articles, isLoading, media } = useGlobalContext();
 
   const featuredArticle = articles[0];
   const latestNews = articles.slice(1, 4);
   const trendingNews = articles.slice(4, 9);
-  const mainBreakingNews = articles.length > 0 ? articles[0].title : "Gathering latest campus updates...";
+  const breakingItems = articles.slice(0, 6);
 
-  const worldCategory = byCategory(articles, "World");
-  const universityCategory = byCategory(articles, "University");
-  const analysisCategory = byCategory(articles, "Analysis");
+  const worldCategory = uniqueArticles(byCategory(articles, "World")).slice(0, 5);
+  const universityCategory = uniqueArticles(byCategory(articles, "University")).slice(0, 5);
+  const analysisCategory = uniqueArticles(byCategory(articles, "Analysis")).slice(0, 5);
+
+  const usedInBlocks = new Set<string>();
+  const pickBlock = (candidate: Article[], fallbackStart = 0) => {
+    const source = candidate.length > 0 ? candidate : articles.slice(fallbackStart, fallbackStart + 8);
+    return source.filter((item) => {
+      if (usedInBlocks.has(item.id)) return false;
+      usedInBlocks.add(item.id);
+      return true;
+    }).slice(0, 5);
+  };
 
   const structuredBlocks = [
-    {
-      title: "World & Policy",
-      items: worldCategory.length > 0 ? worldCategory : articles,
-      reverse: false,
-    },
-    {
-      title: "University & Campus",
-      items: universityCategory.length > 0 ? universityCategory : articles.slice(2),
-      reverse: true,
-    },
-    {
-      title: "Interviews & Analysis",
-      items: analysisCategory.length > 0 ? analysisCategory : articles.slice(4),
-      reverse: false,
-    },
+    { title: "World & Policy", items: pickBlock(worldCategory, 0), reverse: false },
+    { title: "University & Campus", items: pickBlock(universityCategory, 3), reverse: true },
+    { title: "Interviews & Analysis", items: pickBlock(analysisCategory, 6), reverse: false },
   ];
 
   const universityVideos = media
     .filter((item) => item.type === "video" && (item.category || "").toLowerCase().includes("university"))
     .slice(0, 3);
+  const universityVideoIds = new Set(universityVideos.map((item) => item.id));
+
+  const cleanedFeaturedMedia = uniqueMedia(media.filter((item) => !universityVideoIds.has(item.id))).slice(0, 4);
+
+  const heroBackground = media.find((item) => (item.category || "").toLowerCase() === "hero-banner") || null;
+  const heroSide = media.find((item) => (item.category || "").toLowerCase() === "hero-side") || null;
 
   if (isLoading) {
     return (
@@ -67,10 +98,16 @@ export default function Home() {
   return (
     <main className="min-h-screen">
       <div className="bg-primary text-primary-foreground py-2 overflow-hidden border-y border-primary/20">
-        <div className="container mx-auto px-4 flex items-center">
-          <span className="bg-white text-primary text-[10px] font-black uppercase px-2 py-0.5 rounded mr-4 whitespace-nowrap animate-pulse">Breaking</span>
-          <div className="text-sm font-medium whitespace-nowrap animate-marquee">
-            {mainBreakingNews} • Applications for Fall Semester 2026 are now open • New Research Grant awarded to Faculty of Science
+        <div className="container mx-auto px-4 flex items-center gap-3">
+          <span className="bg-white text-primary text-[10px] font-black uppercase px-2 py-0.5 rounded whitespace-nowrap animate-pulse">Breaking</span>
+          <div className="flex-1 overflow-hidden">
+            <div className="text-sm font-medium whitespace-nowrap animate-marquee inline-flex gap-4">
+              {breakingItems.map((item) => (
+                <Link key={item.id} href={`/article/${item.slug}`} className="hover:underline">
+                  {item.title}
+                </Link>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -115,33 +152,8 @@ export default function Home() {
                     <h4 className="font-bold text-sm leading-tight group-hover:text-primary transition-colors line-clamp-2">{article.title}</h4>
                   </div>
                 </Link>
-              )) : (
-                <p className="text-xs text-muted-foreground italic">More trending stories coming soon...</p>
-              )}
+              )) : <p className="text-xs text-muted-foreground italic">More trending stories coming soon...</p>}
             </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="bg-muted/10 py-16 border-y border-border/40">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between mb-10">
-            <h2 className="text-3xl font-serif font-bold">Latest Campus News</h2>
-            <Link href="/news" className="group flex items-center gap-1 font-bold text-sm text-primary">
-              Full Archive <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-            </Link>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {latestNews.map((article) => (
-              <Link key={article.id} href={`/article/${article.slug}`} className="group">
-                <div className="aspect-[3/2] overflow-hidden rounded-2xl mb-4 border border-border/40">
-                  <img src={article.image} alt={article.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                </div>
-                <span className="text-[10px] font-bold text-primary uppercase tracking-widest mb-2 block">{getPrimaryCategory(article)}</span>
-                <h3 className="text-xl font-bold mb-3 group-hover:text-primary transition-colors leading-tight">{article.title}</h3>
-                <p className="text-muted-foreground text-sm line-clamp-2 mb-4">{article.summary}</p>
-              </Link>
-            ))}
           </div>
         </div>
       </section>
@@ -198,18 +210,12 @@ export default function Home() {
             <h2 className="text-3xl font-serif font-bold">Multimedia Highlights</h2>
             <p className="text-muted-foreground">University life in motion and pictures.</p>
           </div>
-          <Link href="/media" className="bg-primary/10 text-primary px-5 py-2 rounded-full font-bold text-sm hover:bg-primary/20 transition-colors">
-            Explore Gallery
-          </Link>
+          <Link href="/media" className="bg-primary/10 text-primary px-5 py-2 rounded-full font-bold text-sm hover:bg-primary/20 transition-colors">Explore Gallery</Link>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {media.slice(0, 4).map((item) => (
+          {cleanedFeaturedMedia.map((item) => (
             <Link key={item.id} href="/media" className="group relative aspect-[4/3] rounded-3xl overflow-hidden border border-border/40 bg-muted">
-              <img
-                src={item.type === "video" ? (item.thumbnail || `https://img.youtube.com/vi/${item.url.split('v=')[1]}/hqdefault.jpg`) : item.url}
-                alt={item.title}
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-              />
+              <img src={getMediaPreview(item)} alt={item.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity" />
               <div className="absolute bottom-0 left-0 p-6">
                 <h4 className="text-white font-bold text-sm line-clamp-2">{item.title}</h4>
@@ -229,11 +235,7 @@ export default function Home() {
             {(universityVideos.length > 0 ? universityVideos : media.filter((m) => m.type === "video").slice(0, 3)).map((item) => (
               <Link key={item.id} href="/media" className="group rounded-xl overflow-hidden border border-slate-800 bg-slate-900/60">
                 <div className="aspect-video relative overflow-hidden">
-                  <img
-                    src={item.thumbnail || `https://img.youtube.com/vi/${item.url.split('v=')[1]}/hqdefault.jpg`}
-                    alt={item.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                  />
+                  <img src={getMediaPreview(item)} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                   <span className="absolute top-3 left-3 inline-flex items-center gap-1 bg-primary text-primary-foreground text-[10px] px-2 py-1 rounded uppercase font-bold">
                     <Play className="h-3 w-3 fill-current" /> University
                   </span>
@@ -248,14 +250,14 @@ export default function Home() {
       </section>
 
       <section className="container mx-auto px-4 py-16">
-        <div className="bg-slate-900 rounded-[2.5rem] overflow-hidden relative min-h-[500px] flex items-center">
+        <div className="bg-slate-900 rounded-[2.5rem] overflow-hidden relative min-h-[500px] grid lg:grid-cols-12">
           <img
-            src="https://images.unsplash.com/photo-1541339907198-e08756ebafe3?ixid=MXwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHw%3D&ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80"
+            src={heroBackground ? getMediaPreview(heroBackground) : "https://images.unsplash.com/photo-1541339907198-e08756ebafe3?ixid=MXwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHw%3D&ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80"}
             alt="University Campus"
             className="absolute inset-0 w-full h-full object-cover opacity-40"
           />
           <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-900/60 to-transparent" />
-          <div className="relative z-10 p-8 md:p-16 max-w-2xl">
+          <div className="relative z-10 p-8 md:p-16 max-w-2xl lg:col-span-8">
             <span className="inline-flex items-center gap-2 bg-primary text-primary-foreground text-[10px] font-black uppercase px-2 py-1 rounded mb-6">
               <Play className="h-3 w-3 fill-current" /> Inside University
             </span>
@@ -266,6 +268,27 @@ export default function Home() {
                 Start Watching <ChevronRight className="h-5 w-5" />
               </Link>
             </div>
+          </div>
+
+          <div className="relative z-10 lg:col-span-4 p-6 md:p-10 flex items-end">
+            <Link href="/media" className="w-full rounded-2xl border border-white/15 bg-white/10 backdrop-blur-sm overflow-hidden hover:bg-white/15 transition-colors">
+              {heroSide ? (
+                <>
+                  <div className="aspect-video overflow-hidden">
+                    <img src={getMediaPreview(heroSide)} alt={heroSide.title} className="w-full h-full object-cover" />
+                  </div>
+                  <div className="p-4">
+                    <p className="text-xs uppercase tracking-widest text-white/70 mb-1">Featured slot</p>
+                    <h4 className="text-white font-bold line-clamp-2">{heroSide.title}</h4>
+                  </div>
+                </>
+              ) : (
+                <div className="p-6">
+                  <p className="text-xs uppercase tracking-widest text-white/70 mb-2">Featured slot</p>
+                  <h4 className="text-white font-bold">Set media category to "hero-side" from Admin Media to show content here.</h4>
+                </div>
+              )}
+            </Link>
           </div>
         </div>
       </section>

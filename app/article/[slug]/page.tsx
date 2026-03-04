@@ -29,6 +29,32 @@ function renderInlineMarkdownLinks(text: string) {
   });
 }
 
+
+function toReadableParagraphs(content: string): string[] {
+  const normalized = content.replace(/\s+/g, " ").trim();
+  if (!normalized) return [];
+
+  const fromBreaks = normalized.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  if (fromBreaks.length > 1) return fromBreaks;
+
+  const sentences = normalized.split(/(?<=[.!?])\s+/).filter(Boolean);
+  if (sentences.length <= 3) return [normalized];
+
+  const chunks: string[] = [];
+  let current: string[] = [];
+
+  for (const sentence of sentences) {
+    current.push(sentence);
+    if (current.length >= 3) {
+      chunks.push(current.join(" "));
+      current = [];
+    }
+  }
+
+  if (current.length > 0) chunks.push(current.join(" "));
+  return chunks;
+}
+
 export default function ArticlePage() {
   const params = useParams();
   const slug = params?.slug as string;
@@ -80,10 +106,7 @@ export default function ArticlePage() {
   const content = polishText(getLocalized("content") || "");
   const imageCaption = polishText(getLocalized("imageCaption") || "");
 
-  const contentBlocks = content
-    .split(/\n+/)
-    .map((line) => polishText(line))
-    .filter(Boolean);
+  const contentBlocks = toReadableParagraphs(content).map((line) => polishText(line)).filter(Boolean);
 
   const relatedArticles = articles.filter(a => a.category === article.category && a.id !== article.id).slice(0, 3);
 
@@ -193,7 +216,7 @@ export default function ArticlePage() {
                   key={`p-${i}`}
                   className={[
                     fontScale === "lg" ? "text-[1.12rem]" : "text-base",
-                    "leading-8 text-foreground/90",
+                    "leading-8 text-foreground/90 text-justify",
                     isLead ? "first-letter:text-4xl first-letter:font-serif first-letter:font-bold first-letter:mr-1" : "",
                     isSourceLine ? "mt-10 rounded-xl border border-border/40 bg-muted/30 px-4 py-3 text-sm" : "",
                   ].join(" ")}

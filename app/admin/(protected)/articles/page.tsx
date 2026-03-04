@@ -9,6 +9,12 @@ const PAGE_SIZE = 10;
 
 type SortOption = "newest" | "oldest" | "title-asc" | "title-desc";
 
+function articleCategories(article: any): string[] {
+  const rel = Array.isArray(article.categories) ? article.categories.map((c: any) => c?.name).filter(Boolean) : [];
+  const single = article.category ? [article.category] : [];
+  return [...new Set([...rel, ...single])];
+}
+
 export default function AdminArticlesPage() {
   const { articles, deleteArticle } = useGlobalContext();
   const [searchTerm, setSearchTerm] = useState("");
@@ -17,7 +23,7 @@ export default function AdminArticlesPage() {
   const [page, setPage] = useState(1);
 
   const categories = useMemo(() => {
-    const values = Array.from(new Set(articles.map((article) => article.category).filter(Boolean)));
+    const values = Array.from(new Set(articles.flatMap((article) => articleCategories(article))));
     return ["all", ...values];
   }, [articles]);
 
@@ -25,10 +31,8 @@ export default function AdminArticlesPage() {
     const term = searchTerm.toLowerCase().trim();
 
     const filtered = articles.filter((article) => {
-      const matchesSearch =
-        article.title.toLowerCase().includes(term) ||
-        article.author.toLowerCase().includes(term);
-      const matchesCategory = category === "all" || article.category === category;
+      const matchesSearch = article.title.toLowerCase().includes(term) || article.author.toLowerCase().includes(term);
+      const matchesCategory = category === "all" || articleCategories(article).includes(category);
       return matchesSearch && matchesCategory;
     });
 
@@ -46,10 +50,7 @@ export default function AdminArticlesPage() {
 
   const totalPages = Math.max(1, Math.ceil(filteredArticles.length / PAGE_SIZE));
   const clampedPage = Math.min(page, totalPages);
-  const paginatedArticles = filteredArticles.slice(
-    (clampedPage - 1) * PAGE_SIZE,
-    clampedPage * PAGE_SIZE,
-  );
+  const paginatedArticles = filteredArticles.slice((clampedPage - 1) * PAGE_SIZE, clampedPage * PAGE_SIZE);
 
   return (
     <div className="space-y-6">
@@ -84,9 +85,7 @@ export default function AdminArticlesPage() {
           className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
         >
           {categories.map((value) => (
-            <option key={value} value={value}>
-              {value === "all" ? "All Categories" : value}
-            </option>
+            <option key={value} value={value}>{value === "all" ? "All Categories" : value}</option>
           ))}
         </select>
         <select
@@ -120,25 +119,20 @@ export default function AdminArticlesPage() {
             {paginatedArticles.map((article) => (
               <tr key={article.id} className="transition-colors hover:bg-muted/30">
                 <td className="max-w-sm truncate px-6 py-4 font-medium">{article.title}</td>
-                <td className="px-6 py-4">{article.category}</td>
+                <td className="px-6 py-4">
+                  <div className="flex flex-wrap gap-1">
+                    {articleCategories(article).slice(0, 2).map((cat) => (
+                      <span key={`${article.id}-${cat}`} className="rounded-full bg-primary/10 text-primary text-[10px] px-2 py-0.5 font-semibold">{cat}</span>
+                    ))}
+                  </div>
+                </td>
                 <td className="px-6 py-4">{article.author}</td>
                 <td className="px-6 py-4">{article.date}</td>
-                <td className="px-6 py-4">
-                  <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-1 text-xs font-medium text-emerald-500">
-                    Published
-                  </span>
-                </td>
+                <td className="px-6 py-4"><span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-1 text-xs font-medium text-emerald-500">Published</span></td>
                 <td className="px-6 py-4 text-right">
                   <div className="flex items-center justify-end gap-2">
-                    <Link href={`/admin/articles/new?edit=${article.id}`} className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground">
-                      <FileEdit className="h-4 w-4" />
-                    </Link>
-                    <button
-                      onClick={() => deleteArticle(article.id)}
-                      className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    <Link href={`/admin/articles/new?edit=${article.id}`} className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground"><FileEdit className="h-4 w-4" /></Link>
+                    <button onClick={() => deleteArticle(article.id)} className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
                   </div>
                 </td>
               </tr>
@@ -146,34 +140,15 @@ export default function AdminArticlesPage() {
           </tbody>
         </table>
 
-        {filteredArticles.length === 0 && (
-          <div className="p-8 text-center text-muted-foreground">No articles found.</div>
-        )}
+        {filteredArticles.length === 0 && <div className="p-8 text-center text-muted-foreground">No articles found.</div>}
       </div>
 
       <div className="flex items-center justify-between text-sm text-muted-foreground">
-        <span>
-          Showing {filteredArticles.length === 0 ? 0 : (clampedPage - 1) * PAGE_SIZE + 1} -{" "}
-          {Math.min(clampedPage * PAGE_SIZE, filteredArticles.length)} of {filteredArticles.length}
-        </span>
+        <span>Showing {filteredArticles.length === 0 ? 0 : (clampedPage - 1) * PAGE_SIZE + 1} - {Math.min(clampedPage * PAGE_SIZE, filteredArticles.length)} of {filteredArticles.length}</span>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={clampedPage === 1}
-            className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-1.5 disabled:opacity-50"
-          >
-            <ChevronLeft className="h-4 w-4" /> Prev
-          </button>
-          <span>
-            Page {clampedPage} / {totalPages}
-          </span>
-          <button
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={clampedPage >= totalPages}
-            className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-1.5 disabled:opacity-50"
-          >
-            Next <ChevronRight className="h-4 w-4" />
-          </button>
+          <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={clampedPage === 1} className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-1.5 disabled:opacity-50"><ChevronLeft className="h-4 w-4" /> Prev</button>
+          <span>Page {clampedPage} / {totalPages}</span>
+          <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={clampedPage >= totalPages} className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-1.5 disabled:opacity-50">Next <ChevronRight className="h-4 w-4" /></button>
         </div>
       </div>
     </div>

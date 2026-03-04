@@ -285,7 +285,7 @@ function detectCategories(title: string, description: string): string[] {
   if (/\bworld|international|global|foreign\b/.test(t)) add("World");
 
   if (cats.length === 0) add("News");
-  return cats.slice(0, 4);
+  return cats.slice(0, 5);
 }
 
 export async function processNewsAI(
