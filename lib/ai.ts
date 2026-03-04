@@ -17,6 +17,45 @@ export interface ProcessedNews {
 const LIBRETRANSLATE_URL = "https://libretranslate.de/translate"; // public instance
 const MYMEMORY_URL = "https://api.mymemory.translated.net/get";
 
+const MAX_TRANSLATE_CHARS = 450;
+
+function chunkText(input: string, limit: number = MAX_TRANSLATE_CHARS): string[] {
+  const text = cleanText(input);
+  if (!text) return [];
+  if (text.length <= limit) return [text];
+
+  const sentences = text.split(/(?<=[.!?])\s+/);
+  const chunks: string[] = [];
+  let current = "";
+
+  for (const sentence of sentences) {
+    if (!sentence) continue;
+
+    if (sentence.length > limit) {
+      if (current) {
+        chunks.push(current.trim());
+        current = "";
+      }
+
+      for (let i = 0; i < sentence.length; i += limit) {
+        chunks.push(sentence.slice(i, i + limit).trim());
+      }
+      continue;
+    }
+
+    const candidate = current ? `${current} ${sentence}` : sentence;
+    if (candidate.length > limit) {
+      chunks.push(current.trim());
+      current = sentence;
+    } else {
+      current = candidate;
+    }
+  }
+
+  if (current.trim()) chunks.push(current.trim());
+  return chunks;
+}
+
 function cleanText(s: string) {
   return (s || "").replace(/\s+/g, " ").trim();
 }
@@ -84,32 +123,47 @@ async function translate(
   if (!q) return "";
   if (source === target) return q;
 
-  // 1) LibreTranslate
-  try {
-    const res = await axios.post(
-      LIBRETRANSLATE_URL,
-      { q, source, target, format: "text" },
-      { timeout: 20_000 },
-    );
-    const out = res.data?.translatedText;
-    if (typeof out === "string" && out.trim()) return cleanText(out);
-  } catch {
-    // ignore, fallback
+  const chunks = chunkText(q);
+  const translatedChunks: string[] = [];
+
+  for (const chunk of chunks) {
+    let translatedChunk = "";
+
+    // 1) LibreTranslate
+    try {
+      const res = await axios.post(
+        LIBRETRANSLATE_URL,
+        { q: chunk, source, target, format: "text" },
+        { timeout: 20_000 },
+      );
+      const out = res.data?.translatedText;
+      if (typeof out === "string" && out.trim()) {
+        translatedChunk = cleanText(out);
+      }
+    } catch {
+      // ignore, fallback below
+    }
+
+    // 2) MyMemory
+    if (!translatedChunk) {
+      try {
+        const url =
+          `${MYMEMORY_URL}?q=${encodeURIComponent(chunk)}` +
+          `&langpair=${encodeURIComponent(source)}|${encodeURIComponent(target)}`;
+        const res = await axios.get(url, { timeout: 20_000 });
+        const out = res.data?.responseData?.translatedText;
+        if (typeof out === "string" && out.trim()) {
+          translatedChunk = cleanText(out);
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    translatedChunks.push(translatedChunk || chunk);
   }
 
-  // 2) MyMemory
-  try {
-    const url =
-      `${MYMEMORY_URL}?q=${encodeURIComponent(q)}` +
-      `&langpair=${encodeURIComponent(source)}|${encodeURIComponent(target)}`;
-    const res = await axios.get(url, { timeout: 20_000 });
-    const out = res.data?.responseData?.translatedText;
-    if (typeof out === "string" && out.trim()) return cleanText(out);
-  } catch {
-    // ignore
-  }
-
-  return q; // fallback: return original
+  return cleanText(translatedChunks.join(" "));
 }
 
 function detectCategories(title: string, description: string): string[] {

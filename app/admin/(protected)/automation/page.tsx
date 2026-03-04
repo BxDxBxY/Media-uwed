@@ -14,7 +14,6 @@ import {
     ChevronRight,
     X,
     Save,
-    MessageCircle,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -51,12 +50,6 @@ export default function AutomationPage() {
         processing: true,
         translation: true,
     });
-    const [assistantMessages, setAssistantMessages] = useState<Array<{ role: "user" | "assistant"; text: string }>>([
-        { role: "assistant", text: "Hi! I’m your Admin Assistant. Ask me about automation workflow, moderation, sources, and publishing." },
-    ]);
-    const [assistantInput, setAssistantInput] = useState("");
-    const [isAssistantLoading, setIsAssistantLoading] = useState(false);
-    const [assistantModel, setAssistantModel] = useState("local-fallback");
 
     const [page, setPage] = useState(1);
     const [sortBy, setSortBy] = useState<"newest" | "oldest">("newest");
@@ -102,22 +95,6 @@ export default function AutomationPage() {
     useEffect(() => {
         fetchReviewItems();
         fetchRawItems();
-
-        const loadAssistantMemory = async () => {
-            try {
-                const res = await fetch("/api/admin/assistant?limit=60");
-                if (!res.ok) return;
-                const data = await res.json();
-                setAssistantModel(data.model || "local-fallback");
-                if (Array.isArray(data.messages) && data.messages.length > 0) {
-                    setAssistantMessages(data.messages.map((msg: any) => ({ role: msg.role, text: msg.text })));
-                }
-            } catch (error) {
-                console.error("Failed to load assistant memory", error);
-            }
-        };
-
-        loadAssistantMemory();
     }, []);
 
     useEffect(() => {
@@ -454,35 +431,6 @@ export default function AutomationPage() {
 
     const updatePipeline = (key: "automatedPull" | "processing" | "translation") => {
         setPipelineSettings((prev) => ({ ...prev, [key]: !prev[key] }));
-    };
-
-    const handleAssistantAsk = async () => {
-        const question = assistantInput.trim();
-        if (!question) return;
-
-        setAssistantMessages((prev) => [...prev, { role: "user", text: question }]);
-        setAssistantInput("");
-        setIsAssistantLoading(true);
-
-        try {
-            const res = await fetch("/api/admin/assistant", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ message: question }),
-            });
-            const data = await res.json().catch(() => ({}));
-
-            if (res.ok) {
-                setAssistantModel(data.model || assistantModel);
-                setAssistantMessages((prev) => [...prev, { role: "assistant", text: data.reply || "No response available." }]);
-            } else {
-                setAssistantMessages((prev) => [...prev, { role: "assistant", text: data.error || "Assistant failed to respond." }]);
-            }
-        } catch {
-            setAssistantMessages((prev) => [...prev, { role: "assistant", text: "Network error while contacting assistant." }]);
-        } finally {
-            setIsAssistantLoading(false);
-        }
     };
 
     return (
@@ -1025,46 +973,6 @@ export default function AutomationPage() {
                                     </div>
                                 </div>
                             ))}
-                        </div>
-                    </div>
-                    <div className="p-6 rounded-xl border border-border/40 bg-card space-y-3">
-                        <div className="flex items-center justify-between">
-                            <h3 className="font-bold text-sm flex items-center gap-2">
-                                <MessageCircle className="h-4 w-4 text-primary" /> Admin AI Assistant
-                            </h3>
-                            <span className="text-[10px] px-2 py-1 rounded bg-muted text-muted-foreground">{assistantModel}</span>
-                        </div>
-                        <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                            {assistantMessages.map((msg, idx) => (
-                                <div
-                                    key={`${msg.role}-${idx}`}
-                                    className={`text-xs p-2 rounded-md ${msg.role === "assistant" ? "bg-muted text-foreground" : "bg-primary/10 text-foreground"}`}
-                                >
-                                    <span className="font-bold mr-1">{msg.role === "assistant" ? "AI" : "You"}:</span>
-                                    {msg.text}
-                                </div>
-                            ))}
-                            {isAssistantLoading && <p className="text-xs text-muted-foreground">Assistant is thinking...</p>}
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <input
-                                type="text"
-                                className="w-full px-3 py-2 rounded-md border border-input bg-background text-xs"
-                                placeholder="Ask about moderation, processing, publishing..."
-                                value={assistantInput}
-                                onChange={(e) => setAssistantInput(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === "Enter") handleAssistantAsk();
-                                }}
-                            />
-                            <button
-                                type="button"
-                                onClick={handleAssistantAsk}
-                                disabled={isAssistantLoading || !assistantInput.trim()}
-                                className="px-3 py-2 rounded-md bg-primary text-primary-foreground text-xs font-bold disabled:opacity-50"
-                            >
-                                Ask
-                            </button>
                         </div>
                     </div>
                 </div>

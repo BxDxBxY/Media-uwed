@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { AdminLogoutButton } from "@/components/admin-logout-button";
 import { getAdminSessionFromCookies } from "@/lib/admin-auth";
+import { AdminAssistantChat } from "@/components/admin-assistant-chat";
 
 export default async function AdminLayout({
   children,
@@ -72,6 +73,7 @@ export default async function AdminLayout({
           </div>
         </header>
         <main className="flex-1 p-6 md:p-8 overflow-auto">{children}</main>
+        <AdminAssistantChat />
       </div>
     </div>
   );
