@@ -17,6 +17,21 @@ const normalizeKeywords = (value: unknown): string[] => {
     .filter(Boolean);
 };
 
+
+const deriveTermsFromInstructions = (instructions: string): string[] => {
+  const stopWords = new Set([
+    "the","and","for","with","from","that","this","into","your","about","only","avoid","should","need","must","news","article","articles","content","more","less","than","have","has","are","you","our","their","they","them","was","were","will","would","can","could","not"
+  ]);
+
+  return instructions
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .map((word) => word.trim())
+    .filter((word) => word.length >= 4 && !stopWords.has(word))
+    .slice(0, 24);
+};
+
 const matchesRequirements = (
   article: { title: string; description?: string | null },
   includeKeywords: string[],
@@ -41,10 +56,20 @@ export async function POST(request: Request) {
       ids,
       includeKeywords,
       excludeKeywords,
-    } = await request.json().catch(() => ({ ids: null, includeKeywords: [], excludeKeywords: [] }));
+      aiInstructions,
+      aiStrictMode,
+    } = await request.json().catch(() => ({
+      ids: null,
+      includeKeywords: [],
+      excludeKeywords: [],
+      aiInstructions: "",
+      aiStrictMode: false,
+    }));
 
     const include = normalizeKeywords(includeKeywords);
     const exclude = normalizeKeywords(excludeKeywords);
+    const instructionTerms = deriveTermsFromInstructions(String(aiInstructions || ""));
+    const effectiveInclude = aiStrictMode ? [...new Set([...include, ...instructionTerms])] : include;
 
     // Find ArticleRaw items that haven't been processed yet
     const unprocessedArticles = await prisma.articleRaw.findMany({
@@ -62,7 +87,7 @@ export async function POST(request: Request) {
     });
 
     const filteredArticles = unprocessedArticles.filter((raw) =>
-      matchesRequirements(raw, include, exclude),
+      matchesRequirements(raw, effectiveInclude, exclude),
     );
 
     if (filteredArticles.length === 0) {
@@ -70,7 +95,7 @@ export async function POST(request: Request) {
         processedCount: 0,
         skippedByRequirements: unprocessedArticles.length,
         message:
-          include.length > 0 || exclude.length > 0
+          effectiveInclude.length > 0 || exclude.length > 0
             ? "No unprocessed articles matched admin requirements"
             : "No unprocessed articles found",
       });
@@ -157,7 +182,7 @@ export async function POST(request: Request) {
       failedCount,
       totalAttempted: filteredArticles.length,
       skippedByRequirements: Math.max(0, unprocessedArticles.length - filteredArticles.length),
-      requirementsApplied: include.length > 0 || exclude.length > 0,
+      requirementsApplied: effectiveInclude.length > 0 || exclude.length > 0,
       message: `Successfully processed ${processedCount} articles. Status: pending_review.`,
     });
   } catch (error) {

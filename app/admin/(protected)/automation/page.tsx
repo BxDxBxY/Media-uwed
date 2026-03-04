@@ -43,6 +43,13 @@ export default function AutomationPage() {
 
     const [includeKeywords, setIncludeKeywords] = useState("");
     const [excludeKeywords, setExcludeKeywords] = useState("");
+    const [aiInstructions, setAiInstructions] = useState("");
+    const [aiStrictMode, setAiStrictMode] = useState(false);
+    const [pipelineSettings, setPipelineSettings] = useState({
+        automatedPull: true,
+        processing: true,
+        translation: true,
+    });
 
     const [page, setPage] = useState(1);
     const [sortBy, setSortBy] = useState<"newest" | "oldest">("newest");
@@ -91,6 +98,13 @@ export default function AutomationPage() {
             const parsed = JSON.parse(saved);
             setIncludeKeywords(parsed.includeKeywords || "");
             setExcludeKeywords(parsed.excludeKeywords || "");
+            setAiInstructions(parsed.aiInstructions || "");
+            setAiStrictMode(Boolean(parsed.aiStrictMode));
+            setPipelineSettings({
+                automatedPull: parsed.pipelineSettings?.automatedPull ?? true,
+                processing: parsed.pipelineSettings?.processing ?? true,
+                translation: parsed.pipelineSettings?.translation ?? true,
+            });
         } catch {
             // ignore invalid local settings
         }
@@ -99,9 +113,15 @@ export default function AutomationPage() {
     useEffect(() => {
         localStorage.setItem(
             "automationRequirements",
-            JSON.stringify({ includeKeywords, excludeKeywords }),
+            JSON.stringify({
+                includeKeywords,
+                excludeKeywords,
+                aiInstructions,
+                aiStrictMode,
+                pipelineSettings,
+            }),
         );
-    }, [includeKeywords, excludeKeywords]);
+    }, [includeKeywords, excludeKeywords, aiInstructions, aiStrictMode, pipelineSettings]);
 
     // Reset pagination when switching view
     useEffect(() => {
@@ -117,6 +137,7 @@ export default function AutomationPage() {
     }, [activeTab]);
 
     const handleSync = async () => {
+        if (!pipelineSettings.automatedPull) return toast.warning("Automated Pull is disabled in pipeline settings");
         setIsProcessing(true);
         toast.info("Triggering news pull...");
         try {
@@ -137,13 +158,14 @@ export default function AutomationPage() {
     };
 
     const handleProcess = async () => {
+        if (!pipelineSettings.processing) return toast.warning("Processing pipeline is disabled");
         setIsProcessing(true);
         toast.info("Triggering processing...");
         try {
             const res = await fetch("/api/cron/process", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ includeKeywords, excludeKeywords }),
+                body: JSON.stringify({ includeKeywords, excludeKeywords, aiInstructions, aiStrictMode }),
             });
             const data = await res.json().catch(() => ({}));
             if (res.ok) {
@@ -161,6 +183,7 @@ export default function AutomationPage() {
     };
 
     const handleTranslateSelected = async () => {
+        if (!pipelineSettings.translation) return toast.warning("Translation pipeline is disabled");
         if (selectedRawIds.length === 0) return toast.warning("Select items to translate first");
 
         setIsTranslating(true);
@@ -170,7 +193,7 @@ export default function AutomationPage() {
             const res = await fetch("/api/cron/process", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ ids: selectedRawIds, includeKeywords, excludeKeywords }),
+                body: JSON.stringify({ ids: selectedRawIds, includeKeywords, excludeKeywords, aiInstructions, aiStrictMode }),
             });
             const data = await res.json().catch(() => ({}));
             if (res.ok) {
@@ -391,6 +414,10 @@ export default function AutomationPage() {
 
     const clearRawSelection = () => setSelectedRawIds([]);
 
+    const updatePipeline = (key: "automatedPull" | "processing" | "translation") => {
+        setPipelineSettings((prev) => ({ ...prev, [key]: !prev[key] }));
+    };
+
     return (
         <div className="space-y-8">
             {/* Header */}
@@ -450,6 +477,24 @@ export default function AutomationPage() {
                         value={excludeKeywords}
                         onChange={(e) => setExcludeKeywords(e.target.value)}
                     />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">AI editorial instructions</label>
+                    <textarea
+                        rows={3}
+                        className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
+                        placeholder="Describe what the AI should prioritize, tone, and what to avoid."
+                        value={aiInstructions}
+                        onChange={(e) => setAiInstructions(e.target.value)}
+                    />
+                    <label className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+                        <input
+                            type="checkbox"
+                            checked={aiStrictMode}
+                            onChange={(e) => setAiStrictMode(e.target.checked)}
+                        />
+                        Strict mode: only process articles matching the AI instructions/keywords
+                    </label>
                 </div>
                 <p className="md:col-span-2 text-xs text-muted-foreground">
                     These admin requirements are applied when processing/translation is triggered, so the AI pipeline processes only matching items.
@@ -877,13 +922,40 @@ export default function AutomationPage() {
                         <h3 className="font-bold text-sm">Active Pipelines</h3>
                         <div className="space-y-2">
                             {[
-                                { label: "Automated Pull", status: "Active", color: "text-green-500" },
-                                { label: "Processing", status: "Idle", color: "text-muted-foreground" },
-                                { label: "Translation (3L)", status: "Active", color: "text-green-500" },
-                            ].map((job, idx) => (
-                                <div key={idx} className="flex items-center justify-between text-xs">
+                                {
+                                    key: "automatedPull" as const,
+                                    label: "Automated Pull",
+                                    status: pipelineSettings.automatedPull ? "Enabled" : "Disabled",
+                                    color: pipelineSettings.automatedPull ? "text-green-500" : "text-muted-foreground",
+                                },
+                                {
+                                    key: "processing" as const,
+                                    label: "Processing",
+                                    status: !pipelineSettings.processing ? "Disabled" : isProcessing ? "Running" : "Enabled",
+                                    color: !pipelineSettings.processing ? "text-muted-foreground" : isProcessing ? "text-blue-500" : "text-green-500",
+                                },
+                                {
+                                    key: "translation" as const,
+                                    label: "Translation (3L)",
+                                    status: !pipelineSettings.translation ? "Disabled" : isTranslating ? "Running" : "Enabled",
+                                    color: !pipelineSettings.translation ? "text-muted-foreground" : isTranslating ? "text-blue-500" : "text-green-500",
+                                },
+                            ].map((job) => (
+                                <div key={job.key} className="flex items-center justify-between text-xs gap-3">
                                     <span className="text-muted-foreground">{job.label}</span>
-                                    <span className={`font-bold ${job.color}`}>{job.status}</span>
+                                    <div className="flex items-center gap-3">
+                                        <span className={`font-bold ${job.color}`}>{job.status}</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => updatePipeline(job.key)}
+                                            className={`h-5 w-9 rounded-full transition-colors relative ${pipelineSettings[job.key] ? "bg-primary" : "bg-muted"}`}
+                                            aria-label={`Toggle ${job.label}`}
+                                        >
+                                            <span
+                                                className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${pipelineSettings[job.key] ? "left-4" : "left-0.5"}`}
+                                            />
+                                        </button>
+                                    </div>
                                 </div>
                             ))}
                         </div>
