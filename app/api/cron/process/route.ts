@@ -5,9 +5,46 @@ import { scrapeOgImage } from "@/lib/scraper";
 
 export const maxDuration = 300; // 5 minutes for AI processing
 
+const normalizeKeywords = (value: unknown): string[] => {
+  if (!value) return [];
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim().toLowerCase()).filter(Boolean);
+  }
+
+  return String(value)
+    .split(",")
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+};
+
+const matchesRequirements = (
+  article: { title: string; description?: string | null },
+  includeKeywords: string[],
+  excludeKeywords: string[],
+): boolean => {
+  const haystack = `${article.title} ${article.description || ""}`.toLowerCase();
+
+  if (includeKeywords.length > 0 && !includeKeywords.some((keyword) => haystack.includes(keyword))) {
+    return false;
+  }
+
+  if (excludeKeywords.length > 0 && excludeKeywords.some((keyword) => haystack.includes(keyword))) {
+    return false;
+  }
+
+  return true;
+};
+
 export async function POST(request: Request) {
   try {
-    const { ids } = await request.json().catch(() => ({ ids: null }));
+    const {
+      ids,
+      includeKeywords,
+      excludeKeywords,
+    } = await request.json().catch(() => ({ ids: null, includeKeywords: [], excludeKeywords: [] }));
+
+    const include = normalizeKeywords(includeKeywords);
+    const exclude = normalizeKeywords(excludeKeywords);
 
     // Find ArticleRaw items that haven't been processed yet
     const unprocessedArticles = await prisma.articleRaw.findMany({
@@ -24,10 +61,18 @@ export async function POST(request: Request) {
       take: ids ? undefined : 50, // Process all selected, or 50 if generic trigger
     });
 
-    if (unprocessedArticles.length === 0) {
+    const filteredArticles = unprocessedArticles.filter((raw) =>
+      matchesRequirements(raw, include, exclude),
+    );
+
+    if (filteredArticles.length === 0) {
       return NextResponse.json({
         processedCount: 0,
-        message: "No unprocessed articles found",
+        skippedByRequirements: unprocessedArticles.length,
+        message:
+          include.length > 0 || exclude.length > 0
+            ? "No unprocessed articles matched admin requirements"
+            : "No unprocessed articles found",
       });
     }
 
@@ -35,7 +80,7 @@ export async function POST(request: Request) {
     let failedCount = 0;
 
     // Process each article
-    for (const raw of unprocessedArticles) {
+    for (const raw of filteredArticles) {
       try {
         // Detect source language
         let sourceLang: "en" | "ru" | "uz" = "en";
@@ -110,7 +155,9 @@ export async function POST(request: Request) {
     return NextResponse.json({
       processedCount,
       failedCount,
-      totalAttempted: unprocessedArticles.length,
+      totalAttempted: filteredArticles.length,
+      skippedByRequirements: Math.max(0, unprocessedArticles.length - filteredArticles.length),
+      requirementsApplied: include.length > 0 || exclude.length > 0,
       message: `Successfully processed ${processedCount} articles. Status: pending_review.`,
     });
   } catch (error) {

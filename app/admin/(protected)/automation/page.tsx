@@ -37,8 +37,12 @@ export default function AutomationPage() {
 
     const [activeTab, setActiveTab] = useState<Tab>("review");
     const [selectedRawIds, setSelectedRawIds] = useState<string[]>([]);
+    const [selectedReviewIds, setSelectedReviewIds] = useState<string[]>([]);
 
     const [selectedReviewItem, setSelectedReviewItem] = useState<any>(null);
+
+    const [includeKeywords, setIncludeKeywords] = useState("");
+    const [excludeKeywords, setExcludeKeywords] = useState("");
 
     const [page, setPage] = useState(1);
     const [sortBy, setSortBy] = useState<"newest" | "oldest">("newest");
@@ -79,10 +83,38 @@ export default function AutomationPage() {
         fetchRawItems();
     }, []);
 
+    useEffect(() => {
+        const saved = localStorage.getItem("automationRequirements");
+        if (!saved) return;
+
+        try {
+            const parsed = JSON.parse(saved);
+            setIncludeKeywords(parsed.includeKeywords || "");
+            setExcludeKeywords(parsed.excludeKeywords || "");
+        } catch {
+            // ignore invalid local settings
+        }
+    }, []);
+
+    useEffect(() => {
+        localStorage.setItem(
+            "automationRequirements",
+            JSON.stringify({ includeKeywords, excludeKeywords }),
+        );
+    }, [includeKeywords, excludeKeywords]);
+
     // Reset pagination when switching view
     useEffect(() => {
         setPage(1);
     }, [sortBy, processedItems.length]);
+
+    useEffect(() => {
+        if (activeTab === "review") {
+            setSelectedRawIds([]);
+        } else {
+            setSelectedReviewIds([]);
+        }
+    }, [activeTab]);
 
     const handleSync = async () => {
         setIsProcessing(true);
@@ -108,7 +140,11 @@ export default function AutomationPage() {
         setIsProcessing(true);
         toast.info("Triggering processing...");
         try {
-            const res = await fetch("/api/cron/process", { method: "POST" });
+            const res = await fetch("/api/cron/process", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ includeKeywords, excludeKeywords }),
+            });
             const data = await res.json().catch(() => ({}));
             if (res.ok) {
                 toast.success(`Processing complete: ${data.processedCount ?? "?"} items processed.`);
@@ -134,7 +170,7 @@ export default function AutomationPage() {
             const res = await fetch("/api/cron/process", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ ids: selectedRawIds }),
+                body: JSON.stringify({ ids: selectedRawIds, includeKeywords, excludeKeywords }),
             });
             const data = await res.json().catch(() => ({}));
             if (res.ok) {
@@ -191,6 +227,51 @@ export default function AutomationPage() {
             }
         } catch {
             toast.error("Failed to update status");
+        }
+    };
+
+    const handleBulkReviewStatus = async (newStatus: "ready" | "archived") => {
+        if (selectedReviewIds.length === 0) return toast.warning("Select review items first");
+
+        try {
+            const res = await fetch("/api/admin/automation/review", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ ids: selectedReviewIds, status: newStatus }),
+            });
+
+            if (res.ok) {
+                toast.success(`${selectedReviewIds.length} item(s) updated`);
+                setSelectedReviewIds([]);
+                fetchReviewItems();
+            } else {
+                toast.error("Failed to update selected items");
+            }
+        } catch {
+            toast.error("Failed to update selected items");
+        }
+    };
+
+    const handleBulkRawDelete = async () => {
+        if (selectedRawIds.length === 0) return toast.warning("Select raw items first");
+        if (!confirm(`Delete ${selectedRawIds.length} selected raw item(s)?`)) return;
+
+        try {
+            const res = await fetch("/api/admin/automation/raw", {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ ids: selectedRawIds }),
+            });
+
+            if (res.ok) {
+                toast.success(`${selectedRawIds.length} raw item(s) deleted`);
+                setSelectedRawIds([]);
+                fetchRawItems();
+            } else {
+                toast.error("Failed to delete selected raw items");
+            }
+        } catch {
+            toast.error("Failed to delete selected raw items");
         }
     };
 
@@ -292,6 +373,17 @@ export default function AutomationPage() {
         setSelectedRawIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
     };
 
+    const toggleReviewSelection = (id: string) => {
+        setSelectedReviewIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    };
+
+    const selectAllReviewOnPage = () => {
+        const ids = paginatedItems.map((x) => x.id).filter(Boolean);
+        setSelectedReviewIds(ids);
+    };
+
+    const clearReviewSelection = () => setSelectedReviewIds([]);
+
     const selectAllRawOnPage = () => {
         const ids = rawItems.map((x) => x.id).filter(Boolean);
         setSelectedRawIds(ids);
@@ -338,6 +430,32 @@ export default function AutomationPage() {
                 </div>
             </div>
 
+            <div className="p-4 rounded-xl border border-border/40 bg-card grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Automation requirements: include keywords</label>
+                    <input
+                        type="text"
+                        className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
+                        placeholder="e.g. university, research, scholarship"
+                        value={includeKeywords}
+                        onChange={(e) => setIncludeKeywords(e.target.value)}
+                    />
+                </div>
+                <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Exclude keywords</label>
+                    <input
+                        type="text"
+                        className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
+                        placeholder="e.g. celebrity, gossip"
+                        value={excludeKeywords}
+                        onChange={(e) => setExcludeKeywords(e.target.value)}
+                    />
+                </div>
+                <p className="md:col-span-2 text-xs text-muted-foreground">
+                    These admin requirements are applied when processing/translation is triggered, so the AI pipeline processes only matching items.
+                </p>
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Left column */}
                 <div className="lg:col-span-2 space-y-4">
@@ -368,7 +486,7 @@ export default function AutomationPage() {
                         </div>
 
                         {activeTab === "review" ? (
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2 flex-wrap justify-end">
                                 <select
                                     className="bg-muted text-xs font-bold px-2 py-1 rounded-md outline-none"
                                     value={sortBy}
@@ -377,9 +495,39 @@ export default function AutomationPage() {
                                     <option value="newest">Newest First</option>
                                     <option value="oldest">Oldest First</option>
                                 </select>
+                                <button
+                                    onClick={selectAllReviewOnPage}
+                                    className="px-3 py-1.5 rounded-md bg-muted text-xs font-bold hover:bg-muted/80"
+                                    type="button"
+                                >
+                                    Select All
+                                </button>
+                                <button
+                                    onClick={clearReviewSelection}
+                                    className="px-3 py-1.5 rounded-md bg-muted text-xs font-bold hover:bg-muted/80"
+                                    type="button"
+                                >
+                                    Clear
+                                </button>
+                                <button
+                                    disabled={selectedReviewIds.length === 0}
+                                    onClick={() => handleBulkReviewStatus("ready")}
+                                    className="px-3 py-1.5 rounded-md bg-green-600 text-white text-xs font-bold hover:bg-green-700 disabled:opacity-50"
+                                    type="button"
+                                >
+                                    Approve Selected ({selectedReviewIds.length})
+                                </button>
+                                <button
+                                    disabled={selectedReviewIds.length === 0}
+                                    onClick={() => handleBulkReviewStatus("archived")}
+                                    className="px-3 py-1.5 rounded-md bg-destructive text-destructive-foreground text-xs font-bold hover:bg-destructive/90 disabled:opacity-50"
+                                    type="button"
+                                >
+                                    Delete Selected
+                                </button>
                             </div>
                         ) : (
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap justify-end">
                                 <button
                                     onClick={selectAllRawOnPage}
                                     className="px-3 py-1.5 rounded-md bg-muted text-xs font-bold hover:bg-muted/80"
@@ -402,6 +550,15 @@ export default function AutomationPage() {
                                 >
                                     {isTranslating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Brain className="h-3 w-3" />}
                                     Translate Selected ({selectedRawIds.length})
+                                </button>
+                                <button
+                                    disabled={selectedRawIds.length === 0}
+                                    onClick={handleBulkRawDelete}
+                                    className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-destructive text-destructive-foreground text-xs font-bold hover:bg-destructive/90 disabled:opacity-50"
+                                    type="button"
+                                >
+                                    <Trash2 className="h-3 w-3" />
+                                    Delete Selected
                                 </button>
                             </div>
                         )}
@@ -464,51 +621,57 @@ export default function AutomationPage() {
                                                 }}
                                             >
                                                 <div className="flex items-start justify-between gap-4">
-                                                    <div className="flex-1 space-y-1 min-w-0">
-                                                        <div className="flex items-center gap-2 mb-1 min-w-0 flex-wrap">
-                                                            <span
-                                                                className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${item.status === "ready" ? "bg-green-500/10 text-green-600" : "bg-orange-500/10 text-orange-600"
-                                                                    }`}
-                                                            >
-                                                                {prettyStatus}
-                                                            </span>
-
-                                                            {item.raw?.language && (
-                                                                <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                                                                    {String(item.raw.language)}
-                                                                </span>
-                                                            )}
-
-                                                            <span className="text-xs text-muted-foreground truncate">
-                                                                • Categories: {item.categories || "None"}
-                                                            </span>
-                                                        </div>
-
-                                                        <h3 className="font-bold text-lg leading-tight hover:text-primary transition-colors truncate">
-                                                            {getHeadline()}
-                                                        </h3>
-
-                                                        <p className="text-sm text-muted-foreground line-clamp-2">{getSummary()}</p>
-                                                    </div>
-
-                                                    {item.raw?.imageUrl && (
-                                                        <img
-                                                            src={item.raw.imageUrl}
-                                                            alt="preview"
-                                                            className="w-24 h-16 object-cover rounded-md shrink-0"
-                                                            loading="lazy"
+                                                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedReviewIds.includes(item.id)}
+                                                            onChange={(e) => {
+                                                                e.stopPropagation();
+                                                                toggleReviewSelection(item.id);
+                                                            }}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            className="mt-1"
                                                         />
-                                                    )}
-                                                </div>
 
-                                                <div className="flex items-center justify-between pt-2 border-t border-border/10 gap-3">
-                                                    <div className="flex items-center gap-4 text-xs text-muted-foreground min-w-0">
-                                                        <span className="flex items-center gap-1 max-w-[240px] min-w-0">
-                                                            <ExternalLink className="h-3 w-3 shrink-0" />
-                                                            <span className="truncate">{item.raw?.source?.name || "Unknown source"}</span>
-                                                        </span>
+                                                        <div className="flex-1 space-y-1 min-w-0">
+                                                            <div className="flex items-center gap-2 mb-1 min-w-0 flex-wrap">
+                                                                <span
+                                                                    className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${item.status === "ready" ? "bg-green-500/10 text-green-600" : "bg-orange-500/10 text-orange-600"
+                                                                        }`}
+                                                                >
+                                                                    {prettyStatus}
+                                                                </span>
 
-                                                        <span className="max-w-[220px] truncate">Author: {item.raw?.author || "Original"}</span>
+                                                                {item.raw?.language && (
+                                                                    <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                                                                        {String(item.raw.language)}
+                                                                    </span>
+                                                                )}
+
+                                                                <span className="text-xs text-muted-foreground truncate">
+                                                                    • Categories: {item.categories || "None"}
+                                                                </span>
+                                                            </div>
+
+                                                            <h3 className="font-bold text-lg leading-tight hover:text-primary transition-colors truncate">
+                                                                {getHeadline()}
+                                                            </h3>
+
+                                                            <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
+                                                                {getSummary()}
+                                                            </p>
+
+                                                            <div className="flex items-center justify-between pt-2 border-t border-border/10 gap-3">
+                                                                <div className="flex items-center gap-4 text-xs text-muted-foreground min-w-0">
+                                                                    <span className="flex items-center gap-1 max-w-[240px] min-w-0">
+                                                                        <ExternalLink className="h-3 w-3 shrink-0" />
+                                                                        <span className="truncate">{item.raw?.source?.name || "Unknown source"}</span>
+                                                                    </span>
+
+                                                                    <span className="max-w-[220px] truncate">Author: {item.raw?.author || "Original"}</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
                                                     </div>
 
                                                     <div className="flex items-center gap-2 shrink-0">

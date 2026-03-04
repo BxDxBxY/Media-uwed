@@ -107,9 +107,9 @@ export default function EventsPage() {
                 alt={event.title}
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
               />
-              <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/20 shadow-sm flex flex-col items-center min-w-[50px]">
+              <div className="absolute top-4 left-4 bg-card/90 text-foreground backdrop-blur-md px-3 py-1.5 rounded-xl border border-border/60 shadow-sm flex flex-col items-center min-w-[50px]">
                 <span className="text-[10px] font-black uppercase text-primary leading-none">{event.date.split(" ")[0]}</span>
-                <span className="text-lg font-serif font-black text-slate-900 leading-none mt-1">{event.date.split(" ")[1]?.replace(",", "")}</span>
+                <span className="text-lg font-serif font-black text-foreground leading-none mt-1">{event.date.split(" ")[1]?.replace(",", "")}</span>
               </div>
             </div>
 
