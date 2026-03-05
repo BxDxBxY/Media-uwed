@@ -42,7 +42,7 @@ export function Header() {
   const isItemActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/92 dark:bg-slate-950/92 supports-[backdrop-filter]:backdrop-blur-md shadow-sm">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <Link href="/" className="flex items-center space-x-2">
           <span className="font-serif text-xl font-bold tracking-tight">University Media</span>

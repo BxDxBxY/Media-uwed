@@ -19,34 +19,6 @@ function byCategory(articles: Article[], category: string) {
   return articles.filter((a) => getArticleCategories(a).some((c) => c.toLowerCase() === key));
 }
 
-function uniqueArticles(articles: Article[]) {
-  const seen = new Set<string>();
-  return articles.filter((item) => {
-    if (seen.has(item.id)) return false;
-    seen.add(item.id);
-    return true;
-  });
-}
-
-function uniqueMedia(items: Media[]) {
-  const seen = new Set<string>();
-  return items.filter((item) => {
-    if (seen.has(item.id)) return false;
-    seen.add(item.id);
-    return true;
-  });
-}
-
-function getMediaPreview(item: Media): string {
-  if (item.type === "video") {
-    if (item.thumbnail) return item.thumbnail;
-    const match = item.url.match(/[?&]v=([^&]+)/);
-    if (match?.[1]) return `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`;
-  }
-  return item.url;
-}
-
-
 function localizedText(article: Article, language: "en" | "ru" | "uz", field: "title" | "summary") {
   if (language === "ru") {
     const val = field === "title" ? article.titleRu : article.summaryRu;
@@ -59,43 +31,91 @@ function localizedText(article: Article, language: "en" | "ru" | "uz", field: "t
   return field === "title" ? article.title : article.summary;
 }
 
+function getMediaPreview(item: Media): string {
+  if (item.type === "video") {
+    if (item.thumbnail) return item.thumbnail;
+    const match = item.url.match(/[?&]v=([^&]+)/);
+    if (match?.[1]) return `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`;
+  }
+  return item.url;
+}
+
+function uniqueById<T extends { id: string }>(arr: T[]) {
+  const seen = new Set<string>();
+  return arr.filter((item) => {
+    if (seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  });
+}
+
 export default function Home() {
-  const { articles, isLoading, media, language } = useGlobalContext();
+  const { articles, isLoading, media, language, addSubscriber } = useGlobalContext();
 
   const featuredArticle = articles[0];
-  const latestNews = articles.slice(1, 4);
-  const trendingNews = articles.slice(4, 9);
+  const trendingNews = articles.slice(4, 8); // four by default
   const breakingItems = articles.slice(0, 6);
 
-  const worldCategory = uniqueArticles(byCategory(articles, "World")).slice(0, 5);
-  const universityCategory = uniqueArticles(byCategory(articles, "University")).slice(0, 5);
-  const analysisCategory = uniqueArticles(byCategory(articles, "Analysis")).slice(0, 5);
-
-  const usedInBlocks = new Set<string>();
-  const pickBlock = (candidate: Article[], fallbackStart = 0) => {
-    const source = candidate.length > 0 ? candidate : articles.slice(fallbackStart, fallbackStart + 8);
-    return source.filter((item) => {
-      if (usedInBlocks.has(item.id)) return false;
-      usedInBlocks.add(item.id);
-      return true;
-    }).slice(0, 5);
-  };
-
-  const structuredBlocks = [
-    { title: "World & Policy", items: pickBlock(worldCategory, 0), reverse: false },
-    { title: "University & Campus", items: pickBlock(universityCategory, 3), reverse: true },
-    { title: "Interviews & Analysis", items: pickBlock(analysisCategory, 6), reverse: false },
+  const categoryPools = [
+    { title: language === "ru" ? "Мир и политика" : language === "uz" ? "Jahon va siyosat" : "World & Policy", source: byCategory(articles, "World"), reverse: false },
+    { title: language === "ru" ? "Университет и кампус" : language === "uz" ? "Universitet va kampus" : "University & Campus", source: byCategory(articles, "University"), reverse: true },
+    { title: language === "ru" ? "Интервью и аналитика" : language === "uz" ? "Intervyu va tahlil" : "Interviews & Analysis", source: byCategory(articles, "Analysis"), reverse: false },
   ];
 
-  const universityVideos = media
+  const used = new Set<string>();
+  const structuredBlocks = categoryPools.map((pool, idx) => {
+    const candidates = pool.source.length > 0 ? pool.source : articles.slice(idx * 6, idx * 6 + 10);
+    const picked: Article[] = [];
+
+    for (const item of candidates) {
+      if (used.has(item.id)) continue;
+      used.add(item.id);
+      picked.push(item);
+      if (picked.length === 5) break;
+    }
+
+    if (picked.length < 5) {
+      for (const fallback of articles) {
+        if (used.has(fallback.id)) continue;
+        used.add(fallback.id);
+        picked.push(fallback);
+        if (picked.length === 5) break;
+      }
+    }
+
+    return { title: pool.title, items: picked, reverse: pool.reverse };
+  });
+
+  const hiddenHomeCategories = new Set(["hero-side", "hero-banner"]);
+  const homeVisibleMedia = media.filter((m) => !hiddenHomeCategories.has((m.category || "").toLowerCase()));
+
+  const universityVideos = homeVisibleMedia
     .filter((item) => item.type === "video" && (item.category || "").toLowerCase().includes("university"))
     .slice(0, 3);
-  const universityVideoIds = new Set(universityVideos.map((item) => item.id));
 
-  const cleanedFeaturedMedia = uniqueMedia(media.filter((item) => !universityVideoIds.has(item.id))).slice(0, 4);
+  const universityVideoIds = new Set(universityVideos.map((item) => item.id));
+  const cleanedFeaturedMedia = uniqueById(homeVisibleMedia.filter((item) => !universityVideoIds.has(item.id))).slice(0, 4);
 
   const heroBackground = media.find((item) => (item.category || "").toLowerCase() === "hero-banner") || null;
   const heroSide = media.find((item) => (item.category || "").toLowerCase() === "hero-side") || null;
+
+  const t = {
+    breaking: language === "ru" ? "Срочно" : language === "uz" ? "Shoshilinch" : "Breaking",
+    trending: language === "ru" ? "В тренде" : language === "uz" ? "Trend" : "Trending",
+    viewAll: language === "ru" ? "Смотреть все" : language === "uz" ? "Barchasi" : "View all",
+    joinNews: language === "ru" ? "Подпишитесь на рассылку" : language === "uz" ? "Newsletterga qo'shiling" : "Join our Newsletter",
+    joinDesc:
+      language === "ru"
+        ? "Еженедельный дайджест университетских новостей, исследований и кампуса."
+        : language === "uz"
+          ? "Universitet yangiliklari, tadqiqotlar va kampus hayoti bo'yicha haftalik dayjest."
+          : "Weekly digest of university news, research, and campus stories.",
+    email: language === "ru" ? "Ваш email" : language === "uz" ? "Email manzilingiz" : "Your email address",
+    subscribe: language === "ru" ? "Подписаться" : language === "uz" ? "Obuna bo'lish" : "Subscribe",
+    mediaHighlights: language === "ru" ? "Мультимедиа" : language === "uz" ? "Media lavhalar" : "Multimedia Highlights",
+    mediaDesc: language === "ru" ? "Жизнь университета в кадре." : language === "uz" ? "Universitet hayoti kadrda." : "University life in motion and pictures.",
+    latestVideos: language === "ru" ? "Последние университетские видео" : language === "uz" ? "So'nggi universitet videolari" : "Latest University Videos",
+  };
 
   if (isLoading) {
     return (
@@ -110,9 +130,9 @@ export default function Home() {
 
   return (
     <main className="min-h-screen">
-      <div className="bg-muted/50 text-foreground py-2 overflow-hidden border-y border-border/50 backdrop-blur">
+      <div className="bg-muted/60 text-foreground py-2 overflow-hidden border-y border-border/50 backdrop-blur-sm">
         <div className="container mx-auto px-4 flex items-center gap-3">
-          <span className="bg-primary/15 text-primary text-[10px] font-black uppercase px-2 py-0.5 rounded whitespace-nowrap animate-pulse">{language === "ru" ? "Срочно" : language === "uz" ? "Shoshilinch" : "Breaking"}</span>
+          <span className="bg-primary/15 text-primary text-[10px] font-black uppercase px-2 py-0.5 rounded whitespace-nowrap animate-pulse">{t.breaking}</span>
           <div className="flex-1 overflow-hidden">
             <div className="text-sm font-medium whitespace-nowrap animate-marquee inline-flex gap-4">
               {breakingItems.map((item) => (
@@ -144,20 +164,16 @@ export default function Home() {
                   </div>
                 </div>
               </Link>
-            ) : (
-              <div className="aspect-[16/9] bg-muted rounded-3xl animate-pulse flex items-center justify-center text-muted-foreground italic">No featured article found</div>
-            )}
+            ) : <div className="aspect-[16/9] bg-muted rounded-3xl animate-pulse flex items-center justify-center text-muted-foreground italic">No featured article found</div>}
           </div>
 
-          <div className="lg:col-span-4 space-y-8">
-            <div className="flex items-center justify-between mb-4 pb-2 border-b border-border/40">
-              <h3 className="font-serif text-xl font-bold flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-primary" /> Trending
-              </h3>
-              <Link href="/news" className="text-xs font-semibold text-primary hover:underline">View All</Link>
+          <div className="lg:col-span-4 space-y-6">
+            <div className="flex items-center justify-between pb-2 border-b border-border/40">
+              <h3 className="font-serif text-xl font-bold flex items-center gap-2"><TrendingUp className="h-5 w-5 text-primary" /> {t.trending}</h3>
+              <Link href="/news" className="text-xs font-semibold text-primary hover:underline">{t.viewAll}</Link>
             </div>
-            <div className="space-y-6">
-              {trendingNews.length > 0 ? trendingNews.map((article, i) => (
+            <div className="space-y-4">
+              {trendingNews.map((article, i) => (
                 <Link key={article.id} href={`/article/${article.slug}`} className="flex gap-4 group">
                   <span className="text-4xl font-serif font-black text-muted/30 group-hover:text-primary/20 transition-colors">0{i + 1}</span>
                   <div>
@@ -165,8 +181,25 @@ export default function Home() {
                     <h4 className="font-bold text-sm leading-tight group-hover:text-primary transition-colors line-clamp-2">{localizedText(article, language, "title")}</h4>
                   </div>
                 </Link>
-              )) : <p className="text-xs text-muted-foreground italic">More trending stories coming soon...</p>}
+              ))}
             </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const email = (e.currentTarget.elements as any).email.value;
+                if (email) {
+                  addSubscriber(email);
+                  (e.target as HTMLFormElement).reset();
+                }
+              }}
+              className="rounded-2xl border border-border/50 bg-card p-5 space-y-4"
+            >
+              <h4 className="font-serif text-3xl font-bold">{t.joinNews}</h4>
+              <p className="text-muted-foreground">{t.joinDesc}</p>
+              <input name="email" type="email" required placeholder={t.email} className="w-full rounded-lg border border-input bg-background px-3 py-2" />
+              <button type="submit" className="w-full rounded-lg bg-primary text-primary-foreground py-2 font-bold">{t.subscribe}</button>
+            </form>
           </div>
         </div>
       </section>
@@ -174,17 +207,14 @@ export default function Home() {
       <section className="container mx-auto px-4 py-16 space-y-14">
         {structuredBlocks.map((block) => {
           const lead = block.items[0];
-          const side = block.items.slice(1, 5);
+          const side = block.items.slice(1, 5); // right side four
           if (!lead) return null;
 
           return (
             <div key={block.title}>
               <div className="flex items-center justify-between mb-5">
-                <h3 className="text-2xl font-serif font-bold flex items-center gap-2">
-                  <span className="h-2.5 w-2.5 rounded-full bg-primary inline-block" />
-                  {block.title}
-                </h3>
-                <Link href="/news" className="text-sm font-semibold text-primary hover:underline">View all</Link>
+                <h3 className="text-2xl font-serif font-bold flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-primary inline-block" />{block.title}</h3>
+                <Link href="/news" className="text-sm font-semibold text-primary hover:underline">{t.viewAll}</Link>
               </div>
 
               <div className={`grid grid-cols-1 lg:grid-cols-12 gap-6 ${block.reverse ? "lg:[&>*:first-child]:order-2" : ""}`}>
@@ -202,7 +232,7 @@ export default function Home() {
                   {side.map((item) => (
                     <Link key={item.id} href={`/article/${item.slug}`} className="group rounded-xl border border-border/40 overflow-hidden bg-card/50">
                       <div className="aspect-[16/10] overflow-hidden">
-                        <img src={item.image} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                        <img src={item.image} alt={localizedText(item, language, "title")} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                       </div>
                       <div className="p-3">
                         <span className="text-[10px] font-bold text-primary uppercase">{getPrimaryCategory(item)}</span>
@@ -220,19 +250,17 @@ export default function Home() {
       <section className="container mx-auto px-4 py-16">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h2 className="text-3xl font-serif font-bold">Multimedia Highlights</h2>
-            <p className="text-muted-foreground">University life in motion and pictures.</p>
+            <h2 className="text-3xl font-serif font-bold">{t.mediaHighlights}</h2>
+            <p className="text-muted-foreground">{t.mediaDesc}</p>
           </div>
-          <Link href="/media" className="bg-primary/10 text-primary px-5 py-2 rounded-full font-bold text-sm hover:bg-primary/20 transition-colors">Explore Gallery</Link>
+          <Link href="/media" className="bg-primary/10 text-primary px-5 py-2 rounded-full font-bold text-sm hover:bg-primary/20 transition-colors">{t.viewAll}</Link>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {cleanedFeaturedMedia.map((item) => (
             <Link key={item.id} href="/media" className="group relative aspect-[4/3] rounded-3xl overflow-hidden border border-border/40 bg-muted">
               <img src={getMediaPreview(item)} alt={item.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity" />
-              <div className="absolute bottom-0 left-0 p-6">
-                <h4 className="text-white font-bold text-sm line-clamp-2">{item.title}</h4>
-              </div>
+              <div className="absolute bottom-0 left-0 p-6"><h4 className="text-white font-bold text-sm line-clamp-2">{item.title}</h4></div>
             </Link>
           ))}
         </div>
@@ -241,21 +269,17 @@ export default function Home() {
       <section className="container mx-auto px-4 pb-16">
         <div className="rounded-[2rem] bg-slate-950 border border-slate-800 p-8 md:p-12">
           <div className="flex items-center justify-between mb-8">
-            <h2 className="text-white text-3xl font-serif font-bold">Latest University Videos</h2>
-            <Link href="/media" className="text-slate-300 hover:text-white text-sm">View all videos</Link>
+            <h2 className="text-white text-3xl font-serif font-bold">{t.latestVideos}</h2>
+            <Link href="/media" className="text-slate-300 hover:text-white text-sm">{t.viewAll}</Link>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {(universityVideos.length > 0 ? universityVideos : media.filter((m) => m.type === "video").slice(0, 3)).map((item) => (
+            {(universityVideos.length > 0 ? universityVideos : homeVisibleMedia.filter((m) => m.type === "video").slice(0, 3)).map((item) => (
               <Link key={item.id} href="/media" className="group rounded-xl overflow-hidden border border-slate-800 bg-slate-900/60">
                 <div className="aspect-video relative overflow-hidden">
                   <img src={getMediaPreview(item)} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                  <span className="absolute top-3 left-3 inline-flex items-center gap-1 bg-primary text-primary-foreground text-[10px] px-2 py-1 rounded uppercase font-bold">
-                    <Play className="h-3 w-3 fill-current" /> University
-                  </span>
+                  <span className="absolute top-3 left-3 inline-flex items-center gap-1 bg-primary text-primary-foreground text-[10px] px-2 py-1 rounded uppercase font-bold"><Play className="h-3 w-3 fill-current" /> University</span>
                 </div>
-                <div className="p-4">
-                  <h4 className="text-white font-bold leading-tight line-clamp-2">{item.title}</h4>
-                </div>
+                <div className="p-4"><h4 className="text-white font-bold leading-tight line-clamp-2">{item.title}</h4></div>
               </Link>
             ))}
           </div>
@@ -264,42 +288,23 @@ export default function Home() {
 
       <section className="container mx-auto px-4 py-16">
         <div className="bg-slate-900 rounded-[2.5rem] overflow-hidden relative min-h-[500px] grid lg:grid-cols-12">
-          <img
-            src={heroBackground ? getMediaPreview(heroBackground) : "https://images.unsplash.com/photo-1541339907198-e08756ebafe3?ixid=MXwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHw%3D&ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80"}
-            alt="University Campus"
-            className="absolute inset-0 w-full h-full object-cover opacity-40"
-          />
+          <img src={heroBackground ? getMediaPreview(heroBackground) : "https://images.unsplash.com/photo-1541339907198-e08756ebafe3?auto=format&fit=crop&w=1350&q=80"} alt="University Campus" className="absolute inset-0 w-full h-full object-cover opacity-40" />
           <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-900/60 to-transparent" />
           <div className="relative z-10 p-8 md:p-16 max-w-2xl lg:col-span-8">
-            <span className="inline-flex items-center gap-2 bg-primary text-primary-foreground text-[10px] font-black uppercase px-2 py-1 rounded mb-6">
-              <Play className="h-3 w-3 fill-current" /> Inside University
-            </span>
+            <span className="inline-flex items-center gap-2 bg-primary text-primary-foreground text-[10px] font-black uppercase px-2 py-1 rounded mb-6"><Play className="h-3 w-3 fill-current" /> Inside University</span>
             <h2 className="text-4xl md:text-6xl font-serif font-bold text-white mb-6 leading-tight">Watch the 2026 Academic Year Opening</h2>
             <p className="text-slate-300 text-lg mb-8 leading-relaxed">Experience the vibrant energy of our campus. Hear from our faculty, students, and alumni about why our university is a place of discovery.</p>
-            <div className="flex flex-wrap gap-4">
-              <Link href="/media" className="bg-white text-slate-900 px-8 py-4 rounded-full font-bold hover:bg-slate-100 transition-colors flex items-center gap-2">
-                Start Watching <ChevronRight className="h-5 w-5" />
-              </Link>
-            </div>
+            <Link href="/media" className="bg-white text-slate-900 px-8 py-4 rounded-full font-bold hover:bg-slate-100 transition-colors inline-flex items-center gap-2">Start Watching <ChevronRight className="h-5 w-5" /></Link>
           </div>
-
           <div className="relative z-10 lg:col-span-4 p-6 md:p-10 flex items-end">
             <Link href="/media" className="w-full rounded-2xl border border-white/15 bg-white/10 backdrop-blur-sm overflow-hidden hover:bg-white/15 transition-colors">
               {heroSide ? (
                 <>
-                  <div className="aspect-video overflow-hidden">
-                    <img src={getMediaPreview(heroSide)} alt={heroSide.title} className="w-full h-full object-cover" />
-                  </div>
-                  <div className="p-4">
-                    <p className="text-xs uppercase tracking-widest text-white/70 mb-1">Featured slot</p>
-                    <h4 className="text-white font-bold line-clamp-2">{heroSide.title}</h4>
-                  </div>
+                  <div className="aspect-video overflow-hidden"><img src={getMediaPreview(heroSide)} alt={heroSide.title} className="w-full h-full object-cover" /></div>
+                  <div className="p-4"><p className="text-xs uppercase tracking-widest text-white/70 mb-1">Featured slot</p><h4 className="text-white font-bold line-clamp-2">{heroSide.title}</h4></div>
                 </>
               ) : (
-                <div className="p-6">
-                  <p className="text-xs uppercase tracking-widest text-white/70 mb-2">Featured slot</p>
-                  <h4 className="text-white font-bold">Set media category to "hero-side" from Admin Media to show content here.</h4>
-                </div>
+                <div className="p-6"><p className="text-xs uppercase tracking-widest text-white/70 mb-2">Featured slot</p><h4 className="text-white font-bold">Set media category to "hero-side" from Admin Media to show content here.</h4></div>
               )}
             </Link>
           </div>

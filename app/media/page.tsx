@@ -34,16 +34,18 @@ export default function MediaPage() {
   const [selectedItemIndex, setSelectedItemIndex] = useState<number>(-1);
   const nativeVideoRef = useRef<HTMLVideoElement | null>(null);
 
-  const categories = ["All", ...Array.from(new Set(media.map((m) => m.category || "General")))].filter(Boolean);
+  const hiddenCategories = new Set(["hero-side", "hero-banner"]);
+  const publicMedia = media.filter((m) => !hiddenCategories.has((m.category || "").toLowerCase()));
+  const categories = ["All", ...Array.from(new Set(publicMedia.map((m) => m.category || "General")))].filter(Boolean);
 
   const filteredMedia = useMemo(
     () =>
-      media.filter((item) => {
+      publicMedia.filter((item) => {
         const matchesFilter = filter === "All" || item.category === filter;
         const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase());
         return matchesFilter && matchesSearch;
       }),
-    [media, filter, searchQuery],
+    [publicMedia, filter, searchQuery],
   );
 
   const selectedItem = selectedItemIndex >= 0 ? filteredMedia[selectedItemIndex] : null;
@@ -150,7 +152,7 @@ export default function MediaPage() {
               </div>
             </div>
             <div className="mt-3 px-1">
-              <span className="text-[10px] uppercase tracking-widest font-bold text-primary mb-1 block">{item.category}</span>
+              <span className="text-[10px] uppercase tracking-widest font-bold text-primary mb-1 block">{(item.category || "General").toLowerCase().startsWith("hero-") ? "Featured" : item.category}</span>
               <h3 className="font-bold text-sm line-clamp-2 leading-tight group-hover:text-primary transition-colors">{item.title}</h3>
             </div>
           </div>
@@ -190,7 +192,7 @@ export default function MediaPage() {
               )}
             </div>
             <div className="p-6 md:p-8">
-              <span className="text-xs font-bold text-primary uppercase tracking-widest mb-2 block">{selectedItem.category}</span>
+              <span className="text-xs font-bold text-primary uppercase tracking-widest mb-2 block">{(selectedItem.category || "General").toLowerCase().startsWith("hero-") ? "Featured" : selectedItem.category}</span>
               <h2 className="text-2xl font-serif font-bold mb-2">{selectedItem.title}</h2>
               <p className="text-xs text-muted-foreground">Keyboard: ← → navigate • Esc close • Enter/Space play (for supported video)</p>
             </div>
