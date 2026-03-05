@@ -1,9 +1,11 @@
 "use client";
 
 import { useGlobalContext } from "@/lib/context";
-import { Search, Loader2, ArrowRight, Grid, List as ListIcon } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Loader2, ArrowRight, Grid, List as ListIcon } from "lucide-react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import Link from "next/link";
+
+const PAGE_SIZE = 12;
 
 function articleCategories(article: any): string[] {
   const rel = Array.isArray(article.categories) ? article.categories.map((c: any) => c?.name).filter(Boolean) : [];
@@ -12,23 +14,16 @@ function articleCategories(article: any): string[] {
 }
 
 export default function NewsPage() {
-  const { articles, isLoading, language } = useGlobalContext();
-  const [searchQuery, setSearchQuery] = useState("");
+  const { articles, isLoading, language, searchQuery } = useGlobalContext();
   const [activeCategory, setActiveCategory] = useState("All");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   const categories = useMemo(() => {
     const all = articles.flatMap((a) => articleCategories(a));
     return ["All", ...Array.from(new Set(all))];
   }, [articles]);
-
-  const filteredArticles = articles.filter((article) => {
-    const title = (article.title || "").toLowerCase();
-    const summary = (article.summary || "").toLowerCase();
-    const matchesSearch = title.includes(searchQuery.toLowerCase()) || summary.includes(searchQuery.toLowerCase());
-    const matchesCategory = activeCategory === "All" || articleCategories(article).includes(activeCategory);
-    return matchesSearch && matchesCategory;
-  });
 
   const getLocalized = (article: any, key: string) => {
     if (language === "ru") {
@@ -41,6 +36,41 @@ export default function NewsPage() {
     }
     return article[key];
   };
+
+  const filteredArticles = useMemo(() => {
+    const query = (searchQuery || "").toLowerCase().trim();
+    return articles.filter((article) => {
+      const title = String(getLocalized(article, "title") || article.title || "").toLowerCase();
+      const summary = String(getLocalized(article, "summary") || article.summary || "").toLowerCase();
+      const matchesSearch = !query || title.includes(query) || summary.includes(query);
+      const matchesCategory = activeCategory === "All" || articleCategories(article).includes(activeCategory);
+      return matchesSearch && matchesCategory;
+    });
+  }, [articles, searchQuery, activeCategory, language]);
+
+  const visibleArticles = filteredArticles.slice(0, visibleCount);
+  const hasMore = visibleCount < filteredArticles.length;
+
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [activeCategory, searchQuery]);
+
+  useEffect(() => {
+    if (!sentinelRef.current || !hasMore) return;
+    const el = sentinelRef.current;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, filteredArticles.length));
+        }
+      },
+      { rootMargin: "200px" },
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [filteredArticles.length, hasMore]);
 
   if (isLoading) {
     return (
@@ -56,43 +86,28 @@ export default function NewsPage() {
       <header className="mb-12">
         <h1 className="text-4xl md:text-6xl font-serif font-bold mb-8">News Archive</h1>
 
-        <div className="flex flex-col lg:flex-row gap-6 justify-between items-start lg:items-center bg-card p-6 rounded-2xl border border-border/40 shadow-sm">
+        <div className="flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center bg-card p-6 rounded-2xl border border-border/40 shadow-sm">
           <div className="flex flex-wrap gap-2">
             {categories.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setActiveCategory(cat)}
-                className={`px-4 py-1.5 rounded-full text-sm font-bold transition-all ${
-                  activeCategory === cat ? "bg-primary text-primary-foreground shadow-md" : "bg-muted text-muted-foreground hover:bg-muted/80"
-                }`}
+                className={`px-4 py-1.5 rounded-full text-sm font-bold transition-all ${activeCategory === cat ? "bg-primary text-primary-foreground shadow-md" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
               >
                 {cat}
               </button>
             ))}
           </div>
-
-          <div className="flex gap-4 w-full lg:w-auto">
-            <div className="relative flex-1 lg:w-80">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Search articles..."
-                className="w-full pl-10 pr-4 py-2 rounded-lg border border-border/60 bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-            <div className="flex bg-muted p-1 rounded-lg">
-              <button onClick={() => setViewMode("grid")} className={`p-1.5 rounded-md transition-all ${viewMode === "grid" ? "bg-background shadow-sm text-primary" : "text-muted-foreground"}`}><Grid className="h-4 w-4" /></button>
-              <button onClick={() => setViewMode("list")} className={`p-1.5 rounded-md transition-all ${viewMode === "list" ? "bg-background shadow-sm text-primary" : "text-muted-foreground"}`}><ListIcon className="h-4 w-4" /></button>
-            </div>
+          <div className="flex bg-muted p-1 rounded-lg">
+            <button onClick={() => setViewMode("grid")} className={`p-1.5 rounded-md transition-all ${viewMode === "grid" ? "bg-background shadow-sm text-primary" : "text-muted-foreground"}`}><Grid className="h-4 w-4" /></button>
+            <button onClick={() => setViewMode("list")} className={`p-1.5 rounded-md transition-all ${viewMode === "list" ? "bg-background shadow-sm text-primary" : "text-muted-foreground"}`}><ListIcon className="h-4 w-4" /></button>
           </div>
         </div>
       </header>
 
       {viewMode === "grid" ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {filteredArticles.map((article) => (
+          {visibleArticles.map((article) => (
             <Link key={article.id} href={`/article/${article.slug}`} className="group flex flex-col h-full bg-card rounded-2xl border border-border/40 overflow-hidden hover:shadow-xl transition-all duration-300">
               <div className="aspect-[16/10] overflow-hidden">
                 <img src={article.image} alt={article.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
@@ -116,7 +131,7 @@ export default function NewsPage() {
         </div>
       ) : (
         <div className="space-y-6">
-          {filteredArticles.map((article) => (
+          {visibleArticles.map((article) => (
             <Link key={article.id} href={`/article/${article.slug}`} className="group flex flex-col md:flex-row gap-6 bg-card p-4 rounded-2xl border border-border/40 hover:shadow-lg transition-all">
               <div className="w-full md:w-64 aspect-[16/10] md:aspect-square shrink-0 rounded-xl overflow-hidden">
                 <img src={article.image} alt={article.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
@@ -137,10 +152,12 @@ export default function NewsPage() {
         </div>
       )}
 
-      {filteredArticles.length === 0 && (
+      <div ref={sentinelRef} className="h-8" />
+      {hasMore && <p className="text-center text-xs text-muted-foreground">Loading more…</p>}
+
+      {visibleArticles.length === 0 && (
         <div className="py-20 text-center border-2 border-dashed border-border/40 rounded-3xl">
           <p className="text-lg font-serif italic text-muted-foreground">We couldn't find any stories matching your criteria.</p>
-          <button onClick={() => { setActiveCategory("All"); setSearchQuery(""); }} className="mt-4 text-primary font-bold hover:underline">Clear all filters</button>
         </div>
       )}
     </div>

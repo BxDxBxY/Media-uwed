@@ -46,8 +46,21 @@ function getMediaPreview(item: Media): string {
   return item.url;
 }
 
+
+function localizedText(article: Article, language: "en" | "ru" | "uz", field: "title" | "summary") {
+  if (language === "ru") {
+    const val = field === "title" ? article.titleRu : article.summaryRu;
+    if (val) return val;
+  }
+  if (language === "uz") {
+    const val = field === "title" ? article.titleUz : article.summaryUz;
+    if (val) return val;
+  }
+  return field === "title" ? article.title : article.summary;
+}
+
 export default function Home() {
-  const { articles, isLoading, media } = useGlobalContext();
+  const { articles, isLoading, media, language } = useGlobalContext();
 
   const featuredArticle = articles[0];
   const latestNews = articles.slice(1, 4);
@@ -97,14 +110,14 @@ export default function Home() {
 
   return (
     <main className="min-h-screen">
-      <div className="bg-primary text-primary-foreground py-2 overflow-hidden border-y border-primary/20">
+      <div className="bg-muted/50 text-foreground py-2 overflow-hidden border-y border-border/50 backdrop-blur">
         <div className="container mx-auto px-4 flex items-center gap-3">
-          <span className="bg-white text-primary text-[10px] font-black uppercase px-2 py-0.5 rounded whitespace-nowrap animate-pulse">Breaking</span>
+          <span className="bg-primary/15 text-primary text-[10px] font-black uppercase px-2 py-0.5 rounded whitespace-nowrap animate-pulse">{language === "ru" ? "Срочно" : language === "uz" ? "Shoshilinch" : "Breaking"}</span>
           <div className="flex-1 overflow-hidden">
             <div className="text-sm font-medium whitespace-nowrap animate-marquee inline-flex gap-4">
               {breakingItems.map((item) => (
                 <Link key={item.id} href={`/article/${item.slug}`} className="hover:underline">
-                  {item.title}
+                  {localizedText(item, language, "title")}
                 </Link>
               ))}
             </div>
@@ -118,12 +131,12 @@ export default function Home() {
             {featuredArticle ? (
               <Link href={`/article/${featuredArticle.slug}`} className="group block relative overflow-hidden rounded-3xl border border-border/40 bg-card shadow-sm hover:shadow-xl transition-all duration-500">
                 <div className="aspect-[16/9] overflow-hidden">
-                  <img src={featuredArticle.image} alt={featuredArticle.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                  <img src={featuredArticle.image} alt={localizedText(featuredArticle, language, "title")} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                 </div>
                 <div className="p-6 md:p-10">
                   <span className="inline-block bg-primary/10 text-primary text-xs font-bold px-3 py-1 rounded-full mb-4 uppercase tracking-wider">{getPrimaryCategory(featuredArticle)}</span>
-                  <h1 className="text-3xl md:text-5xl font-serif font-bold mb-4 leading-tight group-hover:text-primary transition-colors">{featuredArticle.title}</h1>
-                  <p className="text-muted-foreground text-lg mb-6 line-clamp-2 max-w-2xl">{featuredArticle.summary}</p>
+                  <h1 className="text-3xl md:text-5xl font-serif font-bold mb-4 leading-tight group-hover:text-primary transition-colors">{localizedText(featuredArticle, language, "title")}</h1>
+                  <p className="text-muted-foreground text-lg mb-6 line-clamp-2 max-w-2xl">{localizedText(featuredArticle, language, "summary")}</p>
                   <div className="flex items-center gap-4 text-sm text-muted-foreground pt-4 border-t border-border/40">
                     <span className="font-bold text-foreground">By {featuredArticle.author}</span>
                     <span>•</span>
@@ -149,7 +162,7 @@ export default function Home() {
                   <span className="text-4xl font-serif font-black text-muted/30 group-hover:text-primary/20 transition-colors">0{i + 1}</span>
                   <div>
                     <span className="text-[10px] font-bold text-primary uppercase tracking-widest mb-1 block">{getPrimaryCategory(article)}</span>
-                    <h4 className="font-bold text-sm leading-tight group-hover:text-primary transition-colors line-clamp-2">{article.title}</h4>
+                    <h4 className="font-bold text-sm leading-tight group-hover:text-primary transition-colors line-clamp-2">{localizedText(article, language, "title")}</h4>
                   </div>
                 </Link>
               )) : <p className="text-xs text-muted-foreground italic">More trending stories coming soon...</p>}
@@ -177,11 +190,11 @@ export default function Home() {
               <div className={`grid grid-cols-1 lg:grid-cols-12 gap-6 ${block.reverse ? "lg:[&>*:first-child]:order-2" : ""}`}>
                 <Link href={`/article/${lead.slug}`} className="lg:col-span-6 group rounded-2xl border border-border/40 overflow-hidden bg-card">
                   <div className="aspect-[16/10] overflow-hidden">
-                    <img src={lead.image} alt={lead.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    <img src={lead.image} alt={localizedText(lead, language, "title")} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                   </div>
                   <div className="p-4">
-                    <h4 className="text-2xl font-bold leading-tight mb-3 group-hover:text-primary transition-colors">{lead.title}</h4>
-                    <p className="text-muted-foreground line-clamp-2">{lead.summary}</p>
+                    <h4 className="text-2xl font-bold leading-tight mb-3 group-hover:text-primary transition-colors">{localizedText(lead, language, "title")}</h4>
+                    <p className="text-muted-foreground line-clamp-2">{localizedText(lead, language, "summary")}</p>
                   </div>
                 </Link>
 
@@ -193,7 +206,7 @@ export default function Home() {
                       </div>
                       <div className="p-3">
                         <span className="text-[10px] font-bold text-primary uppercase">{getPrimaryCategory(item)}</span>
-                        <h5 className="font-bold mt-1 leading-tight line-clamp-2 group-hover:text-primary transition-colors">{item.title}</h5>
+                        <h5 className="font-bold mt-1 leading-tight line-clamp-2 group-hover:text-primary transition-colors">{localizedText(item, language, "title")}</h5>
                       </div>
                     </Link>
                   ))}
