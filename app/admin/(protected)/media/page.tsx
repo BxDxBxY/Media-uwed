@@ -1,35 +1,14 @@
 "use client";
 
 import { useGlobalContext } from "@/lib/context";
-import { Plus, Trash2, Video, Image as ImageIcon, ExternalLink, Play, Eye, Edit2, X, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Plus, Trash2, Video, Image as ImageIcon, ExternalLink, Play, Eye, Edit2, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { useState } from "react";
+import { getMediaPreviewUrl, getYouTubeIdFromUrl } from "@/lib/media-utils";
 import { toast } from "sonner";
-
-function getYouTubeId(url: string): string | null {
-  try {
-    const u = new URL(url);
-    if (u.hostname === "youtu.be") return u.pathname.slice(1) || null;
-    const v = u.searchParams.get("v");
-    if (v) return v;
-    const parts = u.pathname.split("/").filter(Boolean);
-    const idx = parts.findIndex((p) => p === "shorts" || p === "embed");
-    if (idx !== -1 && parts[idx + 1]) return parts[idx + 1];
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-function getPreview(item: { type: string; url?: string | null; thumbnail?: string | null }) {
-  if (item.type !== "video") return item.url || "";
-  if (item.thumbnail) return item.thumbnail;
-  const id = item.url ? getYouTubeId(item.url) : null;
-  return id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : item.url || "";
-}
 
 function getEmbedUrl(url: string) {
   if (url.includes("youtube.com") || url.includes("youtu.be")) {
-    const id = getYouTubeId(url) || "";
+    const id = getYouTubeIdFromUrl(url) || "";
     return `https://www.youtube.com/embed/${id}?rel=0`;
   }
   return url;
@@ -102,6 +81,7 @@ export default function AdminMediaPage() {
             <input value={editingMedia.url} onChange={(e) => setEditingMedia({ ...editingMedia, url: e.target.value })} className="w-full bg-muted border-none rounded-lg px-4 py-2 text-sm" />
             <input value={editingMedia.thumbnail || ""} onChange={(e) => setEditingMedia({ ...editingMedia, thumbnail: e.target.value })} className="w-full bg-muted border-none rounded-lg px-4 py-2 text-sm" />
             <input value={editingMedia.category || "General"} onChange={(e) => setEditingMedia({ ...editingMedia, category: e.target.value })} className="w-full bg-muted border-none rounded-lg px-4 py-2 text-sm" />
+            <p className="text-xs text-muted-foreground">Tip: add multiple categories with commas, e.g. <span className="font-mono">University, hero-side</span>.</p>
             <select value={editingMedia.type} onChange={(e) => setEditingMedia({ ...editingMedia, type: e.target.value })} className="w-full bg-muted border-none rounded-lg px-4 py-2 text-sm">
               <option value="image">Image</option>
               <option value="video">Video</option>
@@ -116,7 +96,7 @@ export default function AdminMediaPage() {
           <h2 className="text-lg font-bold">Add New Media</h2>
           <div className="grid md:grid-cols-2 gap-4">
             <input required value={newMedia.title} onChange={(e) => setNewMedia({ ...newMedia, title: e.target.value })} placeholder="Title" className="w-full bg-muted border-none rounded-lg px-4 py-2 text-sm" />
-            <input value={newMedia.category} onChange={(e) => setNewMedia({ ...newMedia, category: e.target.value })} placeholder="Category" className="w-full bg-muted border-none rounded-lg px-4 py-2 text-sm" />
+            <input value={newMedia.category} onChange={(e) => setNewMedia({ ...newMedia, category: e.target.value })} placeholder="Categories (comma separated)" className="w-full bg-muted border-none rounded-lg px-4 py-2 text-sm" />
             <input required value={newMedia.url} onChange={(e) => setNewMedia({ ...newMedia, url: e.target.value })} placeholder="https://..." className="w-full bg-muted border-none rounded-lg px-4 py-2 text-sm" />
             <input value={newMedia.thumbnail} onChange={(e) => setNewMedia({ ...newMedia, thumbnail: e.target.value })} placeholder="Thumbnail (optional)" className="w-full bg-muted border-none rounded-lg px-4 py-2 text-sm" />
           </div>
@@ -135,7 +115,7 @@ export default function AdminMediaPage() {
         {media.map((item, index) => (
           <div key={item.id} className="group relative cursor-pointer bg-card rounded-xl border border-border/40 overflow-hidden" onClick={() => setSelectedIndex(index)}>
             <div className="aspect-[4/3] rounded-2xl overflow-hidden bg-muted border-b border-border/40 relative">
-              <img src={getPreview(item)} alt={item.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+              <img src={getMediaPreviewUrl(item)} alt={item.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
               <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                 {item.type === "video" ? <Play className="h-8 w-8 text-white" /> : <Eye className="h-8 w-8 text-white" />}
               </div>

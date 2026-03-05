@@ -1,7 +1,7 @@
 "use client";
 
 import { useGlobalContext } from "@/lib/context";
-import { Loader2, ArrowRight, Grid, List as ListIcon } from "lucide-react";
+import { Loader2, ArrowRight, Grid, List as ListIcon, Filter } from "lucide-react";
 import { useMemo, useState, useEffect, useRef } from "react";
 import Link from "next/link";
 
@@ -18,6 +18,7 @@ export default function NewsPage() {
   const [activeCategory, setActiveCategory] = useState("All");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [showCategories, setShowCategories] = useState(false);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   const categories = useMemo(() => {
@@ -87,16 +88,23 @@ export default function NewsPage() {
         <h1 className="text-4xl md:text-6xl font-serif font-bold mb-8">News Archive</h1>
 
         <div className="flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center bg-card p-6 rounded-2xl border border-border/40 shadow-sm">
-          <div className="flex flex-wrap gap-2">
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setActiveCategory(cat)}
-                className={`px-4 py-1.5 rounded-full text-sm font-bold transition-all ${activeCategory === cat ? "bg-primary text-primary-foreground shadow-md" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
-              >
-                {cat}
-              </button>
-            ))}
+          <div className="space-y-3 w-full lg:w-auto">
+            <button onClick={() => setShowCategories((prev) => !prev)} className="inline-flex items-center gap-2 rounded-lg border border-border/60 px-3 py-1.5 text-sm font-semibold hover:bg-muted/60">
+              <Filter className="h-4 w-4" /> {showCategories ? "Hide categories" : "Show categories"}
+            </button>
+            {showCategories && (
+              <div className="flex flex-wrap gap-2">
+                {categories.map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setActiveCategory(cat)}
+                    className={`px-4 py-1.5 rounded-full text-sm font-bold transition-all ${activeCategory === cat ? "bg-primary text-primary-foreground shadow-md" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <div className="flex bg-muted p-1 rounded-lg">
             <button onClick={() => setViewMode("grid")} className={`p-1.5 rounded-md transition-all ${viewMode === "grid" ? "bg-background shadow-sm text-primary" : "text-muted-foreground"}`}><Grid className="h-4 w-4" /></button>

@@ -3,24 +3,17 @@
 import { useGlobalContext } from "@/lib/context";
 import { Play, Image as ImageIcon, Search, Loader2, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { getMediaPreviewUrl, getYouTubeIdFromUrl, hasMediaCategory, splitMediaCategories } from "@/lib/media-utils";
 
 function getEmbedUrl(url: string) {
   if (url.includes("youtube.com") || url.includes("youtu.be")) {
-    const idMatch = url.match(/[?&]v=([^&]+)/) || url.match(/youtu\.be\/([^?&#]+)/);
-    const id = idMatch ? idMatch[1] : "";
+    const id = getYouTubeIdFromUrl(url) || "";
     return `https://www.youtube.com/embed/${id}?rel=0`;
   }
   if (url.includes("yandex.ru/video")) {
     return url.replace("/preview/", "/embed/");
   }
   return url;
-}
-
-function getPreview(item: any) {
-  if (item.type !== "video") return item.url;
-  if (item.thumbnail) return item.thumbnail;
-  const id = item.url.match(/[?&]v=([^&]+)/)?.[1] || item.url.match(/youtu\.be\/([^?&#]+)/)?.[1];
-  return id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : item.url;
 }
 
 function isEmbeddableVideo(url: string) {
@@ -34,14 +27,15 @@ export default function MediaPage() {
   const [selectedItemIndex, setSelectedItemIndex] = useState<number>(-1);
   const nativeVideoRef = useRef<HTMLVideoElement | null>(null);
 
-  const hiddenCategories = new Set(["hero-side", "hero-banner"]);
-  const publicMedia = media.filter((m) => !hiddenCategories.has((m.category || "").toLowerCase()));
-  const categories = ["All", ...Array.from(new Set(publicMedia.map((m) => m.category || "General")))].filter(Boolean);
+  const hiddenCategories = ["hero-side", "hero-banner"];
+  const publicMedia = media.filter((m) => !hiddenCategories.some((cat) => hasMediaCategory(m.category, cat)));
+  const categories = ["All", ...Array.from(new Set(publicMedia.flatMap((m) => splitMediaCategories(m.category).length ? splitMediaCategories(m.category) : ["General"])))].filter(Boolean);
 
   const filteredMedia = useMemo(
     () =>
       publicMedia.filter((item) => {
-        const matchesFilter = filter === "All" || item.category === filter;
+        const mediaCategories = splitMediaCategories(item.category).length ? splitMediaCategories(item.category) : ["General"];
+        const matchesFilter = filter === "All" || mediaCategories.includes(filter);
         const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase());
         return matchesFilter && matchesSearch;
       }),
@@ -138,7 +132,7 @@ export default function MediaPage() {
         {filteredMedia.map((item, index) => (
           <div key={item.id} className="group relative cursor-pointer" onClick={() => setSelectedItemIndex(index)}>
             <div className="aspect-[4/3] rounded-2xl overflow-hidden bg-muted border border-border/40 relative">
-              <img src={getPreview(item)} alt={item.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+              <img src={getMediaPreviewUrl(item)} alt={item.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
               <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                 {item.type === "video" ? (
                   <div className="h-12 w-12 rounded-full bg-white/90 flex items-center justify-center text-primary shadow-xl scale-90 group-hover:scale-100 transition-transform">

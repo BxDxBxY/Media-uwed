@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin-auth";
+import { getSubscriberPreferenceMap } from "@/lib/subscriber-preferences";
 
 type TargetMode = "subscribers" | "messages" | "single";
 
@@ -48,7 +49,10 @@ export async function POST(request: Request) {
 
     if (mode === "subscribers") {
       const subscribers = await prisma.subscriber.findMany({ select: { email: true } });
-      recipients = subscribers.map((s) => s.email);
+      const prefs = await getSubscriberPreferenceMap();
+      recipients = subscribers
+        .map((s) => s.email)
+        .filter((email) => prefs[email.toLowerCase()] !== false);
     } else if (mode === "messages") {
       const messages = await prisma.contactMessage.findMany({
         where: {
@@ -98,6 +102,7 @@ export async function POST(request: Request) {
       recipientCount: recipients.length,
       fallback: !delivery.sent,
       fallbackReason: delivery.reason,
+      requiredEnv: ["RESEND_API_KEY", "RESEND_FROM_EMAIL"],
     });
   } catch (error) {
     console.error("Outreach send failed:", error);
