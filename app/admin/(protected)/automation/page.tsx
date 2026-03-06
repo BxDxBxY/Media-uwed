@@ -14,6 +14,10 @@ import {
     ChevronRight,
     X,
     Save,
+    SlidersHorizontal,
+    Settings2,
+    Workflow,
+    Image as ImageIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -50,6 +54,10 @@ export default function AutomationPage() {
         processing: true,
         translation: true,
     });
+    const [showRequirements, setShowRequirements] = useState(false);
+    const [showFeedManagement, setShowFeedManagement] = useState(false);
+    const [showPipelineSettings, setShowPipelineSettings] = useState(false);
+    const [isRetranslating, setIsRetranslating] = useState(false);
 
     const [page, setPage] = useState(1);
     const [sortBy, setSortBy] = useState<"newest" | "oldest">("newest");
@@ -389,6 +397,32 @@ export default function AutomationPage() {
         }
     };
 
+
+    const handleRetranslate = async (rawId: string) => {
+        if (!rawId) return toast.error("Raw article id is missing");
+
+        setIsRetranslating(true);
+        try {
+            const res = await fetch("/api/cron/process", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ ids: [rawId], retranslate: true, includeKeywords, excludeKeywords, aiInstructions, aiStrictMode }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || "Failed to re-translate article");
+
+            toast.success("Article re-translated");
+            await fetchReviewItems();
+            const refreshed = await fetch("/api/admin/automation/review").then((r) => r.json()).catch(() => ({ items: [] }));
+            const updated = (refreshed.items || []).find((item: any) => item.rawId === rawId);
+            if (updated) setSelectedReviewItem(updated);
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Failed to re-translate article");
+        } finally {
+            setIsRetranslating(false);
+        }
+    };
+
     const sortedItems = useMemo(() => {
         const items = [...processedItems];
         items.sort((a, b) => {
@@ -472,6 +506,12 @@ export default function AutomationPage() {
                 </div>
             </div>
 
+            <div className="space-y-3">
+                <button type="button" onClick={() => setShowRequirements((prev) => !prev)} className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-border text-sm font-semibold hover:bg-muted">
+                    <SlidersHorizontal className="h-4 w-4" /> {showRequirements ? "Hide requirements" : "Show requirements"}
+                </button>
+
+                {showRequirements && (
             <div className="p-4 rounded-xl border border-border/40 bg-card grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Automation requirements: include keywords</label>
@@ -514,6 +554,8 @@ export default function AutomationPage() {
                 <p className="md:col-span-2 text-xs text-muted-foreground">
                     These admin requirements are applied when processing/translation is triggered, so the AI pipeline processes only matching items.
                 </p>
+            </div>
+                )}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -871,11 +913,18 @@ export default function AutomationPage() {
                 {/* Right column: sources */}
                 <div className="space-y-6">
                     <div className="p-6 rounded-xl border border-border/40 bg-card space-y-4">
-                        <h2 className="font-bold flex items-center gap-2">
-                            <Rss className="h-5 w-5 text-primary" />
-                            Feed Management
-                        </h2>
+                        <div className="flex items-center justify-between">
+                            <h2 className="font-bold flex items-center gap-2">
+                                <Rss className="h-5 w-5 text-primary" />
+                                Feed Management
+                            </h2>
+                            <button type="button" onClick={() => setShowFeedManagement((prev) => !prev)} className="text-xs px-2 py-1 rounded border border-border hover:bg-muted inline-flex items-center gap-1">
+                                <Settings2 className="h-3 w-3" /> {showFeedManagement ? "Hide" : "Show"}
+                            </button>
+                        </div>
 
+                        {showFeedManagement && (
+                        <>
                         <div className="space-y-3">
                             <input
                                 type="text"
@@ -931,10 +980,18 @@ export default function AutomationPage() {
                                 </div>
                             ))}
                         </div>
+                        </>
+                        )}
                     </div>
 
                     <div className="p-6 rounded-xl border border-border/40 bg-card space-y-3">
-                        <h3 className="font-bold text-sm">Active Pipelines</h3>
+                        <div className="flex items-center justify-between">
+                            <h3 className="font-bold text-sm">Active Pipelines</h3>
+                            <button type="button" onClick={() => setShowPipelineSettings((prev) => !prev)} className="text-xs px-2 py-1 rounded border border-border hover:bg-muted inline-flex items-center gap-1">
+                                <Workflow className="h-3 w-3" /> {showPipelineSettings ? "Hide" : "Show"}
+                            </button>
+                        </div>
+                        {showPipelineSettings && (
                         <div className="space-y-2">
                             {[
                                 {
@@ -974,6 +1031,7 @@ export default function AutomationPage() {
                                 </div>
                             ))}
                         </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -1010,11 +1068,23 @@ export default function AutomationPage() {
                                     />
                                 </div>
 
-                                {selectedReviewItem?.raw?.imageUrl && (
-                                    <div className="md:col-span-3 rounded-xl overflow-hidden border border-border/40">
-                                        <img src={selectedReviewItem.raw.imageUrl} alt="Article" className="w-full max-h-64 object-cover" />
-                                    </div>
-                                )}
+                                <div className="md:col-span-3 space-y-3">
+                                    <label className="text-[10px] uppercase font-bold tracking-widest text-primary inline-flex items-center gap-2">
+                                        <ImageIcon className="h-3 w-3" /> Preview image URL
+                                    </label>
+                                    <input
+                                        type="text"
+                                        className="w-full bg-muted/50 p-3 rounded-xl border-none text-xs"
+                                        value={selectedReviewItem.rawImageUrl ?? selectedReviewItem?.raw?.imageUrl ?? ""}
+                                        onChange={(e) => setSelectedReviewItem({ ...selectedReviewItem, rawImageUrl: e.target.value })}
+                                        placeholder="https://..."
+                                    />
+                                    {(selectedReviewItem.rawImageUrl || selectedReviewItem?.raw?.imageUrl) && (
+                                        <div className="rounded-xl overflow-hidden border border-border/40">
+                                            <img src={selectedReviewItem.rawImageUrl || selectedReviewItem?.raw?.imageUrl} alt="Article" className="w-full max-h-64 object-cover" />
+                                        </div>
+                                    )}
+                                </div>
 
                                 <div className="space-y-4">
                                     <label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground flex items-center gap-2">
@@ -1107,6 +1177,16 @@ export default function AutomationPage() {
                                 </button>
 
                                 <button
+                                    onClick={() => handleRetranslate(selectedReviewItem.rawId)}
+                                    disabled={isRetranslating}
+                                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 text-white text-xs font-bold hover:bg-purple-700 disabled:opacity-50"
+                                    type="button"
+                                >
+                                    {isRetranslating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Brain className="h-4 w-4" />}
+                                    Re-translate
+                                </button>
+
+                                <button
                                     onClick={() =>
                                         handleSaveDetail(selectedReviewItem.id, {
                                             headlineEn: selectedReviewItem.headlineEn,
@@ -1119,6 +1199,7 @@ export default function AutomationPage() {
                                             contentRu: selectedReviewItem.contentRu,
                                             contentUz: selectedReviewItem.contentUz,
                                             categories: selectedReviewItem.categories,
+                                            rawImageUrl: selectedReviewItem.rawImageUrl,
                                         })
                                     }
                                     className="flex items-center gap-2 px-6 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"

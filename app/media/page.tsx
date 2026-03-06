@@ -3,7 +3,7 @@
 import { useGlobalContext } from "@/lib/context";
 import { Play, Image as ImageIcon, Search, Loader2, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { getMediaPreviewUrl, getYouTubeIdFromUrl, hasMediaCategory, splitMediaCategories } from "@/lib/media-utils";
+import { getMediaPreviewUrl, getYouTubeIdFromUrl, splitMediaCategories } from "@/lib/media-utils";
 
 function getEmbedUrl(url: string) {
   if (url.includes("youtube.com") || url.includes("youtu.be")) {
@@ -39,8 +39,7 @@ export default function MediaPage() {
     keyboardHint: language === "ru" ? "Клавиши: ← → навигация • Esc закрыть • Enter/Пробел воспроизвести" : language === "uz" ? "Klaviatura: ← → navigatsiya • Esc yopish • Enter/Space ijro" : "Keyboard: ← → navigate • Esc close • Enter/Space play",
   };
 
-  const hiddenCategories = ["hero-side", "hero-banner"];
-  const publicMedia = media.filter((m) => !hiddenCategories.some((cat) => hasMediaCategory(m.category, cat)));
+  const publicMedia = media;
   const categories = [t.all, ...Array.from(new Set(publicMedia.flatMap((m) => splitMediaCategories(m.category).length ? splitMediaCategories(m.category) : ["General"])))].filter(Boolean);
 
 

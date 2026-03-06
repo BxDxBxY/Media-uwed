@@ -36,7 +36,7 @@ export async function PATCH(request: Request) {
     const unauthorized = requireAdmin(request);
     if (unauthorized) return unauthorized;
 
-    const { id, ids, status, ...updates } = await request.json();
+    const { id, ids, status, rawImageUrl, ...updates } = await request.json();
 
     if (Array.isArray(ids) && ids.length > 0) {
       if (!status) {
@@ -59,6 +59,17 @@ export async function PATCH(request: Request) {
         { error: "Missing article ID" },
         { status: 400 },
       );
+    }
+
+
+    if (typeof rawImageUrl === "string") {
+      const item = await prisma.articleProcessed.findUnique({ where: { id }, select: { rawId: true } });
+      if (item?.rawId) {
+        await prisma.articleRaw.update({
+          where: { id: item.rawId },
+          data: { imageUrl: rawImageUrl.trim() || null },
+        });
+      }
     }
 
     const updated = await prisma.articleProcessed.update({

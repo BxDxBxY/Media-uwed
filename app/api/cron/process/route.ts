@@ -18,12 +18,14 @@ export async function POST(request: Request) {
       excludeKeywords,
       aiInstructions,
       aiStrictMode,
+      retranslate,
     } = await request.json().catch(() => ({
       ids: null,
       includeKeywords: [],
       excludeKeywords: [],
       aiInstructions: "",
       aiStrictMode: false,
+      retranslate: false,
     }));
 
     const include = normalizeKeywords(includeKeywords);
@@ -31,13 +33,14 @@ export async function POST(request: Request) {
     const instructionTerms = deriveTermsFromInstructions(String(aiInstructions || ""));
     const effectiveInclude = aiStrictMode ? [...new Set([...include, ...instructionTerms])] : include;
 
-    const unprocessedArticles = await prisma.articleRaw.findMany({
+    const targetArticles = await prisma.articleRaw.findMany({
       where: {
-        processed: { is: null },
+        ...(retranslate ? {} : { processed: { is: null } }),
         ...(ids ? { id: { in: ids } } : {}),
       },
       include: {
         source: true,
+        processed: true,
       },
       orderBy: {
         createdAt: "desc",
@@ -45,18 +48,18 @@ export async function POST(request: Request) {
       take: ids ? undefined : 50,
     });
 
-    const filteredArticles = unprocessedArticles.filter((raw) =>
+    const filteredArticles = targetArticles.filter((raw) =>
       matchesRequirements(raw, effectiveInclude, exclude),
     );
 
     if (filteredArticles.length === 0) {
       return NextResponse.json({
         processedCount: 0,
-        skippedByRequirements: unprocessedArticles.length,
+        skippedByRequirements: targetArticles.length,
         message:
           effectiveInclude.length > 0 || exclude.length > 0
-            ? "No unprocessed articles matched admin requirements"
-            : "No unprocessed articles found",
+            ? "No articles matched admin requirements"
+            : "No articles found for processing",
       });
     }
 
@@ -120,22 +123,41 @@ export async function POST(request: Request) {
           continue;
         }
 
-        await prisma.articleProcessed.create({
-          data: {
-            rawId: raw.id,
-            headlineEn: aiResult.headlineEn,
-            headlineRu: aiResult.headlineRu,
-            headlineUz: aiResult.headlineUz,
-            summaryEn: aiResult.summaryEn,
-            summaryRu: aiResult.summaryRu,
-            summaryUz: aiResult.summaryUz,
-            contentEn: aiResult.contentEn,
-            contentRu: aiResult.contentRu,
-            contentUz: aiResult.contentUz,
-            categories: aiResult.categories.join(", "),
-            status: "pending_review",
-          },
-        });
+        if (raw.processed) {
+          await prisma.articleProcessed.update({
+            where: { id: raw.processed.id },
+            data: {
+              headlineEn: aiResult.headlineEn,
+              headlineRu: aiResult.headlineRu,
+              headlineUz: aiResult.headlineUz,
+              summaryEn: aiResult.summaryEn,
+              summaryRu: aiResult.summaryRu,
+              summaryUz: aiResult.summaryUz,
+              contentEn: aiResult.contentEn,
+              contentRu: aiResult.contentRu,
+              contentUz: aiResult.contentUz,
+              categories: aiResult.categories.join(", "),
+              status: "pending_review",
+            },
+          });
+        } else {
+          await prisma.articleProcessed.create({
+            data: {
+              rawId: raw.id,
+              headlineEn: aiResult.headlineEn,
+              headlineRu: aiResult.headlineRu,
+              headlineUz: aiResult.headlineUz,
+              summaryEn: aiResult.summaryEn,
+              summaryRu: aiResult.summaryRu,
+              summaryUz: aiResult.summaryUz,
+              contentEn: aiResult.contentEn,
+              contentRu: aiResult.contentRu,
+              contentUz: aiResult.contentUz,
+              categories: aiResult.categories.join(", "),
+              status: "pending_review",
+            },
+          });
+        }
 
         processedCount++;
       } catch (error) {
@@ -148,7 +170,7 @@ export async function POST(request: Request) {
       processedCount,
       failedCount,
       totalAttempted: filteredArticles.length,
-      skippedByRequirements: Math.max(0, unprocessedArticles.length - filteredArticles.length),
+      skippedByRequirements: Math.max(0, targetArticles.length - filteredArticles.length),
       requirementsApplied: effectiveInclude.length > 0 || exclude.length > 0,
       aiStrictMode: Boolean(aiStrictMode),
       aiInstructionTerms: instructionTerms.length,

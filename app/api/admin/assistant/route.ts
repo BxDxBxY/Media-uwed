@@ -34,6 +34,43 @@ const fallbackReply = (message: string, stats: AssistantStats) => {
   return `I can help with the whole platform (articles, events, media, automation, settings, and workflows). Current queue: raw ${stats.raw}, review ${stats.review}, ready ${stats.ready}.`;
 };
 
+
+const commandReply = (message: string, stats: AssistantStats) => {
+  const cmd = message.trim().toLowerCase();
+  if (cmd === "/help") {
+    return [
+      "Available commands:",
+      "• /help — show assistant commands",
+      "• /tools — list admin tools and capabilities",
+      "• /pages — list manageable/public pages",
+      "• /status — current platform queue/status snapshot",
+      "You can also ask free-form questions about the whole website.",
+    ].join("\n");
+  }
+  if (cmd === "/tools") {
+    return [
+      "Admin tools:",
+      "• Automation: pull/process/translate/publish",
+      "• Review queue: edit translations, categories, image and approve",
+      "• Sources: add/enable/disable/delete RSS feeds",
+      "• Events, Media, Articles management",
+      "• Legal pages (privacy/terms) editor",
+      "• Outreach/subscribers management",
+    ].join("\n");
+  }
+  if (cmd === "/pages") {
+    return [
+      "Core pages:",
+      "• Public: /, /news, /article/[slug], /events, /media, /privacy-policy, /terms-of-use",
+      "• Admin: /admin, /admin/automation, /admin/articles, /admin/events, /admin/media, /admin/connections, /admin/privacy-policy, /admin/terms-of-use",
+    ].join("\n");
+  }
+  if (cmd === "/status") {
+    return `Status: raw=${stats.raw}, pending_review=${stats.review}, ready=${stats.ready}, published_articles=${stats.articles}, events=${stats.events}, media=${stats.media}.`;
+  }
+  return null;
+};
+
 const callOpenRouter = async (prompt: string): Promise<string | null> => {
   if (!OPENROUTER_API_KEY) return null;
   try {
@@ -58,7 +95,8 @@ const callOpenRouter = async (prompt: string): Promise<string | null> => {
 
     return res.data?.choices?.[0]?.message?.content?.trim() || null;
   } catch (error) {
-    console.error("OpenRouter assistant error:", error);
+    const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+    console.error("OpenRouter assistant error:", status || "", error);
     return null;
   }
 };
@@ -89,7 +127,8 @@ const callGemini = async (prompt: string): Promise<string | null> => {
 
     return text;
   } catch (error) {
-    console.error("Gemini assistant error:", error);
+    const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+    console.error("Gemini assistant error:", status || "", error);
     return null;
   }
 };
@@ -156,6 +195,15 @@ export async function POST(request: Request) {
         }),
       ]);
 
+    const directCommand = commandReply(userMessage, {
+      raw: rawCount,
+      review: reviewCount,
+      ready: readyCount,
+      events: eventsCount,
+      articles: articlesCount,
+      media: mediaCount,
+    });
+
     await prisma.contactMessage.create({
       data: {
         name: "Admin User",
@@ -164,6 +212,24 @@ export async function POST(request: Request) {
         message: userMessage,
       },
     });
+
+    if (directCommand) {
+      await prisma.contactMessage.create({
+        data: {
+          name: "Admin Assistant",
+          email: "assistant@system.local",
+          subject: ASSISTANT_SUBJECT,
+          message: directCommand,
+        },
+      });
+
+      return NextResponse.json({
+        reply: directCommand,
+        model: "command-router",
+        usedFallback: false,
+        fallbackReason: null,
+      });
+    }
 
     const history = recentMemory
       .reverse()
@@ -231,10 +297,10 @@ export async function POST(request: Request) {
       fallbackReason: usedFallback
         ? OPENROUTER_API_KEY
           ? GEMINI_API_KEY
-            ? "OpenRouter and Gemini requests failed. Check logs/API quota."
-            : "OpenRouter request failed and GEMINI_API_KEY is not configured."
+            ? "OpenRouter and Gemini requests failed (check OPENROUTER_API_KEY validity/credits and Gemini quota)."
+            : "OpenRouter request failed (401 usually means invalid key). GEMINI_API_KEY is not configured."
           : GEMINI_API_KEY
-            ? "OpenRouter not configured and Gemini request failed."
+            ? "OpenRouter not configured and Gemini request failed (likely quota/rate limit)."
             : "Neither OPENROUTER_API_KEY nor GEMINI_API_KEY is configured."
         : null,
     });
