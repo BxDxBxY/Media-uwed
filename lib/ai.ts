@@ -19,8 +19,10 @@ const LIBRETRANSLATE_URL = "https://libretranslate.de/translate"; // public inst
 const MYMEMORY_URL = "https://api.mymemory.translated.net/get";
 
 const MAX_TRANSLATE_CHARS = 450;
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_MODEL = process.env.GEMINI_TRANSLATE_MODEL || "gemini-2.0-flash";
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+const OPENROUTER_MODEL = process.env.OPENROUTER_TRANSLATE_MODEL || "openai/gpt-5.2";
+const OPENROUTER_REFERER = process.env.OPENROUTER_REFERER || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+const OPENROUTER_TITLE = process.env.OPENROUTER_TITLE || "University Media AI";
 
 function chunkText(input: string, limit: number = MAX_TRANSLATE_CHARS): string[] {
   const text = cleanText(input);
@@ -61,12 +63,12 @@ function chunkText(input: string, limit: number = MAX_TRANSLATE_CHARS): string[]
 
 
 
-async function translateWithGeminiChunk(
+async function translateWithOpenRouterChunk(
   chunk: string,
   source: "en" | "ru" | "uz",
   target: "en" | "ru" | "uz",
 ): Promise<string | null> {
-  if (!GEMINI_API_KEY) return null;
+  if (!OPENROUTER_API_KEY) return null;
 
   try {
     const prompt = [
@@ -78,28 +80,30 @@ async function translateWithGeminiChunk(
       chunk,
     ].join("\n");
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
     const res = await axios.post(
-      url,
+      "https://openrouter.ai/api/v1/chat/completions",
       {
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.1,
-          maxOutputTokens: 800,
+        model: OPENROUTER_MODEL,
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.1,
+        stream: false,
+      },
+      {
+        timeout: 25_000,
+        headers: {
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": OPENROUTER_REFERER,
+          "X-OpenRouter-Title": OPENROUTER_TITLE,
         },
       },
-      { timeout: 25_000 },
     );
 
-    const out =
-      res.data?.candidates?.[0]?.content?.parts
-        ?.map((p: { text?: string }) => p?.text || "")
-        .join("\n")
-        .trim() || "";
+    const out = res.data?.choices?.[0]?.message?.content?.trim() || "";
 
     return out ? cleanText(out) : null;
   } catch (error) {
-    console.error("Gemini translation error:", error);
+    console.error("OpenRouter translation error:", error);
     return null;
   }
 }
@@ -159,7 +163,7 @@ function paraphraseBasic(text: string): string {
 
 /**
  * Translation pipeline:
- * 1) Gemini (if API key configured)
+ * 1) OpenRouter (if API key configured)
  * 2) LibreTranslate
  * 3) MyMemory
  * Returns original text if translation fails.
@@ -179,7 +183,7 @@ async function translate(
   for (const chunk of chunks) {
     let translatedChunk = "";
 
-    translatedChunk = (await translateWithGeminiChunk(chunk, source, target)) || "";
+    translatedChunk = (await translateWithOpenRouterChunk(chunk, source, target)) || "";
 
     // 2) LibreTranslate
     if (!translatedChunk) {

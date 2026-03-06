@@ -22,6 +22,37 @@ export function AdminStaticPageEditor({ slug, heading }: { slug: Slug; heading: 
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState(false);
 
+  const wrapSelection = (id: string, before: string, after: string = before) => {
+    const element = document.getElementById(id) as HTMLTextAreaElement | null;
+    if (!element) return;
+
+    const start = element.selectionStart ?? 0;
+    const end = element.selectionEnd ?? 0;
+    const value = element.value;
+    const selected = value.slice(start, end) || "text";
+    const next = `${value.slice(0, start)}${before}${selected}${after}${value.slice(end)}`;
+
+    const key = id.replace("content-", "") as "content" | "contentRu" | "contentUz";
+    setDraft((prev) => ({ ...prev, [key]: next }));
+
+    requestAnimationFrame(() => {
+      element.focus();
+      const pos = start + before.length + selected.length + after.length;
+      element.setSelectionRange(pos, pos);
+    });
+  };
+
+  const EditorTools = ({ id }: { id: string }) => (
+    <div className="flex flex-wrap gap-2 pb-2">
+      <button type="button" onClick={() => wrapSelection(id, "<strong>", "</strong>")} className="px-2 py-1 text-xs rounded border border-border hover:bg-muted">Bold</button>
+      <button type="button" onClick={() => wrapSelection(id, "<mark>", "</mark>")} className="px-2 py-1 text-xs rounded border border-border hover:bg-muted">Highlight</button>
+      <button type="button" onClick={() => wrapSelection(id, "<h2>", "</h2>")} className="px-2 py-1 text-xs rounded border border-border hover:bg-muted">H2</button>
+      <button type="button" onClick={() => wrapSelection(id, "<h3>", "</h3>")} className="px-2 py-1 text-xs rounded border border-border hover:bg-muted">H3</button>
+      <button type="button" onClick={() => wrapSelection(id, "<blockquote>", "</blockquote>")} className="px-2 py-1 text-xs rounded border border-border hover:bg-muted">Quote</button>
+      <button type="button" onClick={() => wrapSelection(id, "<ul><li>", "</li></ul>")} className="px-2 py-1 text-xs rounded border border-border hover:bg-muted">List</button>
+    </div>
+  );
+
   useEffect(() => {
     const load = async () => {
       setLoading(true);
@@ -115,9 +146,18 @@ export function AdminStaticPageEditor({ slug, heading }: { slug: Slug; heading: 
       </div>
 
       <div className="grid md:grid-cols-3 gap-3">
-        <textarea rows={14} value={draft.content} onChange={(e) => setDraft((prev) => ({ ...prev, content: e.target.value }))} placeholder="Content (EN)" className="rounded-md border border-input bg-background px-3 py-2 text-sm" />
-        <textarea rows={14} value={draft.contentRu} onChange={(e) => setDraft((prev) => ({ ...prev, contentRu: e.target.value }))} placeholder="Content (RU)" className="rounded-md border border-input bg-background px-3 py-2 text-sm" />
-        <textarea rows={14} value={draft.contentUz} onChange={(e) => setDraft((prev) => ({ ...prev, contentUz: e.target.value }))} placeholder="Content (UZ)" className="rounded-md border border-input bg-background px-3 py-2 text-sm" />
+        <div>
+          <EditorTools id="content-content" />
+          <textarea id="content-content" rows={14} value={draft.content} onChange={(e) => setDraft((prev) => ({ ...prev, content: e.target.value }))} placeholder="Content (EN)" className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <EditorTools id="content-contentRu" />
+          <textarea id="content-contentRu" rows={14} value={draft.contentRu} onChange={(e) => setDraft((prev) => ({ ...prev, contentRu: e.target.value }))} placeholder="Content (RU)" className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <EditorTools id="content-contentUz" />
+          <textarea id="content-contentUz" rows={14} value={draft.contentUz} onChange={(e) => setDraft((prev) => ({ ...prev, contentUz: e.target.value }))} placeholder="Content (UZ)" className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+        </div>
       </div>
     </div>
   );

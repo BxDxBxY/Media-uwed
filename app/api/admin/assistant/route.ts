@@ -4,8 +4,6 @@ import { requireAdmin } from "@/lib/admin-auth";
 import axios from "axios";
 
 const ASSISTANT_SUBJECT = "__assistant_memory__";
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_MODEL = process.env.GEMINI_ASSISTANT_MODEL || "gemini-2.0-flash";
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const OPENROUTER_MODEL = process.env.OPENROUTER_ASSISTANT_MODEL || "openai/gpt-5.2";
 const OPENROUTER_REFERER = process.env.OPENROUTER_REFERER || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
@@ -101,37 +99,7 @@ const callOpenRouter = async (prompt: string): Promise<string | null> => {
   }
 };
 
-const callGemini = async (prompt: string): Promise<string | null> => {
-  if (!GEMINI_API_KEY) return null;
-
-  try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
-    const res = await axios.post(
-      url,
-      {
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.35,
-          maxOutputTokens: 900,
-          topP: 0.9,
-        },
-      },
-      { timeout: 30000 },
-    );
-
-    const text =
-      res.data?.candidates?.[0]?.content?.parts
-        ?.map((p: { text?: string }) => p?.text || "")
-        .join("\n")
-        .trim() || null;
-
-    return text;
-  } catch (error) {
-    const status = axios.isAxiosError(error) ? error.response?.status : undefined;
-    console.error("Gemini assistant error:", status || "", error);
-    return null;
-  }
-};
+// Gemini fallback is intentionally disabled for now.
 
 export async function GET(request: Request) {
   try {
@@ -156,9 +124,7 @@ export async function GET(request: Request) {
 
     const activeModel = OPENROUTER_API_KEY
       ? OPENROUTER_MODEL
-      : GEMINI_API_KEY
-        ? GEMINI_MODEL
-        : "local-fallback";
+      : "local-fallback";
 
     return NextResponse.json({ messages, model: activeModel });
   } catch (error) {
@@ -264,8 +230,7 @@ export async function POST(request: Request) {
     ].join("\n");
 
     const openRouterReply = await callOpenRouter(prompt);
-    const geminiReply = openRouterReply ? null : await callGemini(prompt);
-    const aiReply = openRouterReply || geminiReply;
+    const aiReply = openRouterReply;
 
     const usedFallback = !aiReply;
     const reply =
@@ -288,7 +253,7 @@ export async function POST(request: Request) {
       },
     });
 
-    const modelUsed = openRouterReply ? OPENROUTER_MODEL : geminiReply ? GEMINI_MODEL : "local-fallback";
+    const modelUsed = openRouterReply ? OPENROUTER_MODEL : "local-fallback";
 
     return NextResponse.json({
       reply,
@@ -296,12 +261,8 @@ export async function POST(request: Request) {
       usedFallback,
       fallbackReason: usedFallback
         ? OPENROUTER_API_KEY
-          ? GEMINI_API_KEY
-            ? "OpenRouter and Gemini requests failed (check OPENROUTER_API_KEY validity/credits and Gemini quota)."
-            : "OpenRouter request failed (401 usually means invalid key). GEMINI_API_KEY is not configured."
-          : GEMINI_API_KEY
-            ? "OpenRouter not configured and Gemini request failed (likely quota/rate limit)."
-            : "Neither OPENROUTER_API_KEY nor GEMINI_API_KEY is configured."
+          ? "OpenRouter request failed (401 usually means invalid OPENROUTER_API_KEY)."
+          : "OPENROUTER_API_KEY is not configured."
         : null,
     });
   } catch (error) {

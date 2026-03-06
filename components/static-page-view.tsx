@@ -51,6 +51,14 @@ export function StaticPageView({ slug }: { slug: StaticPage["slug"] }) {
     return { title: page.title, content: page.content };
   }, [page, language]);
 
+  const safeHtml = useMemo(() => {
+    const raw = localized?.content || "";
+    return raw
+      .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
+      .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, "")
+      .replace(/on\w+\s*=\s*"[^"]*"/gi, "");
+  }, [localized?.content]);
+
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-16 text-center text-muted-foreground">
@@ -64,18 +72,13 @@ export function StaticPageView({ slug }: { slug: StaticPage["slug"] }) {
     return <div className="container mx-auto px-4 py-16 text-center text-muted-foreground">Unable to load this page.</div>;
   }
 
-  const paragraphs = localized.content.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
-
   return (
     <main className="container mx-auto px-4 py-12 max-w-4xl">
       <h1 className="text-4xl md:text-5xl font-serif font-bold mb-6">{localized.title}</h1>
-      <div className="rounded-2xl border border-border/40 bg-card p-6 md:p-8 space-y-5">
-        {paragraphs.map((paragraph, idx) => (
-          <p key={idx} className="leading-8 text-base text-foreground/90 whitespace-pre-wrap text-justify">
-            {paragraph}
-          </p>
-        ))}
-      </div>
+      <div
+        className="rounded-2xl border border-border/40 bg-card p-6 md:p-8 leading-8 text-base text-foreground/90 whitespace-pre-wrap text-justify [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:my-4 [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:my-3 [&_blockquote]:border-l-4 [&_blockquote]:pl-4 [&_blockquote]:italic [&_ul]:list-disc [&_ul]:pl-6 [&_strong]:font-semibold [&_mark]:bg-yellow-300/50"
+        dangerouslySetInnerHTML={{ __html: safeHtml }}
+      />
     </main>
   );
 }

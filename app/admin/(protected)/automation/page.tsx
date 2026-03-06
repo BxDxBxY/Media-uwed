@@ -65,8 +65,8 @@ export default function AutomationPage() {
 
     const [lang, setLang] = useState<Lang>("en");
 
-    const fetchReviewItems = async () => {
-        setIsLoadingReview(true);
+    const fetchReviewItems = async (withLoader: boolean = true) => {
+        if (withLoader) setIsLoadingReview(true);
         try {
             const res = await fetch("/api/admin/automation/review");
             if (!res.ok) return;
@@ -75,7 +75,7 @@ export default function AutomationPage() {
         } catch (e) {
             console.error("Failed to fetch review items", e);
         } finally {
-            setIsLoadingReview(false);
+            if (withLoader) setIsLoadingReview(false);
         }
     };
 
@@ -259,6 +259,8 @@ export default function AutomationPage() {
     };
 
     const handleUpdateStatus = async (id: string, newStatus: string) => {
+        const previous = processedItems;
+        setProcessedItems((items) => items.map((item) => (item.id === id ? { ...item, status: newStatus } : item)));
         try {
             const res = await fetch("/api/admin/automation/review", {
                 method: "PATCH",
@@ -267,11 +269,13 @@ export default function AutomationPage() {
             });
             if (res.ok) {
                 toast.success(`Article ${newStatus.replaceAll("_", " ")}`);
-                fetchReviewItems();
+                fetchReviewItems(false);
             } else {
+                setProcessedItems(previous);
                 toast.error("Failed to update status");
             }
         } catch {
+            setProcessedItems(previous);
             toast.error("Failed to update status");
         }
     };
@@ -289,7 +293,7 @@ export default function AutomationPage() {
             if (res.ok) {
                 toast.success(`${selectedReviewIds.length} item(s) updated`);
                 setSelectedReviewIds([]);
-                fetchReviewItems();
+                fetchReviewItems(false);
             } else {
                 toast.error("Failed to update selected items");
             }
@@ -412,12 +416,40 @@ export default function AutomationPage() {
             if (!res.ok) throw new Error(data.error || "Failed to re-translate article");
 
             toast.success("Article re-translated");
-            await fetchReviewItems();
+            await fetchReviewItems(false);
             const refreshed = await fetch("/api/admin/automation/review").then((r) => r.json()).catch(() => ({ items: [] }));
             const updated = (refreshed.items || []).find((item: any) => item.rawId === rawId);
             if (updated) setSelectedReviewItem(updated);
         } catch (error) {
             toast.error(error instanceof Error ? error.message : "Failed to re-translate article");
+        } finally {
+            setIsRetranslating(false);
+        }
+    };
+
+    const handleRetranslateSelected = async () => {
+        if (selectedReviewIds.length === 0) return toast.warning("Select review items first");
+        const rawIds = processedItems
+            .filter((item) => selectedReviewIds.includes(item.id))
+            .map((item) => item.rawId)
+            .filter(Boolean);
+        if (rawIds.length === 0) return toast.warning("Selected items do not have source raw ids");
+
+        setIsRetranslating(true);
+        try {
+            const res = await fetch("/api/cron/process", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ ids: rawIds, retranslate: true, includeKeywords, excludeKeywords, aiInstructions, aiStrictMode }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || "Failed to re-translate selected articles");
+
+            toast.success(`Re-translated ${data.processedCount ?? rawIds.length} article(s)`);
+            setSelectedReviewIds([]);
+            await fetchReviewItems(false);
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Failed to re-translate selected articles");
         } finally {
             setIsRetranslating(false);
         }
@@ -618,6 +650,15 @@ export default function AutomationPage() {
                                     type="button"
                                 >
                                     Approve Selected ({selectedReviewIds.length})
+                                </button>
+                                <button
+                                    disabled={selectedReviewIds.length === 0 || isRetranslating}
+                                    onClick={handleRetranslateSelected}
+                                    className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-purple-600 text-white text-xs font-bold hover:bg-purple-700 disabled:opacity-50"
+                                    type="button"
+                                >
+                                    {isRetranslating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Brain className="h-3 w-3" />}
+                                    Re-translate Selected
                                 </button>
                                 <button
                                     disabled={selectedReviewIds.length === 0}
