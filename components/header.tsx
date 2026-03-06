@@ -96,10 +96,10 @@ export function Header() {
             {isLangOpen && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setIsLangOpen(false)} />
-                <div className="absolute right-0 top-full mt-2 w-24 bg-card border border-border rounded-md shadow-lg py-1 z-50 animate-in fade-in zoom-in-95">
-                  <button onClick={() => { setLanguage("en"); setIsLangOpen(false); }} className={`block w-full text-left px-4 py-2 text-sm hover:bg-muted ${language === "en" ? "text-primary font-bold" : ""}`}>English</button>
-                  <button onClick={() => { setLanguage("uz"); setIsLangOpen(false); }} className={`block w-full text-left px-4 py-2 text-sm hover:bg-muted ${language === "uz" ? "text-primary font-bold" : ""}`}>{`O'zbek`}</button>
-                  <button onClick={() => { setLanguage("ru"); setIsLangOpen(false); }} className={`block w-full text-left px-4 py-2 text-sm hover:bg-muted ${language === "ru" ? "text-primary font-bold" : ""}`}>Русский</button>
+                <div className="absolute right-0 top-full mt-2 w-24 bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-700 rounded-md shadow-lg py-1 z-50 animate-in fade-in zoom-in-95">
+                  <button onClick={() => { setLanguage("en"); setIsLangOpen(false); }} className={`block w-full text-left px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800 ${language === "en" ? "text-primary font-bold" : ""}`}>English</button>
+                  <button onClick={() => { setLanguage("uz"); setIsLangOpen(false); }} className={`block w-full text-left px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800 ${language === "uz" ? "text-primary font-bold" : ""}`}>{`O'zbek`}</button>
+                  <button onClick={() => { setLanguage("ru"); setIsLangOpen(false); }} className={`block w-full text-left px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800 ${language === "ru" ? "text-primary font-bold" : ""}`}>Русский</button>
                 </div>
               </>
             )}

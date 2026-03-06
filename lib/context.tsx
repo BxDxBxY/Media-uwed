@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { toast } from "sonner";
+import type { AboutPageConfig } from "@/lib/about-page-config";
 
 // Types
 export interface Article {
@@ -114,6 +115,7 @@ interface GlobalContextType {
     subscribers: Subscriber[];
     messages: ContactMessage[];
     aboutContent: AboutContent | null;
+    aboutConfig: AboutPageConfig | null;
     analytics: AnalyticsStats;
     sources: Source[];
     language: Language;
@@ -139,7 +141,7 @@ interface GlobalContextType {
     addMessage: (message: Omit<ContactMessage, 'id' | 'createdAt'>) => Promise<void>;
     deleteMessage: (id: string) => Promise<void>;
     // About
-    updateAboutContent: (content: Partial<AboutContent>) => Promise<void>;
+    updateAboutContent: (payload: { about: Partial<AboutContent>; config?: AboutPageConfig }) => Promise<void>;
     // Utility
     refreshData: () => Promise<void>;
     clearAllData: () => Promise<void>;
@@ -156,6 +158,7 @@ export function GlobalProvider({ children }: { children: ReactNode }) {
     const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
     const [messages, setMessages] = useState<ContactMessage[]>([]);
     const [aboutContent, setAboutContent] = useState<AboutContent | null>(null);
+    const [aboutConfig, setAboutConfig] = useState<AboutPageConfig | null>(null);
     const [analytics, setAnalytics] = useState<AnalyticsStats>({ totalVisits: 0, totalArticleViews: 0, popularArticles: [] });
     const [language, setLanguage] = useState<Language>("en");
     const [searchQuery, setSearchQuery] = useState("");
@@ -182,7 +185,7 @@ export function GlobalProvider({ children }: { children: ReactNode }) {
             const medData = medRes.ok ? await medRes.json() : { media: [] };
             const subData = subRes.ok ? await subRes.json() : { subscribers: [] };
             const msgData = msgRes.ok ? await msgRes.json() : { messages: [] };
-            const abtData = abtRes.ok ? await abtRes.json() : { about: null };
+            const abtData = abtRes.ok ? await abtRes.json() : { about: null, config: null };
             const statsData = statsRes.ok ? await statsRes.json() : { totalVisits: 0, totalArticleViews: 0, popularArticles: [] };
             const srcData = srcRes.ok ? await srcRes.json() : { sources: [] };
 
@@ -192,6 +195,7 @@ export function GlobalProvider({ children }: { children: ReactNode }) {
             setSubscribers(subData.subscribers || []);
             setMessages(msgData.messages || []);
             setAboutContent(abtData.about || null);
+            setAboutConfig(abtData.config || null);
             setAnalytics(statsData || { totalVisits: 0, totalArticleViews: 0, popularArticles: [] });
             setSources(srcData.sources || []);
         } catch (error) {
@@ -443,12 +447,12 @@ export function GlobalProvider({ children }: { children: ReactNode }) {
     };
 
     // About
-    const updateAboutContent = async (abtData: Partial<AboutContent>) => {
+    const updateAboutContent = async (payload: { about: Partial<AboutContent>; config?: AboutPageConfig }) => {
         try {
             const res = await fetch('/api/admin/about', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(abtData)
+                body: JSON.stringify({ ...payload.about, config: payload.config })
             });
             if (!res.ok) throw new Error('Failed to update About content');
             await refreshData();
@@ -474,6 +478,7 @@ export function GlobalProvider({ children }: { children: ReactNode }) {
                 subscribers,
                 messages,
                 aboutContent,
+                aboutConfig,
                 analytics,
                 sources,
                 language,
