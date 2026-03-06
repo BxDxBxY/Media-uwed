@@ -20,6 +20,8 @@ export type AiTaskConfig = {
   summarizationEnabled?: boolean;
   categorizationEnabled?: boolean;
   translationPolicy?: "full" | "summary_only" | "disabled";
+  providerApiKey?: string;
+  providerModel?: string;
 };
 // Free/no-auth translation endpoints (may rate-limit sometimes)
 const LIBRETRANSLATE_URL = "https://libretranslate.de/translate"; // public instance
@@ -74,8 +76,10 @@ async function translateWithOpenRouterChunk(
   chunk: string,
   source: "en" | "ru" | "uz",
   target: "en" | "ru" | "uz",
+  apiKey: string | null,
+  model: string,
 ): Promise<string | null> {
-  if (!OPENROUTER_API_KEY) return null;
+  if (!apiKey) return null;
 
   try {
     const prompt = [
@@ -90,7 +94,7 @@ async function translateWithOpenRouterChunk(
     const res = await axios.post(
       "https://openrouter.ai/api/v1/chat/completions",
       {
-        model: OPENROUTER_MODEL,
+        model,
         messages: [{ role: "user", content: prompt }],
         temperature: 0.1,
         stream: false,
@@ -98,7 +102,7 @@ async function translateWithOpenRouterChunk(
       {
         timeout: 25_000,
         headers: {
-          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
           "HTTP-Referer": OPENROUTER_REFERER,
           "X-OpenRouter-Title": OPENROUTER_TITLE,
@@ -179,6 +183,7 @@ async function translate(
   text: string,
   source: "en" | "ru" | "uz",
   target: "en" | "ru" | "uz",
+  options?: { providerApiKey?: string; providerModel?: string },
 ) {
   const q = cleanText(text);
   if (!q) return "";
@@ -190,7 +195,14 @@ async function translate(
   for (const chunk of chunks) {
     let translatedChunk = "";
 
-    translatedChunk = (await translateWithOpenRouterChunk(chunk, source, target)) || "";
+    translatedChunk =
+      (await translateWithOpenRouterChunk(
+        chunk,
+        source,
+        target,
+        options?.providerApiKey || OPENROUTER_API_KEY || null,
+        options?.providerModel || OPENROUTER_MODEL,
+      )) || "";
 
     // 2) LibreTranslate
     if (!translatedChunk) {
@@ -235,8 +247,9 @@ async function translateWithPivot(
   text: string,
   source: "en" | "ru" | "uz",
   target: "en" | "ru" | "uz",
+  options?: { providerApiKey?: string; providerModel?: string },
 ): Promise<string> {
-  const primary = await translate(text, source, target);
+  const primary = await translate(text, source, target, options);
   const normalizedSource = cleanText(text);
 
   if (target === source || !normalizedSource) return primary;
@@ -244,10 +257,10 @@ async function translateWithPivot(
   const unchanged = cleanText(primary).toLowerCase() === normalizedSource.toLowerCase();
   if (!unchanged || source === "en" || target === "en") return primary;
 
-  const pivot = await translate(text, source, "en");
+  const pivot = await translate(text, source, "en", options);
   if (!pivot || cleanText(pivot).toLowerCase() === normalizedSource.toLowerCase()) return primary;
 
-  const pivoted = await translate(pivot, "en", target);
+  const pivoted = await translate(pivot, "en", target, options);
   return cleanText(pivoted) || primary;
 }
 
@@ -321,25 +334,25 @@ export async function processNewsAI(
 
     const [headlineEn, headlineRu, headlineUz] = shouldTranslateTitle
       ? await Promise.all([
-          translateWithPivot(rewrittenTitle, src, "en"),
-          translateWithPivot(rewrittenTitle, src, "ru"),
-          translateWithPivot(rewrittenTitle, src, "uz"),
+          translateWithPivot(rewrittenTitle, src, "en", taskConfig),
+          translateWithPivot(rewrittenTitle, src, "ru", taskConfig),
+          translateWithPivot(rewrittenTitle, src, "uz", taskConfig),
         ])
       : [rewrittenTitle, rewrittenTitle, rewrittenTitle];
 
     const [summaryEn, summaryRu, summaryUz] = shouldTranslateSummary
       ? await Promise.all([
-          translateWithPivot(rewrittenSummary, src, "en"),
-          translateWithPivot(rewrittenSummary, src, "ru"),
-          translateWithPivot(rewrittenSummary, src, "uz"),
+          translateWithPivot(rewrittenSummary, src, "en", taskConfig),
+          translateWithPivot(rewrittenSummary, src, "ru", taskConfig),
+          translateWithPivot(rewrittenSummary, src, "uz", taskConfig),
         ])
       : [rewrittenSummary, rewrittenSummary, rewrittenSummary];
 
     const [contentEn, contentRu, contentUz] = shouldTranslateContent
       ? await Promise.all([
-          translateWithPivot(rewrittenContent, src, "en"),
-          translateWithPivot(rewrittenContent, src, "ru"),
-          translateWithPivot(rewrittenContent, src, "uz"),
+          translateWithPivot(rewrittenContent, src, "en", taskConfig),
+          translateWithPivot(rewrittenContent, src, "ru", taskConfig),
+          translateWithPivot(rewrittenContent, src, "uz", taskConfig),
         ])
       : [rewrittenContent, rewrittenContent, rewrittenContent];
 

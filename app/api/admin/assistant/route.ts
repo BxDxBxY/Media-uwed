@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin-auth";
 import axios from "axios";
+import { decryptSecret } from "@/lib/security";
+import { logger } from "@/lib/logger";
 
 const ASSISTANT_SUBJECT = "__assistant_memory__";
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const OPENROUTER_MODEL = process.env.OPENROUTER_ASSISTANT_MODEL || "openai/gpt-5.2";
 const OPENROUTER_REFERER = process.env.OPENROUTER_REFERER || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 const OPENROUTER_TITLE = process.env.OPENROUTER_TITLE || "University Media Admin";
@@ -32,7 +33,6 @@ const fallbackReply = (message: string, stats: AssistantStats) => {
   return `I can help with the whole platform (articles, events, media, automation, settings, and workflows). Current queue: raw ${stats.raw}, review ${stats.review}, ready ${stats.ready}.`;
 };
 
-
 const commandReply = (message: string, stats: AssistantStats) => {
   const cmd = message.trim().toLowerCase();
   if (cmd === "/help") {
@@ -54,6 +54,7 @@ const commandReply = (message: string, stats: AssistantStats) => {
       "• Events, Media, Articles management",
       "• Legal pages (privacy/terms) editor",
       "• Outreach/subscribers management",
+      "• Integrations: AI + Telegram secure configuration",
     ].join("\n");
   }
   if (cmd === "/pages") {
@@ -69,13 +70,13 @@ const commandReply = (message: string, stats: AssistantStats) => {
   return null;
 };
 
-const callOpenRouter = async (prompt: string): Promise<string | null> => {
-  if (!OPENROUTER_API_KEY) return null;
+const callOpenRouter = async (prompt: string, apiKey: string | null, model: string): Promise<string | null> => {
+  if (!apiKey) return null;
   try {
     const res = await axios.post(
       "https://openrouter.ai/api/v1/chat/completions",
       {
-        model: OPENROUTER_MODEL,
+        model,
         messages: [{ role: "user", content: prompt }],
         stream: false,
         temperature: 0.35,
@@ -83,7 +84,7 @@ const callOpenRouter = async (prompt: string): Promise<string | null> => {
       {
         timeout: 30000,
         headers: {
-          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
           "HTTP-Referer": OPENROUTER_REFERER,
           "X-OpenRouter-Title": OPENROUTER_TITLE,
@@ -94,12 +95,10 @@ const callOpenRouter = async (prompt: string): Promise<string | null> => {
     return res.data?.choices?.[0]?.message?.content?.trim() || null;
   } catch (error) {
     const status = axios.isAxiosError(error) ? error.response?.status : undefined;
-    console.error("OpenRouter assistant error:", status || "", error);
+    logger.error("OpenRouter assistant error", { status: status || "n/a" });
     return null;
   }
 };
-
-// Gemini fallback is intentionally disabled for now.
 
 export async function GET(request: Request) {
   try {
@@ -109,11 +108,14 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const limit = Math.min(Number(searchParams.get("limit") || 40), 100);
 
-    const memory = await prisma.contactMessage.findMany({
-      where: { subject: ASSISTANT_SUBJECT },
-      orderBy: { createdAt: "asc" },
-      take: limit,
-    });
+    const [memory, aiIntegration] = await Promise.all([
+      prisma.contactMessage.findMany({
+        where: { subject: ASSISTANT_SUBJECT },
+        orderBy: { createdAt: "asc" },
+        take: limit,
+      }),
+      prisma.integrationConfig.findUnique({ where: { integrationType: "ai" } }),
+    ]);
 
     const messages = memory.map((item) => ({
       id: item.id,
@@ -122,13 +124,12 @@ export async function GET(request: Request) {
       createdAt: item.createdAt,
     }));
 
-    const activeModel = OPENROUTER_API_KEY
-      ? OPENROUTER_MODEL
-      : "local-fallback";
+    const configuredKey = decryptSecret(aiIntegration?.providerApiKeyEncrypted);
+    const activeModel = configuredKey ? aiIntegration?.provider || OPENROUTER_MODEL : "local-fallback";
 
     return NextResponse.json({ messages, model: activeModel });
   } catch (error) {
-    console.error("Failed to fetch assistant memory", error);
+    logger.error("Failed to fetch assistant memory", { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json({ error: "Failed to fetch assistant memory" }, { status: 500 });
   }
 }
@@ -145,7 +146,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Message is required" }, { status: 400 });
     }
 
-    const [rawCount, reviewCount, readyCount, eventsCount, articlesCount, mediaCount, settings, recentMemory] =
+    const [rawCount, reviewCount, readyCount, eventsCount, articlesCount, mediaCount, settings, recentMemory, aiIntegration, telegramIntegration] =
       await Promise.all([
         prisma.articleRaw.count({ where: { processed: { is: null } } }),
         prisma.articleProcessed.count({ where: { status: "pending_review" } }),
@@ -159,16 +160,20 @@ export async function POST(request: Request) {
           orderBy: { createdAt: "desc" },
           take: 20,
         }),
+        prisma.integrationConfig.findUnique({ where: { integrationType: "ai" } }),
+        prisma.integrationConfig.findUnique({ where: { integrationType: "telegram" } }),
       ]);
 
-    const directCommand = commandReply(userMessage, {
+    const stats = {
       raw: rawCount,
       review: reviewCount,
       ready: readyCount,
       events: eventsCount,
       articles: articlesCount,
       media: mediaCount,
-    });
+    };
+
+    const directCommand = commandReply(userMessage, stats);
 
     await prisma.contactMessage.create({
       data: {
@@ -202,12 +207,21 @@ export async function POST(request: Request) {
       .map((item) => `${item.email === "assistant@system.local" ? "Assistant" : "User"}: ${item.message}`)
       .join("\n");
 
+    const aiKeyFromConfig = decryptSecret(aiIntegration?.providerApiKeyEncrypted);
+    const assistantModel = aiIntegration?.provider || OPENROUTER_MODEL;
+
     const prompt = [
-      "You are a real AI assistant embedded in an admin panel for a university media platform.",
-      "You must answer any platform-related question: website strategy, content quality, SEO, performance, UX, automation operations, events, settings, governance, and troubleshooting.",
-      "Do not say you can only help with automation. Be practical and specific.",
-      "When the user asks for recommendations, provide concise action steps.",
-      "When asked for status, use the live metrics below.",
+      "You are a senior AI operations copilot embedded in an admin panel for a university media platform.",
+      "You must answer any platform-related question: strategy, editorial quality, SEO, performance, UX, data workflows, automation, events, settings, governance, integrations, and troubleshooting.",
+      "Give practical action plans with priorities and tradeoffs when users ask for implementation guidance.",
+      "If a question touches security, include secure-by-default recommendations.",
+      "Be clear, concise, and concrete.",
+      "",
+      "Platform stack context:",
+      "- Framework: Next.js App Router + TypeScript",
+      "- ORM/DB: Prisma + PostgreSQL",
+      "- Automation: RSS ingest -> AI process -> human review -> publish",
+      "- Integrations: AI provider and Telegram connector with encrypted secret storage",
       "",
       "Live platform context:",
       `- Site name: ${settings?.siteName || "University Media Portal"}`,
@@ -219,30 +233,22 @@ export async function POST(request: Request) {
       `- Published articles: ${articlesCount}`,
       `- Events: ${eventsCount}`,
       `- Media assets: ${mediaCount}`,
+      `- AI integration enabled: ${Boolean(aiIntegration?.enabled)}`,
+      `- Telegram integration enabled: ${Boolean(telegramIntegration?.enabled)}`,
+      `- Telegram sendOnPublish: ${Boolean(telegramIntegration?.sendOnPublish)}`,
       "",
       "Recent conversation:",
       history || "(no history)",
       "",
       "Answer in the same language as the user message when possible.",
-      "If requirements are about which news should be fetched/processed, mention that admin requirements should be used during pull/process so irrelevant raw items are not shown.",
-      "",
-      `User message: ${userMessage}`,
+      "User message:",
+      userMessage,
     ].join("\n");
 
-    const openRouterReply = await callOpenRouter(prompt);
-    const aiReply = openRouterReply;
+    const openRouterReply = await callOpenRouter(prompt, aiKeyFromConfig || process.env.OPENROUTER_API_KEY || null, assistantModel);
 
-    const usedFallback = !aiReply;
-    const reply =
-      aiReply ||
-      fallbackReply(userMessage, {
-        raw: rawCount,
-        review: reviewCount,
-        ready: readyCount,
-        events: eventsCount,
-        articles: articlesCount,
-        media: mediaCount,
-      });
+    const usedFallback = !openRouterReply;
+    const reply = openRouterReply || fallbackReply(userMessage, stats);
 
     await prisma.contactMessage.create({
       data: {
@@ -253,20 +259,18 @@ export async function POST(request: Request) {
       },
     });
 
-    const modelUsed = openRouterReply ? OPENROUTER_MODEL : "local-fallback";
-
     return NextResponse.json({
       reply,
-      model: modelUsed,
+      model: openRouterReply ? assistantModel : "local-fallback",
       usedFallback,
       fallbackReason: usedFallback
-        ? OPENROUTER_API_KEY
-          ? "OpenRouter request failed (401 usually means invalid OPENROUTER_API_KEY)."
-          : "OPENROUTER_API_KEY is not configured."
+        ? aiKeyFromConfig || process.env.OPENROUTER_API_KEY
+          ? "Configured AI provider request failed. Falling back to local assistant mode."
+          : "No AI provider API key configured in integrations or environment."
         : null,
     });
   } catch (error) {
-    console.error("Admin assistant error:", error);
+    logger.error("Admin assistant error", { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json({ error: "Failed to respond" }, { status: 500 });
   }
 }

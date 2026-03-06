@@ -7,8 +7,8 @@ import {
   formatIntegrationForClient,
   normalizeIntegrationPayload,
 } from "@/lib/integrations";
-import { storeSecret } from "@/lib/secret-storage";
 import { validateEnv } from "@/lib/env";
+import { logger } from "@/lib/logger";
 
 async function ensureDefaults() {
   await prisma.integrationConfig.upsert({
@@ -46,12 +46,12 @@ export async function GET(request: Request) {
       configs: configs.map(formatIntegrationForClient),
       envValidation: validateEnv(["DATABASE_URL"]),
       secretStorage: {
-        provider: "placeholder-in-memory",
-        productionReady: false,
+        provider: "encrypted-database-placeholder",
+        productionReady: Boolean(process.env.ADMIN_SECRET_ENCRYPTION_KEY),
       },
     });
   } catch (error) {
-    console.error("Failed to load integrations", error);
+    logger.error("Failed to load integrations", { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json({ error: "Failed to load integrations" }, { status: 500 });
   }
 }
@@ -66,18 +66,13 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
     }
 
-    if (payload.providerApiKey) {
-      await storeSecret(`${payload.integrationType.toUpperCase()}_PROVIDER_KEY`, payload.providerApiKey);
-    }
-
     const config = await prisma.integrationConfig.upsert({
       where: { integrationType: payload.integrationType },
       update: {
         enabled: payload.enabled,
         provider: payload.provider || null,
-        providerApiKey: payload.providerApiKey || null,
         channelId: payload.channelId || null,
-        webhookToken: payload.webhookToken || null,
+        sendOnPublish: payload.sendOnPublish ?? false,
         aiSummarization: payload.aiSummarization ?? true,
         aiCategorization: payload.aiCategorization ?? true,
         translationPolicy: payload.translationPolicy ?? "full",
@@ -87,9 +82,8 @@ export async function PUT(request: Request) {
         integrationType: payload.integrationType,
         enabled: payload.enabled,
         provider: payload.provider || null,
-        providerApiKey: payload.providerApiKey || null,
         channelId: payload.channelId || null,
-        webhookToken: payload.webhookToken || null,
+        sendOnPublish: payload.sendOnPublish ?? false,
         aiSummarization: payload.aiSummarization ?? true,
         aiCategorization: payload.aiCategorization ?? true,
         translationPolicy: payload.translationPolicy ?? "full",
@@ -97,9 +91,14 @@ export async function PUT(request: Request) {
       },
     });
 
+    logger.info("Integration config updated", {
+      integrationType: payload.integrationType,
+      enabled: payload.enabled,
+    });
+
     return NextResponse.json({ config: formatIntegrationForClient(config) });
   } catch (error) {
-    console.error("Failed to save integration config", error);
+    logger.error("Failed to save integration config", { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json({ error: "Failed to save integration config" }, { status: 500 });
   }
 }

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
 import { prisma } from "@/lib/prisma";
 import { sendTelegramMessage } from "@/lib/telegram";
+import { decryptSecret } from "@/lib/security";
+import { logger } from "@/lib/logger";
 
 export async function POST(request: Request) {
   try {
@@ -22,7 +24,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Telegram integration is disabled" }, { status: 400 });
     }
 
-    if (!config.providerApiKey || !config.channelId) {
+    const botToken = decryptSecret(config.providerApiKeyEncrypted);
+    if (!botToken || !config.channelId) {
       return NextResponse.json(
         { error: "Telegram provider key and channel ID are required" },
         { status: 400 },
@@ -30,7 +33,7 @@ export async function POST(request: Request) {
     }
 
     await sendTelegramMessage({
-      botToken: config.providerApiKey,
+      botToken,
       chatId: config.channelId,
       text: message,
       retries: config.retryLimit,
@@ -38,7 +41,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ ok: true, message: "Test message sent" });
   } catch (error) {
-    console.error("Failed to send Telegram test message", error);
+    logger.error("Failed to send Telegram test message", {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to send test message" },
       { status: 500 },

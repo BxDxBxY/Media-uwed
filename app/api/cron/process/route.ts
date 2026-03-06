@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { detectSourceLanguage, processNewsAI } from "@/lib/ai";
 import { scrapeArticleDetails } from "@/lib/scraper";
+import { decryptSecret } from "@/lib/security";
 import {
   deriveTermsFromInstructions,
   matchesRequirements,
@@ -52,6 +53,18 @@ export async function POST(request: Request) {
       matchesRequirements(raw, effectiveInclude, exclude),
     );
 
+    const aiIntegration = await prisma.integrationConfig.findUnique({
+      where: { integrationType: "ai" },
+    });
+
+    if (aiIntegration && !aiIntegration.enabled) {
+      return NextResponse.json({
+        processedCount: 0,
+        skippedByRequirements: targetArticles.length,
+        message: "AI integration is disabled in admin integrations settings.",
+      });
+    }
+
     if (filteredArticles.length === 0) {
       return NextResponse.json({
         processedCount: 0,
@@ -66,9 +79,7 @@ export async function POST(request: Request) {
     let processedCount = 0;
     let failedCount = 0;
 
-    const aiIntegration = await prisma.integrationConfig.findUnique({
-      where: { integrationType: "ai" },
-    });
+    const aiProviderApiKey = decryptSecret(aiIntegration?.providerApiKeyEncrypted);
 
     for (const raw of filteredArticles) {
       try {
@@ -128,6 +139,8 @@ export async function POST(request: Request) {
               aiIntegration?.translationPolicy === "disabled"
                 ? aiIntegration.translationPolicy
                 : "full",
+            providerApiKey: aiProviderApiKey || undefined,
+            providerModel: aiIntegration?.provider || undefined,
           },
         );
 

@@ -6,19 +6,23 @@ export type IntegrationConfigPayload = {
   integrationType: IntegrationType;
   enabled: boolean;
   provider?: string;
-  providerApiKey?: string;
   channelId?: string;
-  webhookToken?: string;
+  sendOnPublish?: boolean;
   aiSummarization?: boolean;
   aiCategorization?: boolean;
   translationPolicy?: "full" | "summary_only" | "disabled";
   retryLimit?: number;
 };
 
+export type IntegrationSecretPayload = {
+  integrationType: IntegrationType;
+  providerApiKey?: string;
+  webhookToken?: string;
+};
+
 export const DEFAULT_AI_CONFIG: Omit<IntegrationConfigPayload, "integrationType"> = {
   enabled: true,
   provider: "openrouter",
-  providerApiKey: "",
   aiSummarization: true,
   aiCategorization: true,
   translationPolicy: "full",
@@ -28,9 +32,8 @@ export const DEFAULT_AI_CONFIG: Omit<IntegrationConfigPayload, "integrationType"
 export const DEFAULT_TELEGRAM_CONFIG: Omit<IntegrationConfigPayload, "integrationType"> = {
   enabled: false,
   provider: "telegram-bot-api",
-  providerApiKey: "",
   channelId: "",
-  webhookToken: "",
+  sendOnPublish: false,
   retryLimit: 3,
 };
 
@@ -49,13 +52,27 @@ export function normalizeIntegrationPayload(input: unknown): IntegrationConfigPa
     integrationType: body.integrationType,
     enabled: Boolean(body.enabled),
     provider: typeof body.provider === "string" ? body.provider.trim() : undefined,
-    providerApiKey: typeof body.providerApiKey === "string" ? body.providerApiKey.trim() : undefined,
     channelId: typeof body.channelId === "string" ? body.channelId.trim() : undefined,
-    webhookToken: typeof body.webhookToken === "string" ? body.webhookToken.trim() : undefined,
+    sendOnPublish: Boolean(body.sendOnPublish),
     aiSummarization: body.aiSummarization === undefined ? true : Boolean(body.aiSummarization),
     aiCategorization: body.aiCategorization === undefined ? true : Boolean(body.aiCategorization),
     translationPolicy,
     retryLimit: typeof body.retryLimit === "number" ? Math.max(0, Math.min(10, body.retryLimit)) : 3,
+  };
+}
+
+export function normalizeSecretPayload(input: unknown): IntegrationSecretPayload | null {
+  const body = (input ?? {}) as Record<string, unknown>;
+  if (body.integrationType !== "ai" && body.integrationType !== "telegram") return null;
+
+  return {
+    integrationType: body.integrationType,
+    providerApiKey:
+      typeof body.providerApiKey === "string" && body.providerApiKey.trim()
+        ? body.providerApiKey.trim()
+        : undefined,
+    webhookToken:
+      typeof body.webhookToken === "string" && body.webhookToken.trim() ? body.webhookToken.trim() : undefined,
   };
 }
 
@@ -64,13 +81,15 @@ export function formatIntegrationForClient(config: IntegrationConfig) {
     integrationType: config.integrationType,
     enabled: config.enabled,
     provider: config.provider || "",
-    providerApiKey: config.providerApiKey || "",
     channelId: config.channelId || "",
-    webhookToken: config.webhookToken || "",
+    sendOnPublish: config.sendOnPublish,
     aiSummarization: config.aiSummarization,
     aiCategorization: config.aiCategorization,
     translationPolicy: config.translationPolicy,
     retryLimit: config.retryLimit,
+    hasProviderApiKey: Boolean(config.providerApiKeyEncrypted),
+    hasWebhookToken: Boolean(config.webhookTokenEncrypted),
+    secretFingerprint: config.providerApiKeyHash || null,
     updatedAt: config.updatedAt,
   };
 }

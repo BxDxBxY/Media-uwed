@@ -39,9 +39,11 @@ export type IntegrationConfigMinAggregateOutputType = {
   integrationType: string | null
   enabled: boolean | null
   provider: string | null
-  providerApiKey: string | null
+  providerApiKeyEncrypted: string | null
+  providerApiKeyHash: string | null
   channelId: string | null
-  webhookToken: string | null
+  webhookTokenEncrypted: string | null
+  sendOnPublish: boolean | null
   aiSummarization: boolean | null
   aiCategorization: boolean | null
   translationPolicy: string | null
@@ -55,9 +57,11 @@ export type IntegrationConfigMaxAggregateOutputType = {
   integrationType: string | null
   enabled: boolean | null
   provider: string | null
-  providerApiKey: string | null
+  providerApiKeyEncrypted: string | null
+  providerApiKeyHash: string | null
   channelId: string | null
-  webhookToken: string | null
+  webhookTokenEncrypted: string | null
+  sendOnPublish: boolean | null
   aiSummarization: boolean | null
   aiCategorization: boolean | null
   translationPolicy: string | null
@@ -71,9 +75,11 @@ export type IntegrationConfigCountAggregateOutputType = {
   integrationType: number
   enabled: number
   provider: number
-  providerApiKey: number
+  providerApiKeyEncrypted: number
+  providerApiKeyHash: number
   channelId: number
-  webhookToken: number
+  webhookTokenEncrypted: number
+  sendOnPublish: number
   aiSummarization: number
   aiCategorization: number
   translationPolicy: number
@@ -97,9 +103,11 @@ export type IntegrationConfigMinAggregateInputType = {
   integrationType?: true
   enabled?: true
   provider?: true
-  providerApiKey?: true
+  providerApiKeyEncrypted?: true
+  providerApiKeyHash?: true
   channelId?: true
-  webhookToken?: true
+  webhookTokenEncrypted?: true
+  sendOnPublish?: true
   aiSummarization?: true
   aiCategorization?: true
   translationPolicy?: true
@@ -113,9 +121,11 @@ export type IntegrationConfigMaxAggregateInputType = {
   integrationType?: true
   enabled?: true
   provider?: true
-  providerApiKey?: true
+  providerApiKeyEncrypted?: true
+  providerApiKeyHash?: true
   channelId?: true
-  webhookToken?: true
+  webhookTokenEncrypted?: true
+  sendOnPublish?: true
   aiSummarization?: true
   aiCategorization?: true
   translationPolicy?: true
@@ -129,9 +139,11 @@ export type IntegrationConfigCountAggregateInputType = {
   integrationType?: true
   enabled?: true
   provider?: true
-  providerApiKey?: true
+  providerApiKeyEncrypted?: true
+  providerApiKeyHash?: true
   channelId?: true
-  webhookToken?: true
+  webhookTokenEncrypted?: true
+  sendOnPublish?: true
   aiSummarization?: true
   aiCategorization?: true
   translationPolicy?: true
@@ -232,9 +244,11 @@ export type IntegrationConfigGroupByOutputType = {
   integrationType: string
   enabled: boolean
   provider: string | null
-  providerApiKey: string | null
+  providerApiKeyEncrypted: string | null
+  providerApiKeyHash: string | null
   channelId: string | null
-  webhookToken: string | null
+  webhookTokenEncrypted: string | null
+  sendOnPublish: boolean
   aiSummarization: boolean
   aiCategorization: boolean
   translationPolicy: string
@@ -271,9 +285,11 @@ export type IntegrationConfigWhereInput = {
   integrationType?: Prisma.StringFilter<"IntegrationConfig"> | string
   enabled?: Prisma.BoolFilter<"IntegrationConfig"> | boolean
   provider?: Prisma.StringNullableFilter<"IntegrationConfig"> | string | null
-  providerApiKey?: Prisma.StringNullableFilter<"IntegrationConfig"> | string | null
+  providerApiKeyEncrypted?: Prisma.StringNullableFilter<"IntegrationConfig"> | string | null
+  providerApiKeyHash?: Prisma.StringNullableFilter<"IntegrationConfig"> | string | null
   channelId?: Prisma.StringNullableFilter<"IntegrationConfig"> | string | null
-  webhookToken?: Prisma.StringNullableFilter<"IntegrationConfig"> | string | null
+  webhookTokenEncrypted?: Prisma.StringNullableFilter<"IntegrationConfig"> | string | null
+  sendOnPublish?: Prisma.BoolFilter<"IntegrationConfig"> | boolean
   aiSummarization?: Prisma.BoolFilter<"IntegrationConfig"> | boolean
   aiCategorization?: Prisma.BoolFilter<"IntegrationConfig"> | boolean
   translationPolicy?: Prisma.StringFilter<"IntegrationConfig"> | string
@@ -287,9 +303,11 @@ export type IntegrationConfigOrderByWithRelationInput = {
   integrationType?: Prisma.SortOrder
   enabled?: Prisma.SortOrder
   provider?: Prisma.SortOrderInput | Prisma.SortOrder
-  providerApiKey?: Prisma.SortOrderInput | Prisma.SortOrder
+  providerApiKeyEncrypted?: Prisma.SortOrderInput | Prisma.SortOrder
+  providerApiKeyHash?: Prisma.SortOrderInput | Prisma.SortOrder
   channelId?: Prisma.SortOrderInput | Prisma.SortOrder
-  webhookToken?: Prisma.SortOrderInput | Prisma.SortOrder
+  webhookTokenEncrypted?: Prisma.SortOrderInput | Prisma.SortOrder
+  sendOnPublish?: Prisma.SortOrder
   aiSummarization?: Prisma.SortOrder
   aiCategorization?: Prisma.SortOrder
   translationPolicy?: Prisma.SortOrder
@@ -306,9 +324,11 @@ export type IntegrationConfigWhereUniqueInput = Prisma.AtLeast<{
   NOT?: Prisma.IntegrationConfigWhereInput | Prisma.IntegrationConfigWhereInput[]
   enabled?: Prisma.BoolFilter<"IntegrationConfig"> | boolean
   provider?: Prisma.StringNullableFilter<"IntegrationConfig"> | string | null
-  providerApiKey?: Prisma.StringNullableFilter<"IntegrationConfig"> | string | null
+  providerApiKeyEncrypted?: Prisma.StringNullableFilter<"IntegrationConfig"> | string | null
+  providerApiKeyHash?: Prisma.StringNullableFilter<"IntegrationConfig"> | string | null
   channelId?: Prisma.StringNullableFilter<"IntegrationConfig"> | string | null
-  webhookToken?: Prisma.StringNullableFilter<"IntegrationConfig"> | string | null
+  webhookTokenEncrypted?: Prisma.StringNullableFilter<"IntegrationConfig"> | string | null
+  sendOnPublish?: Prisma.BoolFilter<"IntegrationConfig"> | boolean
   aiSummarization?: Prisma.BoolFilter<"IntegrationConfig"> | boolean
   aiCategorization?: Prisma.BoolFilter<"IntegrationConfig"> | boolean
   translationPolicy?: Prisma.StringFilter<"IntegrationConfig"> | string
@@ -322,9 +342,11 @@ export type IntegrationConfigOrderByWithAggregationInput = {
   integrationType?: Prisma.SortOrder
   enabled?: Prisma.SortOrder
   provider?: Prisma.SortOrderInput | Prisma.SortOrder
-  providerApiKey?: Prisma.SortOrderInput | Prisma.SortOrder
+  providerApiKeyEncrypted?: Prisma.SortOrderInput | Prisma.SortOrder
+  providerApiKeyHash?: Prisma.SortOrderInput | Prisma.SortOrder
   channelId?: Prisma.SortOrderInput | Prisma.SortOrder
-  webhookToken?: Prisma.SortOrderInput | Prisma.SortOrder
+  webhookTokenEncrypted?: Prisma.SortOrderInput | Prisma.SortOrder
+  sendOnPublish?: Prisma.SortOrder
   aiSummarization?: Prisma.SortOrder
   aiCategorization?: Prisma.SortOrder
   translationPolicy?: Prisma.SortOrder
@@ -346,9 +368,11 @@ export type IntegrationConfigScalarWhereWithAggregatesInput = {
   integrationType?: Prisma.StringWithAggregatesFilter<"IntegrationConfig"> | string
   enabled?: Prisma.BoolWithAggregatesFilter<"IntegrationConfig"> | boolean
   provider?: Prisma.StringNullableWithAggregatesFilter<"IntegrationConfig"> | string | null
-  providerApiKey?: Prisma.StringNullableWithAggregatesFilter<"IntegrationConfig"> | string | null
+  providerApiKeyEncrypted?: Prisma.StringNullableWithAggregatesFilter<"IntegrationConfig"> | string | null
+  providerApiKeyHash?: Prisma.StringNullableWithAggregatesFilter<"IntegrationConfig"> | string | null
   channelId?: Prisma.StringNullableWithAggregatesFilter<"IntegrationConfig"> | string | null
-  webhookToken?: Prisma.StringNullableWithAggregatesFilter<"IntegrationConfig"> | string | null
+  webhookTokenEncrypted?: Prisma.StringNullableWithAggregatesFilter<"IntegrationConfig"> | string | null
+  sendOnPublish?: Prisma.BoolWithAggregatesFilter<"IntegrationConfig"> | boolean
   aiSummarization?: Prisma.BoolWithAggregatesFilter<"IntegrationConfig"> | boolean
   aiCategorization?: Prisma.BoolWithAggregatesFilter<"IntegrationConfig"> | boolean
   translationPolicy?: Prisma.StringWithAggregatesFilter<"IntegrationConfig"> | string
@@ -362,9 +386,11 @@ export type IntegrationConfigCreateInput = {
   integrationType: string
   enabled?: boolean
   provider?: string | null
-  providerApiKey?: string | null
+  providerApiKeyEncrypted?: string | null
+  providerApiKeyHash?: string | null
   channelId?: string | null
-  webhookToken?: string | null
+  webhookTokenEncrypted?: string | null
+  sendOnPublish?: boolean
   aiSummarization?: boolean
   aiCategorization?: boolean
   translationPolicy?: string
@@ -378,9 +404,11 @@ export type IntegrationConfigUncheckedCreateInput = {
   integrationType: string
   enabled?: boolean
   provider?: string | null
-  providerApiKey?: string | null
+  providerApiKeyEncrypted?: string | null
+  providerApiKeyHash?: string | null
   channelId?: string | null
-  webhookToken?: string | null
+  webhookTokenEncrypted?: string | null
+  sendOnPublish?: boolean
   aiSummarization?: boolean
   aiCategorization?: boolean
   translationPolicy?: string
@@ -394,9 +422,11 @@ export type IntegrationConfigUpdateInput = {
   integrationType?: Prisma.StringFieldUpdateOperationsInput | string
   enabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   provider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  providerApiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  providerApiKeyEncrypted?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  providerApiKeyHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   channelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  webhookToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  webhookTokenEncrypted?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sendOnPublish?: Prisma.BoolFieldUpdateOperationsInput | boolean
   aiSummarization?: Prisma.BoolFieldUpdateOperationsInput | boolean
   aiCategorization?: Prisma.BoolFieldUpdateOperationsInput | boolean
   translationPolicy?: Prisma.StringFieldUpdateOperationsInput | string
@@ -410,9 +440,11 @@ export type IntegrationConfigUncheckedUpdateInput = {
   integrationType?: Prisma.StringFieldUpdateOperationsInput | string
   enabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   provider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  providerApiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  providerApiKeyEncrypted?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  providerApiKeyHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   channelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  webhookToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  webhookTokenEncrypted?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sendOnPublish?: Prisma.BoolFieldUpdateOperationsInput | boolean
   aiSummarization?: Prisma.BoolFieldUpdateOperationsInput | boolean
   aiCategorization?: Prisma.BoolFieldUpdateOperationsInput | boolean
   translationPolicy?: Prisma.StringFieldUpdateOperationsInput | string
@@ -426,9 +458,11 @@ export type IntegrationConfigCreateManyInput = {
   integrationType: string
   enabled?: boolean
   provider?: string | null
-  providerApiKey?: string | null
+  providerApiKeyEncrypted?: string | null
+  providerApiKeyHash?: string | null
   channelId?: string | null
-  webhookToken?: string | null
+  webhookTokenEncrypted?: string | null
+  sendOnPublish?: boolean
   aiSummarization?: boolean
   aiCategorization?: boolean
   translationPolicy?: string
@@ -442,9 +476,11 @@ export type IntegrationConfigUpdateManyMutationInput = {
   integrationType?: Prisma.StringFieldUpdateOperationsInput | string
   enabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   provider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  providerApiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  providerApiKeyEncrypted?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  providerApiKeyHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   channelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  webhookToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  webhookTokenEncrypted?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sendOnPublish?: Prisma.BoolFieldUpdateOperationsInput | boolean
   aiSummarization?: Prisma.BoolFieldUpdateOperationsInput | boolean
   aiCategorization?: Prisma.BoolFieldUpdateOperationsInput | boolean
   translationPolicy?: Prisma.StringFieldUpdateOperationsInput | string
@@ -458,9 +494,11 @@ export type IntegrationConfigUncheckedUpdateManyInput = {
   integrationType?: Prisma.StringFieldUpdateOperationsInput | string
   enabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   provider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  providerApiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  providerApiKeyEncrypted?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  providerApiKeyHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   channelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  webhookToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  webhookTokenEncrypted?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sendOnPublish?: Prisma.BoolFieldUpdateOperationsInput | boolean
   aiSummarization?: Prisma.BoolFieldUpdateOperationsInput | boolean
   aiCategorization?: Prisma.BoolFieldUpdateOperationsInput | boolean
   translationPolicy?: Prisma.StringFieldUpdateOperationsInput | string
@@ -474,9 +512,11 @@ export type IntegrationConfigCountOrderByAggregateInput = {
   integrationType?: Prisma.SortOrder
   enabled?: Prisma.SortOrder
   provider?: Prisma.SortOrder
-  providerApiKey?: Prisma.SortOrder
+  providerApiKeyEncrypted?: Prisma.SortOrder
+  providerApiKeyHash?: Prisma.SortOrder
   channelId?: Prisma.SortOrder
-  webhookToken?: Prisma.SortOrder
+  webhookTokenEncrypted?: Prisma.SortOrder
+  sendOnPublish?: Prisma.SortOrder
   aiSummarization?: Prisma.SortOrder
   aiCategorization?: Prisma.SortOrder
   translationPolicy?: Prisma.SortOrder
@@ -494,9 +534,11 @@ export type IntegrationConfigMaxOrderByAggregateInput = {
   integrationType?: Prisma.SortOrder
   enabled?: Prisma.SortOrder
   provider?: Prisma.SortOrder
-  providerApiKey?: Prisma.SortOrder
+  providerApiKeyEncrypted?: Prisma.SortOrder
+  providerApiKeyHash?: Prisma.SortOrder
   channelId?: Prisma.SortOrder
-  webhookToken?: Prisma.SortOrder
+  webhookTokenEncrypted?: Prisma.SortOrder
+  sendOnPublish?: Prisma.SortOrder
   aiSummarization?: Prisma.SortOrder
   aiCategorization?: Prisma.SortOrder
   translationPolicy?: Prisma.SortOrder
@@ -510,9 +552,11 @@ export type IntegrationConfigMinOrderByAggregateInput = {
   integrationType?: Prisma.SortOrder
   enabled?: Prisma.SortOrder
   provider?: Prisma.SortOrder
-  providerApiKey?: Prisma.SortOrder
+  providerApiKeyEncrypted?: Prisma.SortOrder
+  providerApiKeyHash?: Prisma.SortOrder
   channelId?: Prisma.SortOrder
-  webhookToken?: Prisma.SortOrder
+  webhookTokenEncrypted?: Prisma.SortOrder
+  sendOnPublish?: Prisma.SortOrder
   aiSummarization?: Prisma.SortOrder
   aiCategorization?: Prisma.SortOrder
   translationPolicy?: Prisma.SortOrder
@@ -532,9 +576,11 @@ export type IntegrationConfigSelect<ExtArgs extends runtime.Types.Extensions.Int
   integrationType?: boolean
   enabled?: boolean
   provider?: boolean
-  providerApiKey?: boolean
+  providerApiKeyEncrypted?: boolean
+  providerApiKeyHash?: boolean
   channelId?: boolean
-  webhookToken?: boolean
+  webhookTokenEncrypted?: boolean
+  sendOnPublish?: boolean
   aiSummarization?: boolean
   aiCategorization?: boolean
   translationPolicy?: boolean
@@ -548,9 +594,11 @@ export type IntegrationConfigSelectCreateManyAndReturn<ExtArgs extends runtime.T
   integrationType?: boolean
   enabled?: boolean
   provider?: boolean
-  providerApiKey?: boolean
+  providerApiKeyEncrypted?: boolean
+  providerApiKeyHash?: boolean
   channelId?: boolean
-  webhookToken?: boolean
+  webhookTokenEncrypted?: boolean
+  sendOnPublish?: boolean
   aiSummarization?: boolean
   aiCategorization?: boolean
   translationPolicy?: boolean
@@ -564,9 +612,11 @@ export type IntegrationConfigSelectUpdateManyAndReturn<ExtArgs extends runtime.T
   integrationType?: boolean
   enabled?: boolean
   provider?: boolean
-  providerApiKey?: boolean
+  providerApiKeyEncrypted?: boolean
+  providerApiKeyHash?: boolean
   channelId?: boolean
-  webhookToken?: boolean
+  webhookTokenEncrypted?: boolean
+  sendOnPublish?: boolean
   aiSummarization?: boolean
   aiCategorization?: boolean
   translationPolicy?: boolean
@@ -580,9 +630,11 @@ export type IntegrationConfigSelectScalar = {
   integrationType?: boolean
   enabled?: boolean
   provider?: boolean
-  providerApiKey?: boolean
+  providerApiKeyEncrypted?: boolean
+  providerApiKeyHash?: boolean
   channelId?: boolean
-  webhookToken?: boolean
+  webhookTokenEncrypted?: boolean
+  sendOnPublish?: boolean
   aiSummarization?: boolean
   aiCategorization?: boolean
   translationPolicy?: boolean
@@ -591,7 +643,7 @@ export type IntegrationConfigSelectScalar = {
   updatedAt?: boolean
 }
 
-export type IntegrationConfigOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "integrationType" | "enabled" | "provider" | "providerApiKey" | "channelId" | "webhookToken" | "aiSummarization" | "aiCategorization" | "translationPolicy" | "retryLimit" | "createdAt" | "updatedAt", ExtArgs["result"]["integrationConfig"]>
+export type IntegrationConfigOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "integrationType" | "enabled" | "provider" | "providerApiKeyEncrypted" | "providerApiKeyHash" | "channelId" | "webhookTokenEncrypted" | "sendOnPublish" | "aiSummarization" | "aiCategorization" | "translationPolicy" | "retryLimit" | "createdAt" | "updatedAt", ExtArgs["result"]["integrationConfig"]>
 
 export type $IntegrationConfigPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "IntegrationConfig"
@@ -601,9 +653,11 @@ export type $IntegrationConfigPayload<ExtArgs extends runtime.Types.Extensions.I
     integrationType: string
     enabled: boolean
     provider: string | null
-    providerApiKey: string | null
+    providerApiKeyEncrypted: string | null
+    providerApiKeyHash: string | null
     channelId: string | null
-    webhookToken: string | null
+    webhookTokenEncrypted: string | null
+    sendOnPublish: boolean
     aiSummarization: boolean
     aiCategorization: boolean
     translationPolicy: string
@@ -1037,9 +1091,11 @@ export interface IntegrationConfigFieldRefs {
   readonly integrationType: Prisma.FieldRef<"IntegrationConfig", 'String'>
   readonly enabled: Prisma.FieldRef<"IntegrationConfig", 'Boolean'>
   readonly provider: Prisma.FieldRef<"IntegrationConfig", 'String'>
-  readonly providerApiKey: Prisma.FieldRef<"IntegrationConfig", 'String'>
+  readonly providerApiKeyEncrypted: Prisma.FieldRef<"IntegrationConfig", 'String'>
+  readonly providerApiKeyHash: Prisma.FieldRef<"IntegrationConfig", 'String'>
   readonly channelId: Prisma.FieldRef<"IntegrationConfig", 'String'>
-  readonly webhookToken: Prisma.FieldRef<"IntegrationConfig", 'String'>
+  readonly webhookTokenEncrypted: Prisma.FieldRef<"IntegrationConfig", 'String'>
+  readonly sendOnPublish: Prisma.FieldRef<"IntegrationConfig", 'Boolean'>
   readonly aiSummarization: Prisma.FieldRef<"IntegrationConfig", 'Boolean'>
   readonly aiCategorization: Prisma.FieldRef<"IntegrationConfig", 'Boolean'>
   readonly translationPolicy: Prisma.FieldRef<"IntegrationConfig", 'String'>
