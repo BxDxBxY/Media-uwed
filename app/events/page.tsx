@@ -1,13 +1,51 @@
 "use client";
 
 import { useGlobalContext } from "@/lib/context";
-import { Calendar, MapPin, Users, ArrowRight, Loader2, Globe } from "lucide-react";
+import { parseEventTimestamp } from "@/lib/event-datetime";
+import { getEventCoverImage } from "@/lib/event-images";
+import { Calendar, MapPin, ArrowRight, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export default function EventsPage() {
   const { events, isLoading, language } = useGlobalContext();
   const [activeTab, setActiveTab] = useState<"upcoming" | "past">("upcoming");
+
+  const { upcomingEvents, pastEvents } = useMemo(() => {
+    const now = Date.now();
+    const parsedEvents = events.map((event) => ({
+      event,
+      eventTimestamp: parseEventTimestamp({
+        date: event.date,
+        time: event.time,
+      }),
+    }));
+
+    const upcoming = parsedEvents
+      .filter(({ eventTimestamp }) => eventTimestamp === null || eventTimestamp >= now)
+      .sort((a, b) => {
+        if (a.eventTimestamp === null && b.eventTimestamp === null) return 0;
+        if (a.eventTimestamp === null) return 1;
+        if (b.eventTimestamp === null) return -1;
+        return a.eventTimestamp - b.eventTimestamp;
+      })
+      .map(({ event }) => event);
+
+    const past = parsedEvents
+      .filter(({ eventTimestamp }) => eventTimestamp !== null && eventTimestamp < now)
+      .sort((a, b) => (b.eventTimestamp as number) - (a.eventTimestamp as number))
+      .map(({ event }) => event);
+
+    return { upcomingEvents: upcoming, pastEvents: past };
+  }, [events]);
+
+  useEffect(() => {
+    if (upcomingEvents.length === 0 && pastEvents.length > 0) {
+      setActiveTab("past");
+    }
+  }, [pastEvents.length, upcomingEvents.length]);
+
+  const visibleEvents = activeTab === "upcoming" ? upcomingEvents : pastEvents;
 
   const getLocalized = (event: any, key: string) => {
     if (language === "ru") {
@@ -57,7 +95,7 @@ export default function EventsPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {events.length > 0 ? events.map((event) => (
+        {visibleEvents.length > 0 ? visibleEvents.map((event) => (
           <Link
             href={`/events/${event.id}`}
             key={event.id}
@@ -65,13 +103,13 @@ export default function EventsPage() {
           >
             <div className="aspect-[16/9] overflow-hidden relative">
               <img
-                src={event.image || `https://picsum.photos/seed/${event.title}/800/600`}
+                src={getEventCoverImage(event.image, event.title)}
                 alt={event.title}
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
               />
-              <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/20 shadow-sm flex flex-col items-center min-w-[50px]">
+              <div className="absolute top-4 left-4 bg-card/90 text-foreground backdrop-blur-md px-3 py-1.5 rounded-xl border border-border/60 shadow-sm flex flex-col items-center min-w-[50px]">
                 <span className="text-[10px] font-black uppercase text-primary leading-none">{event.date.split(" ")[0]}</span>
-                <span className="text-lg font-serif font-black text-slate-900 leading-none mt-1">{event.date.split(" ")[1]?.replace(",", "")}</span>
+                <span className="text-lg font-serif font-black text-foreground leading-none mt-1">{event.date.split(" ")[1]?.replace(",", "")}</span>
               </div>
             </div>
 

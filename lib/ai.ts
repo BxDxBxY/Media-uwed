@@ -1,4 +1,5 @@
 import axios from "axios";
+import { polishText } from "@/lib/text-clean";
 
 export interface ProcessedNews {
   headlineEn: string;
@@ -7,6 +8,9 @@ export interface ProcessedNews {
   summaryEn: string;
   summaryRu: string;
   summaryUz: string;
+  contentEn: string;
+  contentRu: string;
+  contentUz: string;
   categories: string[];
 }
 
@@ -14,8 +18,114 @@ export interface ProcessedNews {
 const LIBRETRANSLATE_URL = "https://libretranslate.de/translate"; // public instance
 const MYMEMORY_URL = "https://api.mymemory.translated.net/get";
 
+const MAX_TRANSLATE_CHARS = 450;
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+const OPENROUTER_MODEL = process.env.OPENROUTER_TRANSLATE_MODEL || "openai/gpt-5.2";
+const OPENROUTER_REFERER = process.env.OPENROUTER_REFERER || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+const OPENROUTER_TITLE = process.env.OPENROUTER_TITLE || "University Media AI";
+
+function chunkText(input: string, limit: number = MAX_TRANSLATE_CHARS): string[] {
+  const text = cleanText(input);
+  if (!text) return [];
+  if (text.length <= limit) return [text];
+
+  const sentences = text.split(/(?<=[.!?])\s+/);
+  const chunks: string[] = [];
+  let current = "";
+
+  for (const sentence of sentences) {
+    if (!sentence) continue;
+
+    if (sentence.length > limit) {
+      if (current) {
+        chunks.push(current.trim());
+        current = "";
+      }
+
+      for (let i = 0; i < sentence.length; i += limit) {
+        chunks.push(sentence.slice(i, i + limit).trim());
+      }
+      continue;
+    }
+
+    const candidate = current ? `${current} ${sentence}` : sentence;
+    if (candidate.length > limit) {
+      chunks.push(current.trim());
+      current = sentence;
+    } else {
+      current = candidate;
+    }
+  }
+
+  if (current.trim()) chunks.push(current.trim());
+  return chunks;
+}
+
+
+
+async function translateWithOpenRouterChunk(
+  chunk: string,
+  source: "en" | "ru" | "uz",
+  target: "en" | "ru" | "uz",
+): Promise<string | null> {
+  if (!OPENROUTER_API_KEY) return null;
+
+  try {
+    const prompt = [
+      "You are a professional news translator.",
+      `Translate the text from ${source} to ${target}.`,
+      "Return only translated text with no markdown, no explanations, no extra labels.",
+      "Keep names, numbers, and factual meaning accurate.",
+      "Input:",
+      chunk,
+    ].join("\n");
+
+    const res = await axios.post(
+      "https://openrouter.ai/api/v1/chat/completions",
+      {
+        model: OPENROUTER_MODEL,
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.1,
+        stream: false,
+      },
+      {
+        timeout: 25_000,
+        headers: {
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": OPENROUTER_REFERER,
+          "X-OpenRouter-Title": OPENROUTER_TITLE,
+        },
+      },
+    );
+
+    const out = res.data?.choices?.[0]?.message?.content?.trim() || "";
+
+    return out ? cleanText(out) : null;
+  } catch (error) {
+    console.error("OpenRouter translation error:", error);
+    return null;
+  }
+}
 function cleanText(s: string) {
-  return (s || "").replace(/\s+/g, " ").trim();
+  return polishText((s || "").replace(/\s+/g, " "));
+}
+
+export function detectSourceLanguage(input: string): "en" | "ru" | "uz" {
+  const text = cleanText(input).toLowerCase();
+  if (!text) return "en";
+
+  const cyrillicCount = (text.match(/[а-яё]/gi) || []).length;
+  const latinCount = (text.match(/[a-z]/gi) || []).length;
+
+  if (cyrillicCount > latinCount * 0.25) return "ru";
+
+  // Uzbek latin-specific letters / common tokens
+  if (/[ʻʼ’ʻ]/.test(text) || /\bo['’`]z\b|\bham\b|\buchun\b|\bva\b/.test(text)) {
+    return "uz";
+  }
+
+  return "en";
 }
 
 /**
@@ -23,7 +133,6 @@ function cleanText(s: string) {
  * - cleans whitespace
  * - removes common boilerplate
  * - applies light safe rewrites
- * This is not “LLM quality”, but it’s free and stable.
  */
 function paraphraseBasic(text: string): string {
   let t = cleanText(text);
@@ -53,7 +162,10 @@ function paraphraseBasic(text: string): string {
 }
 
 /**
- * Translation: try LibreTranslate (no auth) then MyMemory (no auth).
+ * Translation pipeline:
+ * 1) OpenRouter (if API key configured)
+ * 2) LibreTranslate
+ * 3) MyMemory
  * Returns original text if translation fails.
  */
 async function translate(
@@ -65,32 +177,71 @@ async function translate(
   if (!q) return "";
   if (source === target) return q;
 
-  // 1) LibreTranslate
-  try {
-    const res = await axios.post(
-      LIBRETRANSLATE_URL,
-      { q, source, target, format: "text" },
-      { timeout: 20_000 },
-    );
-    const out = res.data?.translatedText;
-    if (typeof out === "string" && out.trim()) return cleanText(out);
-  } catch {
-    // ignore, fallback
+  const chunks = chunkText(q);
+  const translatedChunks: string[] = [];
+
+  for (const chunk of chunks) {
+    let translatedChunk = "";
+
+    translatedChunk = (await translateWithOpenRouterChunk(chunk, source, target)) || "";
+
+    // 2) LibreTranslate
+    if (!translatedChunk) {
+      try {
+        const res = await axios.post(
+          LIBRETRANSLATE_URL,
+          { q: chunk, source, target, format: "text" },
+          { timeout: 20_000 },
+        );
+        const out = res.data?.translatedText;
+        if (typeof out === "string" && out.trim()) {
+          translatedChunk = cleanText(out);
+        }
+      } catch {
+        // ignore, fallback below
+      }
+    }
+
+    // 3) MyMemory
+    if (!translatedChunk) {
+      try {
+        const url =
+          `${MYMEMORY_URL}?q=${encodeURIComponent(chunk)}` +
+          `&langpair=${encodeURIComponent(source)}|${encodeURIComponent(target)}`;
+        const res = await axios.get(url, { timeout: 20_000 });
+        const out = res.data?.responseData?.translatedText;
+        if (typeof out === "string" && out.trim()) {
+          translatedChunk = cleanText(out);
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    translatedChunks.push(translatedChunk || chunk);
   }
 
-  // 2) MyMemory
-  try {
-    const url =
-      `${MYMEMORY_URL}?q=${encodeURIComponent(q)}` +
-      `&langpair=${encodeURIComponent(source)}|${encodeURIComponent(target)}`;
-    const res = await axios.get(url, { timeout: 20_000 });
-    const out = res.data?.responseData?.translatedText;
-    if (typeof out === "string" && out.trim()) return cleanText(out);
-  } catch {
-    // ignore
-  }
+  return cleanText(translatedChunks.join(" "));
+}
 
-  return q; // fallback: return original
+async function translateWithPivot(
+  text: string,
+  source: "en" | "ru" | "uz",
+  target: "en" | "ru" | "uz",
+): Promise<string> {
+  const primary = await translate(text, source, target);
+  const normalizedSource = cleanText(text);
+
+  if (target === source || !normalizedSource) return primary;
+
+  const unchanged = cleanText(primary).toLowerCase() === normalizedSource.toLowerCase();
+  if (!unchanged || source === "en" || target === "en") return primary;
+
+  const pivot = await translate(text, source, "en");
+  if (!pivot || cleanText(pivot).toLowerCase() === normalizedSource.toLowerCase()) return primary;
+
+  const pivoted = await translate(pivot, "en", target);
+  return cleanText(pivoted) || primary;
 }
 
 function detectCategories(title: string, description: string): string[] {
@@ -132,46 +283,58 @@ function detectCategories(title: string, description: string): string[] {
   if (/\bevent|conference|workshop|seminar|meeting|gathering\b/.test(t))
     add("Events");
   if (/\bcampus|dormitory|student life|community\b/.test(t)) add("Campus");
+  if (/\binterview|exclusive|q&a|conversation\b/.test(t)) add("Interviews");
+  if (/\bopinion|analysis|editorial|insight\b/.test(t)) add("Analysis");
+  if (/\buniversity|student|education|school|campus|academic|faculty\b/.test(t)) add("University");
+  if (/\bworld|international|global|foreign\b/.test(t)) add("World");
 
   if (cats.length === 0) add("News");
-  return cats.slice(0, 3);
+  return cats.slice(0, 5);
 }
 
 export async function processNewsAI(
   title: string,
   description: string,
   sourceLanguage: "en" | "ru" | "uz" = "en",
+  detailedContent?: string,
 ): Promise<ProcessedNews | null> {
   try {
     const src = sourceLanguage;
 
-    // “Paraphrase” (clean editorial rewrite) in source language locally
-    // For non-English, paraphraseBasic might be less effective but still cleans whitespace
     const rewrittenTitle = paraphraseBasic(title);
     const rewrittenSummary = paraphraseBasic(description || title);
+    const rewrittenContent = paraphraseBasic(detailedContent || description || title);
 
-    // Translate into all 3 languages (translate function handles src === target)
     const [headlineEn, headlineRu, headlineUz] = await Promise.all([
-      translate(rewrittenTitle, src, "en"),
-      translate(rewrittenTitle, src, "ru"),
-      translate(rewrittenTitle, src, "uz"),
+      translateWithPivot(rewrittenTitle, src, "en"),
+      translateWithPivot(rewrittenTitle, src, "ru"),
+      translateWithPivot(rewrittenTitle, src, "uz"),
     ]);
 
     const [summaryEn, summaryRu, summaryUz] = await Promise.all([
-      translate(rewrittenSummary, src, "en"),
-      translate(rewrittenSummary, src, "ru"),
-      translate(rewrittenSummary, src, "uz"),
+      translateWithPivot(rewrittenSummary, src, "en"),
+      translateWithPivot(rewrittenSummary, src, "ru"),
+      translateWithPivot(rewrittenSummary, src, "uz"),
     ]);
 
-    const categories = detectCategories(title, description || "");
+    const [contentEn, contentRu, contentUz] = await Promise.all([
+      translateWithPivot(rewrittenContent, src, "en"),
+      translateWithPivot(rewrittenContent, src, "ru"),
+      translateWithPivot(rewrittenContent, src, "uz"),
+    ]);
+
+    const categories = detectCategories(title, `${description || ""} ${detailedContent || ""}`);
 
     return {
-      headlineEn,
-      headlineRu,
-      headlineUz,
-      summaryEn,
-      summaryRu,
-      summaryUz,
+      headlineEn: polishText(headlineEn),
+      headlineRu: polishText(headlineRu),
+      headlineUz: polishText(headlineUz),
+      summaryEn: polishText(summaryEn),
+      summaryRu: polishText(summaryRu),
+      summaryUz: polishText(summaryUz),
+      contentEn: polishText(contentEn),
+      contentRu: polishText(contentRu),
+      contentUz: polishText(contentUz),
       categories,
     };
   } catch (error) {

@@ -3,6 +3,7 @@ export type Language = "en" | "uz" | "ru";
 export const translations = {
   en: {
     nav: {
+      home: "Home",
       news: "News",
       events: "Events",
       media: "Media",
@@ -33,6 +34,7 @@ export const translations = {
   },
   uz: {
     nav: {
+      home: "Bosh sahifa",
       news: "Yangiliklar",
       events: "Tadbirlar",
       media: "Media",
@@ -63,6 +65,7 @@ export const translations = {
   },
   ru: {
     nav: {
+      home: "Главная",
       news: "Новости",
       events: "События",
       media: "Медиа",

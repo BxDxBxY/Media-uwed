@@ -14,6 +14,10 @@ import {
     ChevronRight,
     X,
     Save,
+    SlidersHorizontal,
+    Settings2,
+    Workflow,
+    Image as ImageIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -37,8 +41,23 @@ export default function AutomationPage() {
 
     const [activeTab, setActiveTab] = useState<Tab>("review");
     const [selectedRawIds, setSelectedRawIds] = useState<string[]>([]);
+    const [selectedReviewIds, setSelectedReviewIds] = useState<string[]>([]);
 
     const [selectedReviewItem, setSelectedReviewItem] = useState<any>(null);
+
+    const [includeKeywords, setIncludeKeywords] = useState("");
+    const [excludeKeywords, setExcludeKeywords] = useState("");
+    const [aiInstructions, setAiInstructions] = useState("");
+    const [aiStrictMode, setAiStrictMode] = useState(false);
+    const [pipelineSettings, setPipelineSettings] = useState({
+        automatedPull: true,
+        processing: true,
+        translation: true,
+    });
+    const [showRequirements, setShowRequirements] = useState(false);
+    const [showFeedManagement, setShowFeedManagement] = useState(false);
+    const [showPipelineSettings, setShowPipelineSettings] = useState(false);
+    const [isRetranslating, setIsRetranslating] = useState(false);
 
     const [page, setPage] = useState(1);
     const [sortBy, setSortBy] = useState<"newest" | "oldest">("newest");
@@ -46,8 +65,8 @@ export default function AutomationPage() {
 
     const [lang, setLang] = useState<Lang>("en");
 
-    const fetchReviewItems = async () => {
-        setIsLoadingReview(true);
+    const fetchReviewItems = async (withLoader: boolean = true) => {
+        if (withLoader) setIsLoadingReview(true);
         try {
             const res = await fetch("/api/admin/automation/review");
             if (!res.ok) return;
@@ -56,14 +75,21 @@ export default function AutomationPage() {
         } catch (e) {
             console.error("Failed to fetch review items", e);
         } finally {
-            setIsLoadingReview(false);
+            if (withLoader) setIsLoadingReview(false);
         }
     };
 
     const fetchRawItems = async () => {
         setIsLoadingRaw(true);
         try {
-            const res = await fetch("/api/admin/automation/raw");
+            const params = new URLSearchParams({
+                includeKeywords,
+                excludeKeywords,
+                aiInstructions,
+                aiStrictMode: String(aiStrictMode),
+            });
+
+            const res = await fetch(`/api/admin/automation/raw?${params.toString()}`);
             if (!res.ok) return;
             const data = await res.json();
             setRawItems(data.items || []);
@@ -79,16 +105,66 @@ export default function AutomationPage() {
         fetchRawItems();
     }, []);
 
+    useEffect(() => {
+        const saved = localStorage.getItem("automationRequirements");
+        if (!saved) return;
+
+        try {
+            const parsed = JSON.parse(saved);
+            setIncludeKeywords(parsed.includeKeywords || "");
+            setExcludeKeywords(parsed.excludeKeywords || "");
+            setAiInstructions(parsed.aiInstructions || "");
+            setAiStrictMode(Boolean(parsed.aiStrictMode));
+            setPipelineSettings({
+                automatedPull: parsed.pipelineSettings?.automatedPull ?? true,
+                processing: parsed.pipelineSettings?.processing ?? true,
+                translation: parsed.pipelineSettings?.translation ?? true,
+            });
+        } catch {
+            // ignore invalid local settings
+        }
+    }, []);
+
+    useEffect(() => {
+        localStorage.setItem(
+            "automationRequirements",
+            JSON.stringify({
+                includeKeywords,
+                excludeKeywords,
+                aiInstructions,
+                aiStrictMode,
+                pipelineSettings,
+            }),
+        );
+    }, [includeKeywords, excludeKeywords, aiInstructions, aiStrictMode, pipelineSettings]);
+
     // Reset pagination when switching view
     useEffect(() => {
         setPage(1);
     }, [sortBy, processedItems.length]);
 
+    useEffect(() => {
+        if (activeTab === "review") {
+            setSelectedRawIds([]);
+        } else {
+            setSelectedReviewIds([]);
+        }
+    }, [activeTab]);
+
+    useEffect(() => {
+        fetchRawItems();
+    }, [includeKeywords, excludeKeywords, aiInstructions, aiStrictMode]);
+
     const handleSync = async () => {
+        if (!pipelineSettings.automatedPull) return toast.warning("Automated Pull is disabled in pipeline settings");
         setIsProcessing(true);
         toast.info("Triggering news pull...");
         try {
-            const res = await fetch("/api/cron/pull", { method: "POST" });
+            const res = await fetch("/api/cron/pull", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ includeKeywords, excludeKeywords, aiInstructions, aiStrictMode }),
+            });
             const data = await res.json().catch(() => ({}));
             if (res.ok) {
                 toast.success(`Sync complete: Fetched ${data.itemsFetched ?? "?"} items.`);
@@ -105,10 +181,15 @@ export default function AutomationPage() {
     };
 
     const handleProcess = async () => {
+        if (!pipelineSettings.processing) return toast.warning("Processing pipeline is disabled");
         setIsProcessing(true);
         toast.info("Triggering processing...");
         try {
-            const res = await fetch("/api/cron/process", { method: "POST" });
+            const res = await fetch("/api/cron/process", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ includeKeywords, excludeKeywords, aiInstructions, aiStrictMode }),
+            });
             const data = await res.json().catch(() => ({}));
             if (res.ok) {
                 toast.success(`Processing complete: ${data.processedCount ?? "?"} items processed.`);
@@ -125,6 +206,7 @@ export default function AutomationPage() {
     };
 
     const handleTranslateSelected = async () => {
+        if (!pipelineSettings.translation) return toast.warning("Translation pipeline is disabled");
         if (selectedRawIds.length === 0) return toast.warning("Select items to translate first");
 
         setIsTranslating(true);
@@ -134,7 +216,7 @@ export default function AutomationPage() {
             const res = await fetch("/api/cron/process", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ ids: selectedRawIds }),
+                body: JSON.stringify({ ids: selectedRawIds, includeKeywords, excludeKeywords, aiInstructions, aiStrictMode }),
             });
             const data = await res.json().catch(() => ({}));
             if (res.ok) {
@@ -177,6 +259,8 @@ export default function AutomationPage() {
     };
 
     const handleUpdateStatus = async (id: string, newStatus: string) => {
+        const previous = processedItems;
+        setProcessedItems((items) => items.map((item) => (item.id === id ? { ...item, status: newStatus } : item)));
         try {
             const res = await fetch("/api/admin/automation/review", {
                 method: "PATCH",
@@ -185,12 +269,59 @@ export default function AutomationPage() {
             });
             if (res.ok) {
                 toast.success(`Article ${newStatus.replaceAll("_", " ")}`);
-                fetchReviewItems();
+                fetchReviewItems(false);
             } else {
+                setProcessedItems(previous);
                 toast.error("Failed to update status");
             }
         } catch {
+            setProcessedItems(previous);
             toast.error("Failed to update status");
+        }
+    };
+
+    const handleBulkReviewStatus = async (newStatus: "ready" | "archived") => {
+        if (selectedReviewIds.length === 0) return toast.warning("Select review items first");
+
+        try {
+            const res = await fetch("/api/admin/automation/review", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ ids: selectedReviewIds, status: newStatus }),
+            });
+
+            if (res.ok) {
+                toast.success(`${selectedReviewIds.length} item(s) updated`);
+                setSelectedReviewIds([]);
+                fetchReviewItems(false);
+            } else {
+                toast.error("Failed to update selected items");
+            }
+        } catch {
+            toast.error("Failed to update selected items");
+        }
+    };
+
+    const handleBulkRawDelete = async () => {
+        if (selectedRawIds.length === 0) return toast.warning("Select raw items first");
+        if (!confirm(`Delete ${selectedRawIds.length} selected raw item(s)?`)) return;
+
+        try {
+            const res = await fetch("/api/admin/automation/raw", {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ ids: selectedRawIds }),
+            });
+
+            if (res.ok) {
+                toast.success(`${selectedRawIds.length} raw item(s) deleted`);
+                setSelectedRawIds([]);
+                fetchRawItems();
+            } else {
+                toast.error("Failed to delete selected raw items");
+            }
+        } catch {
+            toast.error("Failed to delete selected raw items");
         }
     };
 
@@ -270,6 +401,60 @@ export default function AutomationPage() {
         }
     };
 
+
+    const handleRetranslate = async (rawId: string) => {
+        if (!rawId) return toast.error("Raw article id is missing");
+
+        setIsRetranslating(true);
+        try {
+            const res = await fetch("/api/cron/process", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ ids: [rawId], retranslate: true, includeKeywords, excludeKeywords, aiInstructions, aiStrictMode }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || "Failed to re-translate article");
+
+            toast.success("Article re-translated");
+            await fetchReviewItems(false);
+            const refreshed = await fetch("/api/admin/automation/review").then((r) => r.json()).catch(() => ({ items: [] }));
+            const updated = (refreshed.items || []).find((item: any) => item.rawId === rawId);
+            if (updated) setSelectedReviewItem(updated);
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Failed to re-translate article");
+        } finally {
+            setIsRetranslating(false);
+        }
+    };
+
+    const handleRetranslateSelected = async () => {
+        if (selectedReviewIds.length === 0) return toast.warning("Select review items first");
+        const rawIds = processedItems
+            .filter((item) => selectedReviewIds.includes(item.id))
+            .map((item) => item.rawId)
+            .filter(Boolean);
+        if (rawIds.length === 0) return toast.warning("Selected items do not have source raw ids");
+
+        setIsRetranslating(true);
+        try {
+            const res = await fetch("/api/cron/process", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ ids: rawIds, retranslate: true, includeKeywords, excludeKeywords, aiInstructions, aiStrictMode }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || "Failed to re-translate selected articles");
+
+            toast.success(`Re-translated ${data.processedCount ?? rawIds.length} article(s)`);
+            setSelectedReviewIds([]);
+            await fetchReviewItems(false);
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Failed to re-translate selected articles");
+        } finally {
+            setIsRetranslating(false);
+        }
+    };
+
     const sortedItems = useMemo(() => {
         const items = [...processedItems];
         items.sort((a, b) => {
@@ -292,12 +477,27 @@ export default function AutomationPage() {
         setSelectedRawIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
     };
 
+    const toggleReviewSelection = (id: string) => {
+        setSelectedReviewIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    };
+
+    const selectAllReviewOnPage = () => {
+        const ids = paginatedItems.map((x) => x.id).filter(Boolean);
+        setSelectedReviewIds(ids);
+    };
+
+    const clearReviewSelection = () => setSelectedReviewIds([]);
+
     const selectAllRawOnPage = () => {
         const ids = rawItems.map((x) => x.id).filter(Boolean);
         setSelectedRawIds(ids);
     };
 
     const clearRawSelection = () => setSelectedRawIds([]);
+
+    const updatePipeline = (key: "automatedPull" | "processing" | "translation") => {
+        setPipelineSettings((prev) => ({ ...prev, [key]: !prev[key] }));
+    };
 
     return (
         <div className="space-y-8">
@@ -338,6 +538,58 @@ export default function AutomationPage() {
                 </div>
             </div>
 
+            <div className="space-y-3">
+                <button type="button" onClick={() => setShowRequirements((prev) => !prev)} className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-border text-sm font-semibold hover:bg-muted">
+                    <SlidersHorizontal className="h-4 w-4" /> {showRequirements ? "Hide requirements" : "Show requirements"}
+                </button>
+
+                {showRequirements && (
+            <div className="p-4 rounded-xl border border-border/40 bg-card grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Automation requirements: include keywords</label>
+                    <input
+                        type="text"
+                        className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
+                        placeholder="e.g. university, research, scholarship"
+                        value={includeKeywords}
+                        onChange={(e) => setIncludeKeywords(e.target.value)}
+                    />
+                </div>
+                <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Exclude keywords</label>
+                    <input
+                        type="text"
+                        className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
+                        placeholder="e.g. celebrity, gossip"
+                        value={excludeKeywords}
+                        onChange={(e) => setExcludeKeywords(e.target.value)}
+                    />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">AI editorial instructions</label>
+                    <textarea
+                        rows={3}
+                        className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
+                        placeholder="Describe what the AI should prioritize, tone, and what to avoid."
+                        value={aiInstructions}
+                        onChange={(e) => setAiInstructions(e.target.value)}
+                    />
+                    <label className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+                        <input
+                            type="checkbox"
+                            checked={aiStrictMode}
+                            onChange={(e) => setAiStrictMode(e.target.checked)}
+                        />
+                        Strict mode: only process articles matching the AI instructions/keywords
+                    </label>
+                </div>
+                <p className="md:col-span-2 text-xs text-muted-foreground">
+                    These admin requirements are applied when processing/translation is triggered, so the AI pipeline processes only matching items.
+                </p>
+            </div>
+                )}
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Left column */}
                 <div className="lg:col-span-2 space-y-4">
@@ -368,7 +620,7 @@ export default function AutomationPage() {
                         </div>
 
                         {activeTab === "review" ? (
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2 flex-wrap justify-end">
                                 <select
                                     className="bg-muted text-xs font-bold px-2 py-1 rounded-md outline-none"
                                     value={sortBy}
@@ -377,9 +629,48 @@ export default function AutomationPage() {
                                     <option value="newest">Newest First</option>
                                     <option value="oldest">Oldest First</option>
                                 </select>
+                                <button
+                                    onClick={selectAllReviewOnPage}
+                                    className="px-3 py-1.5 rounded-md bg-muted text-xs font-bold hover:bg-muted/80"
+                                    type="button"
+                                >
+                                    Select All
+                                </button>
+                                <button
+                                    onClick={clearReviewSelection}
+                                    className="px-3 py-1.5 rounded-md bg-muted text-xs font-bold hover:bg-muted/80"
+                                    type="button"
+                                >
+                                    Clear
+                                </button>
+                                <button
+                                    disabled={selectedReviewIds.length === 0}
+                                    onClick={() => handleBulkReviewStatus("ready")}
+                                    className="px-3 py-1.5 rounded-md bg-green-600 text-white text-xs font-bold hover:bg-green-700 disabled:opacity-50"
+                                    type="button"
+                                >
+                                    Approve Selected ({selectedReviewIds.length})
+                                </button>
+                                <button
+                                    disabled={selectedReviewIds.length === 0 || isRetranslating}
+                                    onClick={handleRetranslateSelected}
+                                    className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-purple-600 text-white text-xs font-bold hover:bg-purple-700 disabled:opacity-50"
+                                    type="button"
+                                >
+                                    {isRetranslating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Brain className="h-3 w-3" />}
+                                    Re-translate Selected
+                                </button>
+                                <button
+                                    disabled={selectedReviewIds.length === 0}
+                                    onClick={() => handleBulkReviewStatus("archived")}
+                                    className="px-3 py-1.5 rounded-md bg-destructive text-destructive-foreground text-xs font-bold hover:bg-destructive/90 disabled:opacity-50"
+                                    type="button"
+                                >
+                                    Delete Selected
+                                </button>
                             </div>
                         ) : (
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap justify-end">
                                 <button
                                     onClick={selectAllRawOnPage}
                                     className="px-3 py-1.5 rounded-md bg-muted text-xs font-bold hover:bg-muted/80"
@@ -402,6 +693,15 @@ export default function AutomationPage() {
                                 >
                                     {isTranslating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Brain className="h-3 w-3" />}
                                     Translate Selected ({selectedRawIds.length})
+                                </button>
+                                <button
+                                    disabled={selectedRawIds.length === 0}
+                                    onClick={handleBulkRawDelete}
+                                    className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-destructive text-destructive-foreground text-xs font-bold hover:bg-destructive/90 disabled:opacity-50"
+                                    type="button"
+                                >
+                                    <Trash2 className="h-3 w-3" />
+                                    Delete Selected
                                 </button>
                             </div>
                         )}
@@ -464,51 +764,57 @@ export default function AutomationPage() {
                                                 }}
                                             >
                                                 <div className="flex items-start justify-between gap-4">
-                                                    <div className="flex-1 space-y-1 min-w-0">
-                                                        <div className="flex items-center gap-2 mb-1 min-w-0 flex-wrap">
-                                                            <span
-                                                                className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${item.status === "ready" ? "bg-green-500/10 text-green-600" : "bg-orange-500/10 text-orange-600"
-                                                                    }`}
-                                                            >
-                                                                {prettyStatus}
-                                                            </span>
-
-                                                            {item.raw?.language && (
-                                                                <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                                                                    {String(item.raw.language)}
-                                                                </span>
-                                                            )}
-
-                                                            <span className="text-xs text-muted-foreground truncate">
-                                                                • Categories: {item.categories || "None"}
-                                                            </span>
-                                                        </div>
-
-                                                        <h3 className="font-bold text-lg leading-tight hover:text-primary transition-colors truncate">
-                                                            {getHeadline()}
-                                                        </h3>
-
-                                                        <p className="text-sm text-muted-foreground line-clamp-2">{getSummary()}</p>
-                                                    </div>
-
-                                                    {item.raw?.imageUrl && (
-                                                        <img
-                                                            src={item.raw.imageUrl}
-                                                            alt="preview"
-                                                            className="w-24 h-16 object-cover rounded-md shrink-0"
-                                                            loading="lazy"
+                                                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedReviewIds.includes(item.id)}
+                                                            onChange={(e) => {
+                                                                e.stopPropagation();
+                                                                toggleReviewSelection(item.id);
+                                                            }}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            className="mt-1"
                                                         />
-                                                    )}
-                                                </div>
 
-                                                <div className="flex items-center justify-between pt-2 border-t border-border/10 gap-3">
-                                                    <div className="flex items-center gap-4 text-xs text-muted-foreground min-w-0">
-                                                        <span className="flex items-center gap-1 max-w-[240px] min-w-0">
-                                                            <ExternalLink className="h-3 w-3 shrink-0" />
-                                                            <span className="truncate">{item.raw?.source?.name || "Unknown source"}</span>
-                                                        </span>
+                                                        <div className="flex-1 space-y-1 min-w-0">
+                                                            <div className="flex items-center gap-2 mb-1 min-w-0 flex-wrap">
+                                                                <span
+                                                                    className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${item.status === "ready" ? "bg-green-500/10 text-green-600" : "bg-orange-500/10 text-orange-600"
+                                                                        }`}
+                                                                >
+                                                                    {prettyStatus}
+                                                                </span>
 
-                                                        <span className="max-w-[220px] truncate">Author: {item.raw?.author || "Original"}</span>
+                                                                {item.raw?.language && (
+                                                                    <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                                                                        {String(item.raw.language)}
+                                                                    </span>
+                                                                )}
+
+                                                                <span className="text-xs text-muted-foreground truncate">
+                                                                    • Categories: {item.categories || "None"}
+                                                                </span>
+                                                            </div>
+
+                                                            <h3 className="font-bold text-lg leading-tight hover:text-primary transition-colors truncate">
+                                                                {getHeadline()}
+                                                            </h3>
+
+                                                            <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
+                                                                {getSummary()}
+                                                            </p>
+
+                                                            <div className="flex items-center justify-between pt-2 border-t border-border/10 gap-3">
+                                                                <div className="flex items-center gap-4 text-xs text-muted-foreground min-w-0">
+                                                                    <span className="flex items-center gap-1 max-w-[240px] min-w-0">
+                                                                        <ExternalLink className="h-3 w-3 shrink-0" />
+                                                                        <span className="truncate">{item.raw?.source?.name || "Unknown source"}</span>
+                                                                    </span>
+
+                                                                    <span className="max-w-[220px] truncate">Author: {item.raw?.author || "Original"}</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
                                                     </div>
 
                                                     <div className="flex items-center gap-2 shrink-0">
@@ -648,11 +954,18 @@ export default function AutomationPage() {
                 {/* Right column: sources */}
                 <div className="space-y-6">
                     <div className="p-6 rounded-xl border border-border/40 bg-card space-y-4">
-                        <h2 className="font-bold flex items-center gap-2">
-                            <Rss className="h-5 w-5 text-primary" />
-                            Feed Management
-                        </h2>
+                        <div className="flex items-center justify-between">
+                            <h2 className="font-bold flex items-center gap-2">
+                                <Rss className="h-5 w-5 text-primary" />
+                                Feed Management
+                            </h2>
+                            <button type="button" onClick={() => setShowFeedManagement((prev) => !prev)} className="text-xs px-2 py-1 rounded border border-border hover:bg-muted inline-flex items-center gap-1">
+                                <Settings2 className="h-3 w-3" /> {showFeedManagement ? "Hide" : "Show"}
+                            </button>
+                        </div>
 
+                        {showFeedManagement && (
+                        <>
                         <div className="space-y-3">
                             <input
                                 type="text"
@@ -708,22 +1021,58 @@ export default function AutomationPage() {
                                 </div>
                             ))}
                         </div>
+                        </>
+                        )}
                     </div>
 
                     <div className="p-6 rounded-xl border border-border/40 bg-card space-y-3">
-                        <h3 className="font-bold text-sm">Active Pipelines</h3>
+                        <div className="flex items-center justify-between">
+                            <h3 className="font-bold text-sm">Active Pipelines</h3>
+                            <button type="button" onClick={() => setShowPipelineSettings((prev) => !prev)} className="text-xs px-2 py-1 rounded border border-border hover:bg-muted inline-flex items-center gap-1">
+                                <Workflow className="h-3 w-3" /> {showPipelineSettings ? "Hide" : "Show"}
+                            </button>
+                        </div>
+                        {showPipelineSettings && (
                         <div className="space-y-2">
                             {[
-                                { label: "Automated Pull", status: "Active", color: "text-green-500" },
-                                { label: "Processing", status: "Idle", color: "text-muted-foreground" },
-                                { label: "Translation (3L)", status: "Active", color: "text-green-500" },
-                            ].map((job, idx) => (
-                                <div key={idx} className="flex items-center justify-between text-xs">
+                                {
+                                    key: "automatedPull" as const,
+                                    label: "Automated Pull",
+                                    status: pipelineSettings.automatedPull ? "Enabled" : "Disabled",
+                                    color: pipelineSettings.automatedPull ? "text-green-500" : "text-muted-foreground",
+                                },
+                                {
+                                    key: "processing" as const,
+                                    label: "Processing",
+                                    status: !pipelineSettings.processing ? "Disabled" : isProcessing ? "Running" : "Enabled",
+                                    color: !pipelineSettings.processing ? "text-muted-foreground" : isProcessing ? "text-blue-500" : "text-green-500",
+                                },
+                                {
+                                    key: "translation" as const,
+                                    label: "Translation (3L)",
+                                    status: !pipelineSettings.translation ? "Disabled" : isTranslating ? "Running" : "Enabled",
+                                    color: !pipelineSettings.translation ? "text-muted-foreground" : isTranslating ? "text-blue-500" : "text-green-500",
+                                },
+                            ].map((job) => (
+                                <div key={job.key} className="flex items-center justify-between text-xs gap-3">
                                     <span className="text-muted-foreground">{job.label}</span>
-                                    <span className={`font-bold ${job.color}`}>{job.status}</span>
+                                    <div className="flex items-center gap-3">
+                                        <span className={`font-bold ${job.color}`}>{job.status}</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => updatePipeline(job.key)}
+                                            className={`h-5 w-9 rounded-full transition-colors relative ${pipelineSettings[job.key] ? "bg-primary" : "bg-muted"}`}
+                                            aria-label={`Toggle ${job.label}`}
+                                        >
+                                            <span
+                                                className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${pipelineSettings[job.key] ? "left-4" : "left-0.5"}`}
+                                            />
+                                        </button>
+                                    </div>
                                 </div>
                             ))}
                         </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -760,6 +1109,24 @@ export default function AutomationPage() {
                                     />
                                 </div>
 
+                                <div className="md:col-span-3 space-y-3">
+                                    <label className="text-[10px] uppercase font-bold tracking-widest text-primary inline-flex items-center gap-2">
+                                        <ImageIcon className="h-3 w-3" /> Preview image URL
+                                    </label>
+                                    <input
+                                        type="text"
+                                        className="w-full bg-muted/50 p-3 rounded-xl border-none text-xs"
+                                        value={selectedReviewItem.rawImageUrl ?? selectedReviewItem?.raw?.imageUrl ?? ""}
+                                        onChange={(e) => setSelectedReviewItem({ ...selectedReviewItem, rawImageUrl: e.target.value })}
+                                        placeholder="https://..."
+                                    />
+                                    {(selectedReviewItem.rawImageUrl || selectedReviewItem?.raw?.imageUrl) && (
+                                        <div className="rounded-xl overflow-hidden border border-border/40">
+                                            <img src={selectedReviewItem.rawImageUrl || selectedReviewItem?.raw?.imageUrl} alt="Article" className="w-full max-h-64 object-cover" />
+                                        </div>
+                                    )}
+                                </div>
+
                                 <div className="space-y-4">
                                     <label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground flex items-center gap-2">
                                         <div className="h-2 w-2 rounded-full bg-blue-500" /> English
@@ -775,6 +1142,13 @@ export default function AutomationPage() {
                                         className="w-full bg-muted/30 p-3 rounded-lg border-none text-xs leading-relaxed"
                                         value={selectedReviewItem.summaryEn || ""}
                                         onChange={(e) => setSelectedReviewItem({ ...selectedReviewItem, summaryEn: e.target.value })}
+                                    />
+                                    <textarea
+                                        rows={8}
+                                        className="w-full bg-muted/20 p-3 rounded-lg border-none text-xs leading-relaxed"
+                                        value={selectedReviewItem.contentEn || ""}
+                                        onChange={(e) => setSelectedReviewItem({ ...selectedReviewItem, contentEn: e.target.value })}
+                                        placeholder="Detailed content (EN)"
                                     />
                                 </div>
 
@@ -794,6 +1168,13 @@ export default function AutomationPage() {
                                         value={selectedReviewItem.summaryRu || ""}
                                         onChange={(e) => setSelectedReviewItem({ ...selectedReviewItem, summaryRu: e.target.value })}
                                     />
+                                    <textarea
+                                        rows={8}
+                                        className="w-full bg-muted/20 p-3 rounded-lg border-none text-xs leading-relaxed"
+                                        value={selectedReviewItem.contentRu || ""}
+                                        onChange={(e) => setSelectedReviewItem({ ...selectedReviewItem, contentRu: e.target.value })}
+                                        placeholder="Detailed content (RU)"
+                                    />
                                 </div>
 
                                 <div className="space-y-4">
@@ -811,6 +1192,13 @@ export default function AutomationPage() {
                                         className="w-full bg-muted/30 p-3 rounded-lg border-none text-xs leading-relaxed"
                                         value={selectedReviewItem.summaryUz || ""}
                                         onChange={(e) => setSelectedReviewItem({ ...selectedReviewItem, summaryUz: e.target.value })}
+                                    />
+                                    <textarea
+                                        rows={8}
+                                        className="w-full bg-muted/20 p-3 rounded-lg border-none text-xs leading-relaxed"
+                                        value={selectedReviewItem.contentUz || ""}
+                                        onChange={(e) => setSelectedReviewItem({ ...selectedReviewItem, contentUz: e.target.value })}
+                                        placeholder="Detailed content (UZ)"
                                     />
                                 </div>
                             </div>
@@ -830,6 +1218,16 @@ export default function AutomationPage() {
                                 </button>
 
                                 <button
+                                    onClick={() => handleRetranslate(selectedReviewItem.rawId)}
+                                    disabled={isRetranslating}
+                                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 text-white text-xs font-bold hover:bg-purple-700 disabled:opacity-50"
+                                    type="button"
+                                >
+                                    {isRetranslating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Brain className="h-4 w-4" />}
+                                    Re-translate
+                                </button>
+
+                                <button
                                     onClick={() =>
                                         handleSaveDetail(selectedReviewItem.id, {
                                             headlineEn: selectedReviewItem.headlineEn,
@@ -838,7 +1236,11 @@ export default function AutomationPage() {
                                             summaryEn: selectedReviewItem.summaryEn,
                                             summaryRu: selectedReviewItem.summaryRu,
                                             summaryUz: selectedReviewItem.summaryUz,
+                                            contentEn: selectedReviewItem.contentEn,
+                                            contentRu: selectedReviewItem.contentRu,
+                                            contentUz: selectedReviewItem.contentUz,
                                             categories: selectedReviewItem.categories,
+                                            rawImageUrl: selectedReviewItem.rawImageUrl,
                                         })
                                     }
                                     className="flex items-center gap-2 px-6 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"

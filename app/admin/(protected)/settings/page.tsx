@@ -17,6 +17,7 @@ type SiteSettings = {
   themeMode: string;
 };
 
+
 type ApiKeyItem = {
   id: string;
   name: string;
@@ -64,7 +65,10 @@ export default function AdminSettingsPage() {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const [settingsResponse] = await Promise.all([fetch("/api/admin/settings"), loadApiKeys()]);
+        const [settingsResponse] = await Promise.all([
+          fetch("/api/admin/settings"),
+          loadApiKeys(),
+        ]);
 
         if (!settingsResponse.ok) throw new Error("Failed to fetch settings");
 
@@ -81,6 +85,7 @@ export default function AdminSettingsPage() {
           moderateComments: data.settings.moderateComments,
           themeMode: data.settings.themeMode,
         });
+
       } catch {
         toast.error("Could not load settings");
       } finally {

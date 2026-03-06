@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { PlusCircle, Search, Calendar, MapPin, Users, Edit, Trash2 } from "lucide-react";
 import { useGlobalContext } from "@/lib/context";
+import { getEventCoverImage } from "@/lib/event-images";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -50,7 +51,7 @@ export default function AdminEventsPage() {
                     <div key={event.id} className="rounded-xl border border-border/40 bg-card overflow-hidden hover:shadow-md transition-shadow">
                         <div className="aspect-video bg-muted relative">
                             <img
-                                src={event.image || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=2670&auto=format&fit=crop"}
+                                src={getEventCoverImage(event.image, event.title)}
                                 alt={event.title}
                                 className="object-cover w-full h-full"
                             />

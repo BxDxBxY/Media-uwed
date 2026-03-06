@@ -6,6 +6,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { use } from "react";
 import { toast } from "sonner";
+import { parseEventImages } from "@/lib/event-images";
 
 export default function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { events, isLoading } = useGlobalContext();
@@ -25,6 +26,9 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
         notFound();
     }
 
+    const eventImages = parseEventImages(event.image);
+    const coverImage = eventImages[0] || `https://picsum.photos/seed/${event.title}/1200/800`;
+
     const handleShare = () => {
         navigator.clipboard.writeText(window.location.href);
         toast.success("Event link copied!");
@@ -34,11 +38,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
         <div className="min-h-screen pb-20">
             {/* Event Header with Image */}
             <div className="relative h-[40vh] md:h-[50vh] bg-slate-900">
-                {event.image ? (
-                    <img src={event.image} alt={event.title} className="w-full h-full object-cover opacity-60" />
-                ) : (
-                    <div className="w-full h-full bg-primary/20" />
-                )}
+                <img src={coverImage} alt={event.title} className="w-full h-full object-cover opacity-60" />
                 <div className="absolute inset-0 bg-gradient-to-t from-background to-transparent" />
                 <div className="absolute bottom-0 left-0 right-0 container mx-auto px-4 pb-12">
                     <Link href="/events" className="inline-flex items-center text-white/80 hover:text-white mb-6 transition-colors">
@@ -62,6 +62,19 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
                             Join us for this exciting event at the university campus. Please ensure you arrive at least 15 minutes early for registration.
                         </p>
                     </div>
+
+                    {eventImages.length > 1 && (
+                        <div className="mt-10">
+                            <h3 className="text-xl font-serif font-bold mb-4">Event Photos</h3>
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                {eventImages.map((imageUrl, index) => (
+                                    <div key={imageUrl + index} className="aspect-[4/3] rounded-xl overflow-hidden border border-border/40">
+                                        <img src={imageUrl} alt={`${event.title} photo ${index + 1}`} className="w-full h-full object-cover" />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                     <div className="mt-12 flex gap-4">
                         <button

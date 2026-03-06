@@ -1,17 +1,66 @@
 "use client";
 
 import { useGlobalContext } from "@/lib/context";
+import { polishText } from "@/lib/text-clean";
 import { useParams, useRouter } from "next/navigation";
-import { Clock, Share2, ArrowLeft, Bookmark, MessageSquare, Loader2, Globe } from "lucide-react";
+import { Clock, Share2, ArrowLeft, Bookmark, MessageSquare, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
+
+function renderInlineMarkdownLinks(text: string) {
+  const parts = text.split(/(\[[^\]]+\]\([^\)]+\))/g);
+
+  return parts.map((part, idx) => {
+    const match = part.match(/^\[([^\]]+)\]\(([^\)]+)\)$/);
+    if (!match) return <span key={idx}>{part}</span>;
+
+    return (
+      <a
+        key={idx}
+        href={match[2]}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="underline decoration-primary/60 underline-offset-2 hover:text-primary"
+      >
+        {match[1]}
+      </a>
+    );
+  });
+}
+
+
+function toReadableParagraphs(content: string): string[] {
+  const normalized = content.replace(/\s+/g, " ").trim();
+  if (!normalized) return [];
+
+  const fromBreaks = normalized.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  if (fromBreaks.length > 1) return fromBreaks;
+
+  const sentences = normalized.split(/(?<=[.!?])\s+/).filter(Boolean);
+  if (sentences.length <= 3) return [normalized];
+
+  const chunks: string[] = [];
+  let current: string[] = [];
+
+  for (const sentence of sentences) {
+    current.push(sentence);
+    if (current.length >= 3) {
+      chunks.push(current.join(" "));
+      current = [];
+    }
+  }
+
+  if (current.length > 0) chunks.push(current.join(" "));
+  return chunks;
+}
 
 export default function ArticlePage() {
   const params = useParams();
   const slug = params?.slug as string;
   const { articles, isLoading, language, recordArticleView } = useGlobalContext();
   const router = useRouter();
+  const [fontScale, setFontScale] = useState<"md" | "lg">("lg");
 
   const article = articles.find((a) => a.slug === slug);
 
@@ -52,10 +101,12 @@ export default function ArticlePage() {
     return (article as any)[key];
   };
 
-  const title = getLocalized("title");
-  const summary = getLocalized("summary");
-  const content = getLocalized("content");
-  const imageCaption = getLocalized("imageCaption");
+  const title = polishText(getLocalized("title") || "");
+  const summary = polishText(getLocalized("summary") || "");
+  const content = polishText(getLocalized("content") || "");
+  const imageCaption = polishText(getLocalized("imageCaption") || "");
+
+  const contentBlocks = toReadableParagraphs(content).map((line) => polishText(line)).filter(Boolean);
 
   const relatedArticles = articles.filter(a => a.category === article.category && a.id !== article.id).slice(0, 3);
 
@@ -66,12 +117,15 @@ export default function ArticlePage() {
 
   return (
     <article className="min-h-screen pb-20">
-      {/* Article Hero */}
       <header className="container mx-auto px-4 pt-8 md:pt-12 mb-12">
         <div className="max-w-4xl mx-auto">
-          <Link href="/news" className="inline-flex items-center gap-2 text-sm font-bold text-muted-foreground hover:text-primary transition-colors mb-8 group">
+          <button
+            type="button"
+            onClick={() => router.push("/news")}
+            className="inline-flex items-center gap-2 text-sm font-bold text-muted-foreground hover:text-primary transition-colors mb-8 group"
+          >
             <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" /> Back to News
-          </Link>
+          </button>
 
           <div className="flex items-center gap-3 mb-6">
             <span className="bg-primary/10 text-primary text-[10px] font-black uppercase px-2.5 py-1 rounded-full tracking-widest">
@@ -86,9 +140,11 @@ export default function ArticlePage() {
             {title}
           </h1>
 
-          <p className="text-xl md:text-2xl text-muted-foreground font-serif italic leading-relaxed mb-8">
-            {summary}
-          </p>
+          <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5 md:p-6 mb-8 shadow-sm">
+            <p className="text-lg md:text-2xl text-foreground/90 font-serif italic leading-relaxed">
+              {summary}
+            </p>
+          </div>
 
           <div className="flex items-center justify-between py-6 border-y border-border/40 mb-12">
             <div className="flex items-center gap-4">
@@ -126,18 +182,51 @@ export default function ArticlePage() {
         </figure>
       </header>
 
-      {/* Article Content */}
       <div className="container mx-auto px-4 mb-20">
         <div className="max-w-3xl mx-auto">
-          <div className="prose prose-slate lg:prose-xl dark:prose-invert max-w-none">
-            {content.split('\n').map((para: string, i: number) => (
-              <p key={i} className="mb-6 leading-relaxed text-lg text-foreground/80">
-                {para}
-              </p>
-            ))}
+          <div className="mb-8 flex items-center justify-end gap-2 text-xs">
+            <span className="text-muted-foreground">Text size</span>
+            <button
+              type="button"
+              onClick={() => setFontScale("md")}
+              className={`px-2 py-1 rounded border ${fontScale === "md" ? "bg-primary text-primary-foreground border-primary" : "border-border"}`}
+            >
+              A
+            </button>
+            <button
+              type="button"
+              onClick={() => setFontScale("lg")}
+              className={`px-2 py-1 rounded border ${fontScale === "lg" ? "bg-primary text-primary-foreground border-primary" : "border-border"}`}
+            >
+              A+
+            </button>
           </div>
 
-          {/* Categories */}
+          <div className="space-y-5">
+            {contentBlocks.map((block: string, i: number) => {
+              if (block === "---") {
+                return <hr key={`sep-${i}`} className="my-8 border-border/50" />;
+              }
+
+              const isLead = i === 0;
+              const isSourceLine = /original source:/i.test(block);
+
+              return (
+                <p
+                  key={`p-${i}`}
+                  className={[
+                    fontScale === "lg" ? "text-[1.12rem]" : "text-base",
+                    "leading-8 text-foreground/90 text-justify",
+                    isLead ? "first-letter:text-4xl first-letter:font-serif first-letter:font-bold first-letter:mr-1" : "",
+                    isSourceLine ? "mt-10 rounded-xl border border-border/40 bg-muted/30 px-4 py-3 text-sm" : "",
+                  ].join(" ")}
+                >
+                  {renderInlineMarkdownLinks(block)}
+                </p>
+              );
+            })}
+          </div>
+
           {(article as any).categories && (article as any).categories.length > 0 && (
             <div className="mt-12 flex flex-wrap gap-2">
               <span className="text-xs font-bold text-muted-foreground uppercase py-1">Filed under:</span>
@@ -153,19 +242,10 @@ export default function ArticlePage() {
             <button className="flex items-center gap-2 px-6 py-2 rounded-full bg-muted hover:bg-muted/80 transition-colors text-sm font-bold">
               <MessageSquare className="h-4 w-4" /> Discussion (0)
             </button>
-            <div className="flex items-center gap-2 ml-auto">
-              <span className="text-xs font-bold text-muted-foreground uppercase">Rate this story:</span>
-              <div className="flex gap-1">
-                {[1, 2, 3, 4, 5].map(star => (
-                  <button key={star} className="text-muted-foreground hover:text-primary transition-colors">★</button>
-                ))}
-              </div>
-            </div>
           </div>
         </div>
       </div>
 
-      {/* Related Articles */}
       {relatedArticles.length > 0 && (
         <section className="bg-muted/30 py-20 border-y border-border/40">
           <div className="container mx-auto px-4">
