@@ -163,8 +163,8 @@ export function GlobalProvider({ children }: { children: ReactNode }) {
 
     const [sources, setSources] = useState<Source[]>([]);
 
-    const refreshData = async () => {
-        setIsLoading(true);
+    const refreshData = async (showLoader = false) => {
+        if (showLoader) setIsLoading(true);
         try {
             const [artRes, eveRes, medRes, subRes, msgRes, abtRes, statsRes, srcRes] = await Promise.all([
                 fetch('/api/frontend/articles'),
@@ -197,7 +197,7 @@ export function GlobalProvider({ children }: { children: ReactNode }) {
         } catch (error) {
             console.error('Failed to fetch data:', error);
         } finally {
-            setIsLoading(false);
+            if (showLoader) setIsLoading(false);
         }
     };
 
@@ -222,7 +222,7 @@ export function GlobalProvider({ children }: { children: ReactNode }) {
     const pathname = usePathname();
 
     useEffect(() => {
-        refreshData();
+        refreshData(true);
         recordVisit();
 
         const storedLang = localStorage.getItem('language') as Language;
@@ -374,28 +374,37 @@ export function GlobalProvider({ children }: { children: ReactNode }) {
     // Subscribers & Messages
     const addSubscriber = async (email: string) => {
         try {
+            const normalizedEmail = email.trim().toLowerCase();
             const res = await fetch('/api/frontend/subscribers', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email })
+                body: JSON.stringify({ email: normalizedEmail })
             });
-            if (!res.ok) throw new Error('Failed to subscribe');
-            await refreshData();
+
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(body?.error || 'Failed to subscribe');
+
+            setSubscribers((prev) => {
+                if (prev.some((s) => s.email.toLowerCase() === normalizedEmail)) return prev;
+                return [{ id: body.subscriber?.id || `temp-${Date.now()}`, email: normalizedEmail, createdAt: body.subscriber?.createdAt || new Date().toISOString() }, ...prev];
+            });
             toast.success("Subscribed successfully!");
         } catch (error) {
             console.error(error);
-            toast.error("Problem subscribing");
+            toast.error(error instanceof Error ? error.message : "Problem subscribing");
         }
     };
 
     const deleteSubscriber = async (id: string) => {
+        const previous = subscribers;
+        setSubscribers((prev) => prev.filter((s) => s.id !== id));
         try {
             const res = await fetch(`/api/admin/subscribers/${id}`, { method: 'DELETE' });
             if (!res.ok) throw new Error('Failed to delete subscriber');
-            await refreshData();
             toast.success("Subscriber removed");
         } catch (error) {
             console.error(error);
+            setSubscribers(previous);
             toast.error("Error removing subscriber");
         }
     };

@@ -17,6 +17,16 @@ type SiteSettings = {
   themeMode: string;
 };
 
+type StaticPageDraft = {
+  slug: "privacy-policy" | "terms-of-use";
+  title: string;
+  titleRu: string;
+  titleUz: string;
+  content: string;
+  contentRu: string;
+  contentUz: string;
+};
+
 type ApiKeyItem = {
   id: string;
   name: string;
@@ -53,6 +63,12 @@ export default function AdminSettingsPage() {
   const [newApiKeyName, setNewApiKeyName] = useState("");
   const [isCreatingApiKey, setIsCreatingApiKey] = useState(false);
   const [revealedApiKey, setRevealedApiKey] = useState<string | null>(null);
+  const [activeStaticSlug, setActiveStaticSlug] = useState<"privacy-policy" | "terms-of-use">("privacy-policy");
+  const [staticPages, setStaticPages] = useState<Record<"privacy-policy" | "terms-of-use", StaticPageDraft>>({
+    "privacy-policy": { slug: "privacy-policy", title: "", titleRu: "", titleUz: "", content: "", contentRu: "", contentUz: "" },
+    "terms-of-use": { slug: "terms-of-use", title: "", titleRu: "", titleUz: "", content: "", contentRu: "", contentUz: "" },
+  });
+  const [isSavingStatic, setIsSavingStatic] = useState(false);
 
   const loadApiKeys = async () => {
     const response = await fetch("/api/admin/security/api-keys");
@@ -64,7 +80,12 @@ export default function AdminSettingsPage() {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const [settingsResponse] = await Promise.all([fetch("/api/admin/settings"), loadApiKeys()]);
+        const [settingsResponse, privacyResponse, termsResponse] = await Promise.all([
+          fetch("/api/admin/settings"),
+          fetch("/api/admin/static-pages?slug=privacy-policy"),
+          fetch("/api/admin/static-pages?slug=terms-of-use"),
+          loadApiKeys(),
+        ]);
 
         if (!settingsResponse.ok) throw new Error("Failed to fetch settings");
 
@@ -80,6 +101,30 @@ export default function AdminSettingsPage() {
           enableComments: data.settings.enableComments,
           moderateComments: data.settings.moderateComments,
           themeMode: data.settings.themeMode,
+        });
+
+
+        const privacy = privacyResponse.ok ? (await privacyResponse.json()).page : null;
+        const terms = termsResponse.ok ? (await termsResponse.json()).page : null;
+        setStaticPages({
+          "privacy-policy": {
+            slug: "privacy-policy",
+            title: privacy?.title || "",
+            titleRu: privacy?.titleRu || "",
+            titleUz: privacy?.titleUz || "",
+            content: privacy?.content || "",
+            contentRu: privacy?.contentRu || "",
+            contentUz: privacy?.contentUz || "",
+          },
+          "terms-of-use": {
+            slug: "terms-of-use",
+            title: terms?.title || "",
+            titleRu: terms?.titleRu || "",
+            titleUz: terms?.titleUz || "",
+            content: terms?.content || "",
+            contentRu: terms?.contentRu || "",
+            contentUz: terms?.contentUz || "",
+          },
         });
       } catch {
         toast.error("Could not load settings");
@@ -151,6 +196,47 @@ export default function AdminSettingsPage() {
       toast.error(error instanceof Error ? error.message : "Failed to update password");
     } finally {
       setIsChangingPassword(false);
+    }
+  };
+
+  const updateStaticDraft = (slug: "privacy-policy" | "terms-of-use", patch: Partial<StaticPageDraft>) => {
+    setStaticPages((prev) => ({ ...prev, [slug]: { ...prev[slug], ...patch } }));
+  };
+
+  const saveStaticPage = async () => {
+    const draft = staticPages[activeStaticSlug];
+    if (!draft.title.trim() || !draft.content.trim()) {
+      toast.error("Static page requires title and content");
+      return;
+    }
+
+    setIsSavingStatic(true);
+    try {
+      const response = await fetch("/api/admin/static-pages", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(draft),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Failed to save static page");
+
+      setStaticPages((prev) => ({
+        ...prev,
+        [activeStaticSlug]: {
+          ...prev[activeStaticSlug],
+          title: data.page.title || prev[activeStaticSlug].title,
+          titleRu: data.page.titleRu || prev[activeStaticSlug].titleRu,
+          titleUz: data.page.titleUz || prev[activeStaticSlug].titleUz,
+          content: data.page.content || prev[activeStaticSlug].content,
+          contentRu: data.page.contentRu || prev[activeStaticSlug].contentRu,
+          contentUz: data.page.contentUz || prev[activeStaticSlug].contentUz,
+        },
+      }));
+      toast.success("Static page updated");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to save static page");
+    } finally {
+      setIsSavingStatic(false);
     }
   };
 
@@ -276,6 +362,27 @@ export default function AdminSettingsPage() {
               ))}
             </div>
           </div>
+        </section>
+
+        <section className="space-y-4 rounded-xl border border-border/40 bg-card p-6">
+          <h3 className="flex items-center gap-2 text-lg font-semibold"><Globe className="h-5 w-5" />Legal Pages Content</h3>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setActiveStaticSlug("privacy-policy")} className={`rounded-md px-3 py-1.5 text-sm ${activeStaticSlug === "privacy-policy" ? "bg-primary text-primary-foreground" : "bg-muted"}`}>Privacy Policy</button>
+            <button type="button" onClick={() => setActiveStaticSlug("terms-of-use")} className={`rounded-md px-3 py-1.5 text-sm ${activeStaticSlug === "terms-of-use" ? "bg-primary text-primary-foreground" : "bg-muted"}`}>Terms of Use</button>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <input value={staticPages[activeStaticSlug].title} onChange={(e) => updateStaticDraft(activeStaticSlug, { title: e.target.value })} placeholder="Title (EN)" className="rounded-md border border-input bg-background px-3 py-2 text-sm" />
+            <input value={staticPages[activeStaticSlug].titleRu} onChange={(e) => updateStaticDraft(activeStaticSlug, { titleRu: e.target.value })} placeholder="Title (RU)" className="rounded-md border border-input bg-background px-3 py-2 text-sm" />
+            <input value={staticPages[activeStaticSlug].titleUz} onChange={(e) => updateStaticDraft(activeStaticSlug, { titleUz: e.target.value })} placeholder="Title (UZ)" className="rounded-md border border-input bg-background px-3 py-2 text-sm" />
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <textarea rows={6} value={staticPages[activeStaticSlug].content} onChange={(e) => updateStaticDraft(activeStaticSlug, { content: e.target.value })} placeholder="Content (EN)" className="rounded-md border border-input bg-background px-3 py-2 text-sm" />
+            <textarea rows={6} value={staticPages[activeStaticSlug].contentRu} onChange={(e) => updateStaticDraft(activeStaticSlug, { contentRu: e.target.value })} placeholder="Content (RU)" className="rounded-md border border-input bg-background px-3 py-2 text-sm" />
+            <textarea rows={6} value={staticPages[activeStaticSlug].contentUz} onChange={(e) => updateStaticDraft(activeStaticSlug, { contentUz: e.target.value })} placeholder="Content (UZ)" className="rounded-md border border-input bg-background px-3 py-2 text-sm" />
+          </div>
+          <button type="button" onClick={saveStaticPage} disabled={isSavingStatic} className="inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-60">
+            {isSavingStatic ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}Save {activeStaticSlug}
+          </button>
         </section>
 
         <div className="flex justify-end gap-3 border-t border-border/40 pt-4">

@@ -21,25 +21,51 @@ function isEmbeddableVideo(url: string) {
 }
 
 export default function MediaPage() {
-  const { media, isLoading } = useGlobalContext();
+  const { media, isLoading, language } = useGlobalContext();
   const [filter, setFilter] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
+  const [showCategories, setShowCategories] = useState(false);
   const [selectedItemIndex, setSelectedItemIndex] = useState<number>(-1);
   const nativeVideoRef = useRef<HTMLVideoElement | null>(null);
 
+  const t = {
+    title: language === "ru" ? "Медиа галерея" : language === "uz" ? "Media galereya" : "Media Gallery",
+    search: language === "ru" ? "Поиск по галерее..." : language === "uz" ? "Galereyadan qidirish..." : "Search gallery...",
+    noItems: language === "ru" ? "Ничего не найдено." : language === "uz" ? "Mos media topilmadi." : "No media items match your search.",
+    loading: language === "ru" ? "Загрузка галереи..." : language === "uz" ? "Galereya yuklanmoqda..." : "Developing gallery...",
+    all: language === "ru" ? "Все" : language === "uz" ? "Barchasi" : "All",
+    showCategories: language === "ru" ? "Показать категории" : language === "uz" ? "Kategoriyalarni ko'rsatish" : "Show categories",
+    hideCategories: language === "ru" ? "Скрыть категории" : language === "uz" ? "Kategoriyalarni yashirish" : "Hide categories",
+    keyboardHint: language === "ru" ? "Клавиши: ← → навигация • Esc закрыть • Enter/Пробел воспроизвести" : language === "uz" ? "Klaviatura: ← → navigatsiya • Esc yopish • Enter/Space ijro" : "Keyboard: ← → navigate • Esc close • Enter/Space play",
+  };
+
   const hiddenCategories = ["hero-side", "hero-banner"];
   const publicMedia = media.filter((m) => !hiddenCategories.some((cat) => hasMediaCategory(m.category, cat)));
-  const categories = ["All", ...Array.from(new Set(publicMedia.flatMap((m) => splitMediaCategories(m.category).length ? splitMediaCategories(m.category) : ["General"])))].filter(Boolean);
+  const categories = [t.all, ...Array.from(new Set(publicMedia.flatMap((m) => splitMediaCategories(m.category).length ? splitMediaCategories(m.category) : ["General"])))].filter(Boolean);
+
+
+
+  useEffect(() => {
+    if (filter === "All" || filter === "Все" || filter === "Barchasi") {
+      setFilter(t.all);
+    }
+  }, [language]);
+
+  const localizedMediaTitle = (item: any) => {
+    if (language === "ru" && item.titleRu) return item.titleRu;
+    if (language === "uz" && item.titleUz) return item.titleUz;
+    return item.title;
+  };
 
   const filteredMedia = useMemo(
     () =>
       publicMedia.filter((item) => {
         const mediaCategories = splitMediaCategories(item.category).length ? splitMediaCategories(item.category) : ["General"];
-        const matchesFilter = filter === "All" || mediaCategories.includes(filter);
-        const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesFilter = filter === t.all || mediaCategories.includes(filter);
+        const matchesSearch = localizedMediaTitle(item).toLowerCase().includes(searchQuery.toLowerCase());
         return matchesFilter && matchesSearch;
       }),
-    [publicMedia, filter, searchQuery],
+    [publicMedia, filter, searchQuery, language],
   );
 
   const selectedItem = selectedItemIndex >= 0 ? filteredMedia[selectedItemIndex] : null;
@@ -84,7 +110,7 @@ export default function MediaPage() {
     return (
       <div className="container mx-auto px-4 py-20 text-center">
         <Loader2 className="h-10 w-10 animate-spin mx-auto text-primary mb-4" />
-        <p className="text-muted-foreground font-serif">Developing gallery...</p>
+        <p className="text-muted-foreground font-serif">{t.loading}</p>
       </div>
     );
   }
@@ -92,31 +118,38 @@ export default function MediaPage() {
   return (
     <div className="container mx-auto px-4 py-12">
       <header className="mb-12">
-        <h1 className="text-4xl md:text-6xl font-serif font-bold mb-6">Media Gallery</h1>
+        <h1 className="text-4xl md:text-6xl font-serif font-bold mb-6">{t.title}</h1>
 
         <div className="flex flex-col md:flex-row gap-6 justify-between items-start md:items-center">
-          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide max-w-full">
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => {
-                  setFilter(cat);
-                  setSelectedItemIndex(-1);
-                }}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
-                  filter === cat ? "bg-primary text-primary-foreground shadow-md" : "bg-muted text-muted-foreground hover:bg-muted/80"
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
+          <div className="space-y-3 w-full md:w-auto">
+            <button onClick={() => setShowCategories((prev) => !prev)} className="inline-flex items-center gap-2 rounded-lg border border-border/60 px-3 py-1.5 text-sm font-semibold hover:bg-muted/60">
+              {showCategories ? t.hideCategories : t.showCategories}
+            </button>
+            {showCategories && (
+              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide max-w-full">
+                {categories.map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => {
+                      setFilter(cat);
+                      setSelectedItemIndex(-1);
+                    }}
+                    className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
+                      filter === cat ? "bg-primary text-primary-foreground shadow-md" : "bg-muted text-muted-foreground hover:bg-muted/80"
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="relative w-full md:w-80">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Search gallery..."
+              placeholder={t.search}
               className="w-full pl-10 pr-4 py-2 rounded-lg border border-border/60 bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all"
               value={searchQuery}
               onChange={(e) => {
@@ -132,7 +165,7 @@ export default function MediaPage() {
         {filteredMedia.map((item, index) => (
           <div key={item.id} className="group relative cursor-pointer" onClick={() => setSelectedItemIndex(index)}>
             <div className="aspect-[4/3] rounded-2xl overflow-hidden bg-muted border border-border/40 relative">
-              <img src={getMediaPreviewUrl(item)} alt={item.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+              <img src={getMediaPreviewUrl(item)} alt={localizedMediaTitle(item)} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
               <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                 {item.type === "video" ? (
                   <div className="h-12 w-12 rounded-full bg-white/90 flex items-center justify-center text-primary shadow-xl scale-90 group-hover:scale-100 transition-transform">
@@ -147,7 +180,7 @@ export default function MediaPage() {
             </div>
             <div className="mt-3 px-1">
               <span className="text-[10px] uppercase tracking-widest font-bold text-primary mb-1 block">{(item.category || "General").toLowerCase().startsWith("hero-") ? "Featured" : item.category}</span>
-              <h3 className="font-bold text-sm line-clamp-2 leading-tight group-hover:text-primary transition-colors">{item.title}</h3>
+              <h3 className="font-bold text-sm line-clamp-2 leading-tight group-hover:text-primary transition-colors">{localizedMediaTitle(item)}</h3>
             </div>
           </div>
         ))}
@@ -155,7 +188,7 @@ export default function MediaPage() {
 
       {filteredMedia.length === 0 && (
         <div className="py-20 text-center">
-          <p className="text-muted-foreground font-serif italic">No media items match your search.</p>
+          <p className="text-muted-foreground font-serif italic">{t.noItems}</p>
         </div>
       )}
 
@@ -177,7 +210,7 @@ export default function MediaPage() {
             <div className="aspect-video bg-black flex items-center justify-center">
               {selectedItem.type === "video" ? (
                 isEmbeddableVideo(selectedItem.url) ? (
-                  <iframe className="w-full h-full" src={getEmbedUrl(selectedItem.url)} title={selectedItem.title} allowFullScreen />
+                  <iframe className="w-full h-full" src={getEmbedUrl(selectedItem.url)} title={localizedMediaTitle(selectedItem)} allowFullScreen />
                 ) : (
                   <video ref={nativeVideoRef} className="w-full h-full" controls autoPlay src={selectedItem.url} />
                 )
@@ -187,8 +220,8 @@ export default function MediaPage() {
             </div>
             <div className="p-6 md:p-8">
               <span className="text-xs font-bold text-primary uppercase tracking-widest mb-2 block">{(selectedItem.category || "General").toLowerCase().startsWith("hero-") ? "Featured" : selectedItem.category}</span>
-              <h2 className="text-2xl font-serif font-bold mb-2">{selectedItem.title}</h2>
-              <p className="text-xs text-muted-foreground">Keyboard: ← → navigate • Esc close • Enter/Space play (for supported video)</p>
+              <h2 className="text-2xl font-serif font-bold mb-2">{localizedMediaTitle(selectedItem)}</h2>
+              <p className="text-xs text-muted-foreground">{t.keyboardHint}</p>
             </div>
           </div>
         </div>

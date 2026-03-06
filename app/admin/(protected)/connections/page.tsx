@@ -8,7 +8,7 @@ import { toast } from "sonner";
 type PrefMap = Record<string, boolean>;
 
 export default function AdminConnectionsPage() {
-  const { subscribers, messages, isLoading, deleteSubscriber, refreshData } = useGlobalContext();
+  const { subscribers, messages, isLoading, deleteSubscriber } = useGlobalContext();
   const [activeView, setActiveView] = useState<"messages" | "subscribers">("messages");
   const [removingSubscriberId, setRemovingSubscriberId] = useState<string | null>(null);
   const [pendingActionByMessageId, setPendingActionByMessageId] = useState<Record<string, string>>({});
@@ -95,7 +95,6 @@ export default function AdminConnectionsPage() {
       const response = await fetch(endpoint, { method });
       if (!response.ok) throw new Error("Request failed");
       toast.success(action === "delete" ? "Message deleted" : action === "archive" ? "Message archived" : "Message marked as read");
-      await refreshData();
     } catch {
       setLocalMessages(previousMessages);
       toast.error("Failed to update message");
@@ -231,7 +230,7 @@ export default function AdminConnectionsPage() {
       ) : (
         <div className="overflow-hidden rounded-xl border border-border/40 bg-card shadow-sm">
           <table className="w-full text-left">
-            <thead className="border-b border-border/40 bg-muted/50"><tr><th className="px-6 py-4 text-sm font-bold">Email Address</th><th className="px-6 py-4 text-sm font-bold">Date Subscribed</th><th className="px-6 py-4 text-sm font-bold">Newsletter</th><th className="px-6 py-4 text-sm font-bold">Status</th><th className="px-6 py-4 text-right text-sm font-bold">Actions</th></tr></thead>
+            <thead className="border-b border-border/40 bg-muted/50"><tr><th className="px-6 py-4 text-sm font-bold">Email Address</th><th className="px-6 py-4 text-sm font-bold">Date Subscribed</th><th className="px-6 py-4 text-sm font-bold">Status</th><th className="px-6 py-4 text-right text-sm font-bold">Actions</th></tr></thead>
             <tbody className="divide-y divide-border/40">
               {visibleSubscribers.map((sub) => {
                 const active = isSubscriberActive(sub.email);
@@ -240,11 +239,15 @@ export default function AdminConnectionsPage() {
                     <td className="px-6 py-4"><div className="flex items-center gap-3"><div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/5 text-primary"><Mail className="h-4 w-4" /></div><span className="font-medium">{sub.email}</span></div></td>
                     <td className="px-6 py-4 text-sm text-muted-foreground">{new Date(sub.createdAt!).toLocaleDateString()}</td>
                     <td className="px-6 py-4">
-                      <button disabled={prefSavingEmail === sub.email} onClick={() => updateSubscriberPreference(sub.email, !active)} className={`px-3 py-1 rounded-full text-xs font-semibold ${active ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" : "bg-muted text-muted-foreground"}`}>
-                        {prefSavingEmail === sub.email ? "Saving..." : active ? "Enabled" : "Paused"}
+                      <button
+                        disabled={prefSavingEmail === sub.email}
+                        onClick={() => updateSubscriberPreference(sub.email, !active)}
+                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${active ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"}`}
+                      >
+                        <CheckCircle2 className="mr-1 h-3 w-3" />
+                        {prefSavingEmail === sub.email ? "Saving..." : active ? "Active" : "Paused"}
                       </button>
                     </td>
-                    <td className="px-6 py-4"><span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/30 dark:text-green-400"><CheckCircle2 className="mr-1 h-3 w-3" /> Active</span></td>
                     <td className="px-6 py-4 text-right"><button className="text-sm font-medium text-destructive hover:underline disabled:opacity-60" onClick={() => handleRemoveSubscriber(sub.id)} disabled={removingSubscriberId === sub.id}>{removingSubscriberId === sub.id ? "Removing..." : "Remove"}</button></td>
                   </tr>
                 );

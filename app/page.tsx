@@ -45,7 +45,7 @@ export default function Home() {
   const { articles, isLoading, media, language, addSubscriber } = useGlobalContext();
 
   const featuredArticle = articles[0];
-  const trendingNews = articles.slice(4, 8); // four by default
+  const trendingNews = articles.slice(4, 14); // up to ten items
   const breakingItems = articles.slice(0, 6);
 
   const categoryPools = [

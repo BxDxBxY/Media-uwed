@@ -59,6 +59,8 @@ export function Footer() {
     events: language === "ru" ? "События" : language === "uz" ? "Tadbirlar" : "Events",
     media: language === "ru" ? "Медиа" : language === "uz" ? "Media galereya" : "Media Gallery",
     contact: language === "ru" ? "Контакты" : language === "uz" ? "Bog'lanish" : "Contact Us",
+    privacy: language === "ru" ? "Конфиденциальность" : language === "uz" ? "Maxfiylik" : "Privacy Policy",
+    terms: language === "ru" ? "Условия использования" : language === "uz" ? "Foydalanish shartlari" : "Terms of Use",
   };
 
   return (
@@ -83,6 +85,8 @@ export function Footer() {
               <li><Link href="/events" className="hover:text-primary">{t.events}</Link></li>
               <li><Link href="/media" className="hover:text-primary">{t.media}</Link></li>
               <li><Link href="/contact" className="hover:text-primary">{t.contact}</Link></li>
+              <li><Link href="/privacy-policy" className="hover:text-primary">{t.privacy}</Link></li>
+              <li><Link href="/terms-of-use" className="hover:text-primary">{t.terms}</Link></li>
             </ul>
           </div>
 
