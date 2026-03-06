@@ -66,6 +66,10 @@ export async function POST(request: Request) {
     let processedCount = 0;
     let failedCount = 0;
 
+    const aiIntegration = await prisma.integrationConfig.findUnique({
+      where: { integrationType: "ai" },
+    });
+
     for (const raw of filteredArticles) {
       try {
         let detailedContent = "";
@@ -116,6 +120,15 @@ export async function POST(request: Request) {
           raw.description || "",
           sourceLang,
           detailedContent,
+          {
+            summarizationEnabled: aiIntegration?.aiSummarization ?? true,
+            categorizationEnabled: aiIntegration?.aiCategorization ?? true,
+            translationPolicy:
+              aiIntegration?.translationPolicy === "summary_only" ||
+              aiIntegration?.translationPolicy === "disabled"
+                ? aiIntegration.translationPolicy
+                : "full",
+          },
         );
 
         if (!aiResult) {

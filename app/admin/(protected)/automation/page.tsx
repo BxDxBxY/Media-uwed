@@ -25,6 +25,20 @@ import { useGlobalContext } from "@/lib/context";
 
 type Tab = "review" | "raw";
 type Lang = "en" | "ru" | "uz";
+type IntegrationType = "ai" | "telegram";
+
+type IntegrationConfig = {
+    integrationType: IntegrationType;
+    enabled: boolean;
+    provider: string;
+    providerApiKey: string;
+    channelId: string;
+    webhookToken: string;
+    aiSummarization: boolean;
+    aiCategorization: boolean;
+    translationPolicy: "full" | "summary_only" | "disabled";
+    retryLimit: number;
+};
 
 export default function AutomationPage() {
     const { sources, refreshData } = useGlobalContext();
@@ -65,6 +79,35 @@ export default function AutomationPage() {
 
     const [lang, setLang] = useState<Lang>("en");
 
+    const [integrationConfigs, setIntegrationConfigs] = useState<Record<IntegrationType, IntegrationConfig>>({
+        ai: {
+            integrationType: "ai",
+            enabled: true,
+            provider: "openrouter",
+            providerApiKey: "",
+            channelId: "",
+            webhookToken: "",
+            aiSummarization: true,
+            aiCategorization: true,
+            translationPolicy: "full",
+            retryLimit: 3,
+        },
+        telegram: {
+            integrationType: "telegram",
+            enabled: false,
+            provider: "telegram-bot-api",
+            providerApiKey: "",
+            channelId: "",
+            webhookToken: "",
+            aiSummarization: true,
+            aiCategorization: true,
+            translationPolicy: "full",
+            retryLimit: 3,
+        },
+    });
+    const [isSavingIntegration, setIsSavingIntegration] = useState(false);
+    const [isSendingTelegramTest, setIsSendingTelegramTest] = useState(false);
+
     const fetchReviewItems = async (withLoader: boolean = true) => {
         if (withLoader) setIsLoadingReview(true);
         try {
@@ -76,6 +119,22 @@ export default function AutomationPage() {
             console.error("Failed to fetch review items", e);
         } finally {
             if (withLoader) setIsLoadingReview(false);
+        }
+    };
+
+
+    const loadIntegrationConfigs = async () => {
+        try {
+            const res = await fetch("/api/admin/integrations");
+            if (!res.ok) return;
+            const data = await res.json();
+            const byType = (data.configs || []).reduce((acc: any, item: IntegrationConfig) => {
+                acc[item.integrationType] = item;
+                return acc;
+            }, {});
+            setIntegrationConfigs((prev) => ({ ...prev, ...byType }));
+        } catch (error) {
+            console.error("Failed to load integration configs", error);
         }
     };
 
@@ -103,6 +162,7 @@ export default function AutomationPage() {
     useEffect(() => {
         fetchReviewItems();
         fetchRawItems();
+        loadIntegrationConfigs();
     }, []);
 
     useEffect(() => {
@@ -499,6 +559,53 @@ export default function AutomationPage() {
         setPipelineSettings((prev) => ({ ...prev, [key]: !prev[key] }));
     };
 
+    const updateIntegration = (type: IntegrationType, patch: Partial<IntegrationConfig>) => {
+        setIntegrationConfigs((prev) => ({
+            ...prev,
+            [type]: {
+                ...prev[type],
+                ...patch,
+            },
+        }));
+    };
+
+    const saveIntegration = async (type: IntegrationType) => {
+        setIsSavingIntegration(true);
+        try {
+            const res = await fetch("/api/admin/integrations", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(integrationConfigs[type]),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || "Failed to save integration");
+            toast.success(`${type === "ai" ? "AI" : "Telegram"} integration saved`);
+            loadIntegrationConfigs();
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Failed to save integration");
+        } finally {
+            setIsSavingIntegration(false);
+        }
+    };
+
+    const sendTelegramTest = async () => {
+        setIsSendingTelegramTest(true);
+        try {
+            const res = await fetch("/api/admin/integrations/test-message", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ message: "✅ Test message from automation integrations panel" }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || "Failed to send Telegram test");
+            toast.success("Telegram test message sent");
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Failed to send Telegram test");
+        } finally {
+            setIsSendingTelegramTest(false);
+        }
+    };
+
     return (
         <div className="space-y-8">
             {/* Header */}
@@ -589,6 +696,46 @@ export default function AutomationPage() {
             </div>
                 )}
             </div>
+
+            <section className="rounded-xl border border-border/40 bg-card p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-semibold flex items-center gap-2"><Settings2 className="h-4 w-4" />Integrations</h2>
+                    <span className="text-xs text-muted-foreground">Configure AI + Telegram connectors</span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="rounded-lg border border-border/40 p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                            <h3 className="font-medium">AI Modules</h3>
+                            <input type="checkbox" checked={integrationConfigs.ai.enabled} onChange={(e) => updateIntegration("ai", { enabled: e.target.checked })} />
+                        </div>
+                        <input className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm" placeholder="Provider" value={integrationConfigs.ai.provider} onChange={(e) => updateIntegration("ai", { provider: e.target.value })} />
+                        <input className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm" placeholder="Provider API Key" value={integrationConfigs.ai.providerApiKey} onChange={(e) => updateIntegration("ai", { providerApiKey: e.target.value })} />
+                        <label className="flex items-center justify-between text-sm"><span>Summarization</span><input type="checkbox" checked={integrationConfigs.ai.aiSummarization} onChange={(e) => updateIntegration("ai", { aiSummarization: e.target.checked })} /></label>
+                        <label className="flex items-center justify-between text-sm"><span>Categorization</span><input type="checkbox" checked={integrationConfigs.ai.aiCategorization} onChange={(e) => updateIntegration("ai", { aiCategorization: e.target.checked })} /></label>
+                        <select className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm" value={integrationConfigs.ai.translationPolicy} onChange={(e) => updateIntegration("ai", { translationPolicy: e.target.value as any })}>
+                            <option value="full">Full translation</option>
+                            <option value="summary_only">Summary-only translation</option>
+                            <option value="disabled">Translation disabled</option>
+                        </select>
+                        <button type="button" onClick={() => saveIntegration("ai")} disabled={isSavingIntegration} className="px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-60">{isSavingIntegration ? "Saving..." : "Save AI config"}</button>
+                    </div>
+
+                    <div className="rounded-lg border border-border/40 p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                            <h3 className="font-medium">Telegram Connector</h3>
+                            <input type="checkbox" checked={integrationConfigs.telegram.enabled} onChange={(e) => updateIntegration("telegram", { enabled: e.target.checked })} />
+                        </div>
+                        <input className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm" placeholder="Provider" value={integrationConfigs.telegram.provider} onChange={(e) => updateIntegration("telegram", { provider: e.target.value })} />
+                        <input className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm" placeholder="Bot token" value={integrationConfigs.telegram.providerApiKey} onChange={(e) => updateIntegration("telegram", { providerApiKey: e.target.value })} />
+                        <input className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm" placeholder="Channel/chat ID" value={integrationConfigs.telegram.channelId} onChange={(e) => updateIntegration("telegram", { channelId: e.target.value })} />
+                        <input className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm" placeholder="Webhook token" value={integrationConfigs.telegram.webhookToken} onChange={(e) => updateIntegration("telegram", { webhookToken: e.target.value })} />
+                        <button type="button" onClick={() => saveIntegration("telegram")} disabled={isSavingIntegration} className="px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-60">{isSavingIntegration ? "Saving..." : "Save Telegram config"}</button>
+                        <button type="button" onClick={sendTelegramTest} disabled={isSendingTelegramTest} className="px-3 py-2 rounded-md border border-border text-sm font-semibold disabled:opacity-60">{isSendingTelegramTest ? "Sending..." : "Send test message"}</button>
+                    </div>
+                </div>
+                <p className="text-xs text-muted-foreground">Secrets currently use placeholder storage. Replace with a secure vault provider in production.</p>
+            </section>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Left column */}

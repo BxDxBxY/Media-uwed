@@ -398,7 +398,8 @@ export const ModelName = {
   ArticleRaw: 'ArticleRaw',
   ArticleProcessed: 'ArticleProcessed',
   AdminApiKey: 'AdminApiKey',
-  AdminUser: 'AdminUser'
+  AdminUser: 'AdminUser',
+  IntegrationConfig: 'IntegrationConfig'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -414,7 +415,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "article" | "category" | "aboutContent" | "siteVisit" | "articleView" | "event" | "media" | "subscriber" | "contactMessage" | "siteSettings" | "source" | "articleRaw" | "articleProcessed" | "adminApiKey" | "adminUser"
+    modelProps: "article" | "category" | "aboutContent" | "siteVisit" | "articleView" | "event" | "media" | "subscriber" | "contactMessage" | "siteSettings" | "source" | "articleRaw" | "articleProcessed" | "adminApiKey" | "adminUser" | "integrationConfig"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1528,6 +1529,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    IntegrationConfig: {
+      payload: Prisma.$IntegrationConfigPayload<ExtArgs>
+      fields: Prisma.IntegrationConfigFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.IntegrationConfigFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntegrationConfigPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.IntegrationConfigFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntegrationConfigPayload>
+        }
+        findFirst: {
+          args: Prisma.IntegrationConfigFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntegrationConfigPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.IntegrationConfigFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntegrationConfigPayload>
+        }
+        findMany: {
+          args: Prisma.IntegrationConfigFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntegrationConfigPayload>[]
+        }
+        create: {
+          args: Prisma.IntegrationConfigCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntegrationConfigPayload>
+        }
+        createMany: {
+          args: Prisma.IntegrationConfigCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.IntegrationConfigCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntegrationConfigPayload>[]
+        }
+        delete: {
+          args: Prisma.IntegrationConfigDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntegrationConfigPayload>
+        }
+        update: {
+          args: Prisma.IntegrationConfigUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntegrationConfigPayload>
+        }
+        deleteMany: {
+          args: Prisma.IntegrationConfigDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.IntegrationConfigUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.IntegrationConfigUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntegrationConfigPayload>[]
+        }
+        upsert: {
+          args: Prisma.IntegrationConfigUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntegrationConfigPayload>
+        }
+        aggregate: {
+          args: Prisma.IntegrationConfigAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateIntegrationConfig>
+        }
+        groupBy: {
+          args: Prisma.IntegrationConfigGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.IntegrationConfigGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.IntegrationConfigCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.IntegrationConfigCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -1794,6 +1869,25 @@ export const AdminUserScalarFieldEnum = {
 export type AdminUserScalarFieldEnum = (typeof AdminUserScalarFieldEnum)[keyof typeof AdminUserScalarFieldEnum]
 
 
+export const IntegrationConfigScalarFieldEnum = {
+  id: 'id',
+  integrationType: 'integrationType',
+  enabled: 'enabled',
+  provider: 'provider',
+  providerApiKey: 'providerApiKey',
+  channelId: 'channelId',
+  webhookToken: 'webhookToken',
+  aiSummarization: 'aiSummarization',
+  aiCategorization: 'aiCategorization',
+  translationPolicy: 'translationPolicy',
+  retryLimit: 'retryLimit',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type IntegrationConfigScalarFieldEnum = (typeof IntegrationConfigScalarFieldEnum)[keyof typeof IntegrationConfigScalarFieldEnum]
+
+
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -1996,6 +2090,7 @@ export type GlobalOmitConfig = {
   articleProcessed?: Prisma.ArticleProcessedOmit
   adminApiKey?: Prisma.AdminApiKeyOmit
   adminUser?: Prisma.AdminUserOmit
+  integrationConfig?: Prisma.IntegrationConfigOmit
 }
 
 /* Types for Logging */

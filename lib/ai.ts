@@ -14,6 +14,13 @@ export interface ProcessedNews {
   categories: string[];
 }
 
+
+
+export type AiTaskConfig = {
+  summarizationEnabled?: boolean;
+  categorizationEnabled?: boolean;
+  translationPolicy?: "full" | "summary_only" | "disabled";
+};
 // Free/no-auth translation endpoints (may rate-limit sometimes)
 const LIBRETRANSLATE_URL = "https://libretranslate.de/translate"; // public instance
 const MYMEMORY_URL = "https://api.mymemory.translated.net/get";
@@ -297,6 +304,7 @@ export async function processNewsAI(
   description: string,
   sourceLanguage: "en" | "ru" | "uz" = "en",
   detailedContent?: string,
+  taskConfig: AiTaskConfig = {},
 ): Promise<ProcessedNews | null> {
   try {
     const src = sourceLanguage;
@@ -305,33 +313,54 @@ export async function processNewsAI(
     const rewrittenSummary = paraphraseBasic(description || title);
     const rewrittenContent = paraphraseBasic(detailedContent || description || title);
 
-    const [headlineEn, headlineRu, headlineUz] = await Promise.all([
-      translateWithPivot(rewrittenTitle, src, "en"),
-      translateWithPivot(rewrittenTitle, src, "ru"),
-      translateWithPivot(rewrittenTitle, src, "uz"),
-    ]);
+    const translationPolicy = taskConfig.translationPolicy ?? "full";
 
-    const [summaryEn, summaryRu, summaryUz] = await Promise.all([
-      translateWithPivot(rewrittenSummary, src, "en"),
-      translateWithPivot(rewrittenSummary, src, "ru"),
-      translateWithPivot(rewrittenSummary, src, "uz"),
-    ]);
+    const shouldTranslateTitle = translationPolicy !== "disabled";
+    const shouldTranslateSummary = translationPolicy !== "disabled";
+    const shouldTranslateContent = translationPolicy === "full";
 
-    const [contentEn, contentRu, contentUz] = await Promise.all([
-      translateWithPivot(rewrittenContent, src, "en"),
-      translateWithPivot(rewrittenContent, src, "ru"),
-      translateWithPivot(rewrittenContent, src, "uz"),
-    ]);
+    const [headlineEn, headlineRu, headlineUz] = shouldTranslateTitle
+      ? await Promise.all([
+          translateWithPivot(rewrittenTitle, src, "en"),
+          translateWithPivot(rewrittenTitle, src, "ru"),
+          translateWithPivot(rewrittenTitle, src, "uz"),
+        ])
+      : [rewrittenTitle, rewrittenTitle, rewrittenTitle];
 
-    const categories = detectCategories(title, `${description || ""} ${detailedContent || ""}`);
+    const [summaryEn, summaryRu, summaryUz] = shouldTranslateSummary
+      ? await Promise.all([
+          translateWithPivot(rewrittenSummary, src, "en"),
+          translateWithPivot(rewrittenSummary, src, "ru"),
+          translateWithPivot(rewrittenSummary, src, "uz"),
+        ])
+      : [rewrittenSummary, rewrittenSummary, rewrittenSummary];
+
+    const [contentEn, contentRu, contentUz] = shouldTranslateContent
+      ? await Promise.all([
+          translateWithPivot(rewrittenContent, src, "en"),
+          translateWithPivot(rewrittenContent, src, "ru"),
+          translateWithPivot(rewrittenContent, src, "uz"),
+        ])
+      : [rewrittenContent, rewrittenContent, rewrittenContent];
+
+    const summarySource = taskConfig.summarizationEnabled === false ? title : description || title;
+    const normalizedSummary = paraphraseBasic(summarySource);
+
+    const finalSummaryEn = taskConfig.summarizationEnabled === false ? polishText(title) : polishText(summaryEn || normalizedSummary);
+    const finalSummaryRu = taskConfig.summarizationEnabled === false ? polishText(headlineRu) : polishText(summaryRu || normalizedSummary);
+    const finalSummaryUz = taskConfig.summarizationEnabled === false ? polishText(headlineUz) : polishText(summaryUz || normalizedSummary);
+
+    const categories = taskConfig.categorizationEnabled === false
+      ? ["News"]
+      : detectCategories(title, `${description || ""} ${detailedContent || ""}`);
 
     return {
       headlineEn: polishText(headlineEn),
       headlineRu: polishText(headlineRu),
       headlineUz: polishText(headlineUz),
-      summaryEn: polishText(summaryEn),
-      summaryRu: polishText(summaryRu),
-      summaryUz: polishText(summaryUz),
+      summaryEn: finalSummaryEn,
+      summaryRu: finalSummaryRu,
+      summaryUz: finalSummaryUz,
       contentEn: polishText(contentEn),
       contentRu: polishText(contentRu),
       contentUz: polishText(contentUz),

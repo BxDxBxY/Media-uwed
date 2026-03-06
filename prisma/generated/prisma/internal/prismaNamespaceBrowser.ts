@@ -65,7 +65,8 @@ export const ModelName = {
   ArticleRaw: 'ArticleRaw',
   ArticleProcessed: 'ArticleProcessed',
   AdminApiKey: 'AdminApiKey',
-  AdminUser: 'AdminUser'
+  AdminUser: 'AdminUser',
+  IntegrationConfig: 'IntegrationConfig'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -309,6 +310,25 @@ export const AdminUserScalarFieldEnum = {
 } as const
 
 export type AdminUserScalarFieldEnum = (typeof AdminUserScalarFieldEnum)[keyof typeof AdminUserScalarFieldEnum]
+
+
+export const IntegrationConfigScalarFieldEnum = {
+  id: 'id',
+  integrationType: 'integrationType',
+  enabled: 'enabled',
+  provider: 'provider',
+  providerApiKey: 'providerApiKey',
+  channelId: 'channelId',
+  webhookToken: 'webhookToken',
+  aiSummarization: 'aiSummarization',
+  aiCategorization: 'aiCategorization',
+  translationPolicy: 'translationPolicy',
+  retryLimit: 'retryLimit',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type IntegrationConfigScalarFieldEnum = (typeof IntegrationConfigScalarFieldEnum)[keyof typeof IntegrationConfigScalarFieldEnum]
 
 
 export const SortOrder = {

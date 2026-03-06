@@ -92,3 +92,8 @@ export type AdminApiKey = Prisma.AdminApiKeyModel
  * 
  */
 export type AdminUser = Prisma.AdminUserModel
+/**
+ * Model IntegrationConfig
+ * 
+ */
+export type IntegrationConfig = Prisma.IntegrationConfigModel
