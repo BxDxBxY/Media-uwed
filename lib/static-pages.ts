@@ -84,3 +84,10 @@ export async function setStaticPage(payload: Omit<StaticPageContent, "updatedAt"
 
   return getStaticPage(slug);
 }
+
+export async function resetStaticPage(slug: StaticPageSlug) {
+  await prisma.contactMessage.deleteMany({
+    where: { subject: `${SUBJECT_PREFIX}${slug}` },
+  });
+  return getStaticPage(slug);
+}

@@ -7,6 +7,8 @@ import {
   Settings,
   PlusCircle,
   Bot,
+  ShieldCheck,
+  FileBadge,
 } from "lucide-react";
 import { AdminLogoutButton } from "@/components/admin-logout-button";
 import { getAdminSessionFromCookies } from "@/lib/admin-auth";
@@ -24,13 +26,13 @@ export default async function AdminLayout({
 
   return (
     <div className="flex min-h-screen">
-      <aside className="w-64 bg-muted/30 border-r border-border/40 hidden md:flex flex-col">
+      <aside className="w-64 h-screen sticky top-0 bg-muted/30 border-r border-border/40 hidden md:flex flex-col relative">
         <div className="p-6 border-b border-border/40">
           <Link href="/" className="font-serif text-xl font-bold">University Media</Link>
           <p className="text-xs text-muted-foreground mt-1">Admin Panel</p>
         </div>
 
-        <nav className="flex-1 p-4 space-y-1">
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto pb-24">
           <NavItem href="/admin" icon={<LayoutDashboard className="h-4 w-4" />}>
             Dashboard
           </NavItem>
@@ -52,12 +54,18 @@ export default async function AdminLayout({
           <NavItem href="/admin/automation" icon={<Bot className="h-4 w-4" />}>
             Automation
           </NavItem>
+          <NavItem href="/admin/privacy-policy" icon={<ShieldCheck className="h-4 w-4" />}>
+            Privacy Policy
+          </NavItem>
+          <NavItem href="/admin/terms-of-use" icon={<FileBadge className="h-4 w-4" />}>
+            Terms of Use
+          </NavItem>
           <NavItem href="/admin/settings" icon={<Settings className="h-4 w-4" />}>
             Settings
           </NavItem>
         </nav>
 
-        <div className="p-4 border-t border-border/40">
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border/40 bg-muted/40 backdrop-blur-sm">
           <AdminLogoutButton />
         </div>
       </aside>

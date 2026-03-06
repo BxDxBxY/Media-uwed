@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { PlusCircle, Search, FileEdit, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { PlusCircle, Search, FileEdit, Trash2, ChevronLeft, ChevronRight, Filter } from "lucide-react";
 import { useGlobalContext } from "@/lib/context";
 import { useMemo, useState } from "react";
 
@@ -21,6 +21,9 @@ export default function AdminArticlesPage() {
   const [category, setCategory] = useState("all");
   const [sortBy, setSortBy] = useState<SortOption>("newest");
   const [page, setPage] = useState(1);
+  const [showFilters, setShowFilters] = useState(false);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const categories = useMemo(() => {
     const values = Array.from(new Set(articles.flatMap((article) => articleCategories(article))));
@@ -33,7 +36,11 @@ export default function AdminArticlesPage() {
     const filtered = articles.filter((article) => {
       const matchesSearch = article.title.toLowerCase().includes(term) || article.author.toLowerCase().includes(term);
       const matchesCategory = category === "all" || articleCategories(article).includes(category);
-      return matchesSearch && matchesCategory;
+      const articleTime = new Date(article.createdAt ?? article.date).getTime();
+      const fromTime = dateFrom ? new Date(`${dateFrom}T00:00:00`).getTime() : null;
+      const toTime = dateTo ? new Date(`${dateTo}T23:59:59`).getTime() : null;
+      const matchesDate = Number.isFinite(articleTime) && (fromTime === null || articleTime >= fromTime) && (toTime === null || articleTime <= toTime);
+      return matchesSearch && matchesCategory && matchesDate;
     });
 
     const sorted = [...filtered].sort((a, b) => {
@@ -46,7 +53,7 @@ export default function AdminArticlesPage() {
     });
 
     return sorted;
-  }, [articles, category, searchTerm, sortBy]);
+  }, [articles, category, searchTerm, sortBy, dateFrom, dateTo]);
 
   const totalPages = Math.max(1, Math.ceil(filteredArticles.length / PAGE_SIZE));
   const clampedPage = Math.min(page, totalPages);
@@ -62,8 +69,12 @@ export default function AdminArticlesPage() {
         </Link>
       </div>
 
-      <div className="grid gap-4 rounded-lg border border-border/40 bg-card p-4 md:grid-cols-4">
-        <div className="relative md:col-span-2">
+      <div className="rounded-lg border border-border/40 bg-card p-4 space-y-3">
+        <button onClick={() => setShowFilters((prev) => !prev)} className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-sm font-semibold hover:bg-muted">
+          <Filter className="h-4 w-4" /> {showFilters ? "Hide filters" : "Show filters"}
+        </button>
+
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
@@ -76,31 +87,38 @@ export default function AdminArticlesPage() {
             }}
           />
         </div>
-        <select
-          value={category}
-          onChange={(e) => {
-            setCategory(e.target.value);
-            setPage(1);
-          }}
-          className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          {categories.map((value) => (
-            <option key={value} value={value}>{value === "all" ? "All Categories" : value}</option>
-          ))}
-        </select>
-        <select
-          value={sortBy}
-          onChange={(e) => {
-            setSortBy(e.target.value as SortOption);
-            setPage(1);
-          }}
-          className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          <option value="newest">Newest first</option>
-          <option value="oldest">Oldest first</option>
-          <option value="title-asc">Title A-Z</option>
-          <option value="title-desc">Title Z-A</option>
-        </select>
+
+        {showFilters && (
+          <div className="grid gap-4 md:grid-cols-4">
+            <select
+              value={category}
+              onChange={(e) => {
+                setCategory(e.target.value);
+                setPage(1);
+              }}
+              className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              {categories.map((value) => (
+                <option key={value} value={value}>{value === "all" ? "All Categories" : value}</option>
+              ))}
+            </select>
+            <select
+              value={sortBy}
+              onChange={(e) => {
+                setSortBy(e.target.value as SortOption);
+                setPage(1);
+              }}
+              className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="title-asc">Title A-Z</option>
+              <option value="title-desc">Title Z-A</option>
+            </select>
+            <input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(1); }} className="rounded-md border border-input bg-background px-3 py-2 text-sm" />
+            <input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(1); }} className="rounded-md border border-input bg-background px-3 py-2 text-sm" />
+          </div>
+        )}
       </div>
 
       <div className="overflow-hidden rounded-xl border border-border/40 bg-card">

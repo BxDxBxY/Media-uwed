@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
-import { getStaticPage, setStaticPage, type StaticPageSlug } from "@/lib/static-pages";
+import { getStaticPage, setStaticPage, resetStaticPage, type StaticPageSlug } from "@/lib/static-pages";
 
 const validSlugs = new Set<StaticPageSlug>(["privacy-policy", "terms-of-use"]);
 
@@ -52,5 +52,24 @@ export async function PUT(request: Request) {
     return NextResponse.json({ page });
   } catch {
     return NextResponse.json({ error: "Failed to save static page" }, { status: 500 });
+  }
+}
+
+
+export async function DELETE(request: Request) {
+  const unauthorized = requireAdmin(request);
+  if (unauthorized) return unauthorized;
+
+  const { searchParams } = new URL(request.url);
+  const slug = searchParams.get("slug") as StaticPageSlug | null;
+  if (!slug || !validSlugs.has(slug)) {
+    return NextResponse.json({ error: "Invalid slug" }, { status: 400 });
+  }
+
+  try {
+    const page = await resetStaticPage(slug);
+    return NextResponse.json({ page });
+  } catch {
+    return NextResponse.json({ error: "Failed to reset static page" }, { status: 500 });
   }
 }

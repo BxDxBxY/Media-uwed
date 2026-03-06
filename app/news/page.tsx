@@ -19,6 +19,8 @@ export default function NewsPage() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [showCategories, setShowCategories] = useState(false);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   const categories = useMemo(() => {
@@ -45,16 +47,20 @@ export default function NewsPage() {
       const summary = String(getLocalized(article, "summary") || article.summary || "").toLowerCase();
       const matchesSearch = !query || title.includes(query) || summary.includes(query);
       const matchesCategory = activeCategory === "All" || articleCategories(article).includes(activeCategory);
-      return matchesSearch && matchesCategory;
+      const articleTime = new Date(article.createdAt || article.date).getTime();
+      const fromTime = dateFrom ? new Date(`${dateFrom}T00:00:00`).getTime() : null;
+      const toTime = dateTo ? new Date(`${dateTo}T23:59:59`).getTime() : null;
+      const matchesDate = Number.isFinite(articleTime) && (fromTime === null || articleTime >= fromTime) && (toTime === null || articleTime <= toTime);
+      return matchesSearch && matchesCategory && matchesDate;
     });
-  }, [articles, searchQuery, activeCategory, language]);
+  }, [articles, searchQuery, activeCategory, language, dateFrom, dateTo]);
 
   const visibleArticles = filteredArticles.slice(0, visibleCount);
   const hasMore = visibleCount < filteredArticles.length;
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [activeCategory, searchQuery]);
+  }, [activeCategory, searchQuery, dateFrom, dateTo]);
 
   useEffect(() => {
     if (!sentinelRef.current || !hasMore) return;
@@ -93,16 +99,25 @@ export default function NewsPage() {
               <Filter className="h-4 w-4" /> {showCategories ? "Hide categories" : "Show categories"}
             </button>
             {showCategories && (
-              <div className="flex flex-wrap gap-2">
-                {categories.map((cat) => (
-                  <button
-                    key={cat}
-                    onClick={() => setActiveCategory(cat)}
-                    className={`px-4 py-1.5 rounded-full text-sm font-bold transition-all ${activeCategory === cat ? "bg-primary text-primary-foreground shadow-md" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
-                  >
-                    {cat}
-                  </button>
-                ))}
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-2">
+                  {categories.map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => setActiveCategory(cat)}
+                      className={`px-4 py-1.5 rounded-full text-sm font-bold transition-all ${activeCategory === cat ? "bg-primary text-primary-foreground shadow-md" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-sm">
+                  <span className="text-muted-foreground font-medium">Date:</span>
+                  <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="rounded-md border border-input bg-background px-2 py-1" />
+                  <span className="text-muted-foreground">to</span>
+                  <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="rounded-md border border-input bg-background px-2 py-1" />
+                  {(dateFrom || dateTo) && <button onClick={() => { setDateFrom(""); setDateTo(""); }} className="rounded-md border border-border px-2 py-1 text-xs hover:bg-muted">Clear</button>}
+                </div>
               </div>
             )}
           </div>

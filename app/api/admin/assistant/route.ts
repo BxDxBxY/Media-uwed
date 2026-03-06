@@ -6,6 +6,10 @@ import axios from "axios";
 const ASSISTANT_SUBJECT = "__assistant_memory__";
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_MODEL = process.env.GEMINI_ASSISTANT_MODEL || "gemini-2.0-flash";
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+const OPENROUTER_MODEL = process.env.OPENROUTER_ASSISTANT_MODEL || "openai/gpt-5.2";
+const OPENROUTER_REFERER = process.env.OPENROUTER_REFERER || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+const OPENROUTER_TITLE = process.env.OPENROUTER_TITLE || "University Media Admin";
 
 type AssistantStats = {
   raw: number;
@@ -28,6 +32,35 @@ const fallbackReply = (message: string, stats: AssistantStats) => {
     return `Website overview: ${stats.articles} published articles, ${stats.media} media items, ${stats.events} events, and ${stats.raw} raw queue items waiting automation.`;
   }
   return `I can help with the whole platform (articles, events, media, automation, settings, and workflows). Current queue: raw ${stats.raw}, review ${stats.review}, ready ${stats.ready}.`;
+};
+
+const callOpenRouter = async (prompt: string): Promise<string | null> => {
+  if (!OPENROUTER_API_KEY) return null;
+  try {
+    const res = await axios.post(
+      "https://openrouter.ai/api/v1/chat/completions",
+      {
+        model: OPENROUTER_MODEL,
+        messages: [{ role: "user", content: prompt }],
+        stream: false,
+        temperature: 0.35,
+      },
+      {
+        timeout: 30000,
+        headers: {
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": OPENROUTER_REFERER,
+          "X-OpenRouter-Title": OPENROUTER_TITLE,
+        },
+      },
+    );
+
+    return res.data?.choices?.[0]?.message?.content?.trim() || null;
+  } catch (error) {
+    console.error("OpenRouter assistant error:", error);
+    return null;
+  }
 };
 
 const callGemini = async (prompt: string): Promise<string | null> => {
@@ -82,10 +115,13 @@ export async function GET(request: Request) {
       createdAt: item.createdAt,
     }));
 
-    return NextResponse.json({
-      messages,
-      model: GEMINI_API_KEY ? GEMINI_MODEL : "local-fallback",
-    });
+    const activeModel = OPENROUTER_API_KEY
+      ? OPENROUTER_MODEL
+      : GEMINI_API_KEY
+        ? GEMINI_MODEL
+        : "local-fallback";
+
+    return NextResponse.json({ messages, model: activeModel });
   } catch (error) {
     console.error("Failed to fetch assistant memory", error);
     return NextResponse.json({ error: "Failed to fetch assistant memory" }, { status: 500 });
@@ -161,7 +197,10 @@ export async function POST(request: Request) {
       `User message: ${userMessage}`,
     ].join("\n");
 
-    const aiReply = await callGemini(prompt);
+    const openRouterReply = await callOpenRouter(prompt);
+    const geminiReply = openRouterReply ? null : await callGemini(prompt);
+    const aiReply = openRouterReply || geminiReply;
+
     const usedFallback = !aiReply;
     const reply =
       aiReply ||
@@ -183,14 +222,20 @@ export async function POST(request: Request) {
       },
     });
 
+    const modelUsed = openRouterReply ? OPENROUTER_MODEL : geminiReply ? GEMINI_MODEL : "local-fallback";
+
     return NextResponse.json({
       reply,
-      model: GEMINI_API_KEY ? GEMINI_MODEL : "local-fallback",
+      model: modelUsed,
       usedFallback,
       fallbackReason: usedFallback
-        ? GEMINI_API_KEY
-          ? "Gemini request failed. Check logs/API quota."
-          : "GEMINI_API_KEY is not configured."
+        ? OPENROUTER_API_KEY
+          ? GEMINI_API_KEY
+            ? "OpenRouter and Gemini requests failed. Check logs/API quota."
+            : "OpenRouter request failed and GEMINI_API_KEY is not configured."
+          : GEMINI_API_KEY
+            ? "OpenRouter not configured and Gemini request failed."
+            : "Neither OPENROUTER_API_KEY nor GEMINI_API_KEY is configured."
         : null,
     });
   } catch (error) {
