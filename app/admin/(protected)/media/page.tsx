@@ -1,8 +1,8 @@
 "use client";
 
 import { useGlobalContext } from "@/lib/context";
-import { Plus, Trash2, Video, Image as ImageIcon, ExternalLink, Play, Eye, Edit2, X, ChevronLeft, ChevronRight } from "lucide-react";
-import { useState } from "react";
+import { Plus, Trash2, Video, Image as ImageIcon, ExternalLink, Play, Eye, Edit2, X, ChevronLeft, ChevronRight, Table2, LayoutGrid } from "lucide-react";
+import { useMemo, useState } from "react";
 import { getMediaPreviewUrl, getYouTubeIdFromUrl } from "@/lib/media-utils";
 import { toast } from "sonner";
 
@@ -19,9 +19,23 @@ export default function AdminMediaPage() {
   const [isAdding, setIsAdding] = useState(false);
   const [editingMedia, setEditingMedia] = useState<any>(null);
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
+  const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
+  const [sortBy, setSortBy] = useState<"date_desc" | "date_asc" | "type_asc" | "type_desc">("date_desc");
   const [newMedia, setNewMedia] = useState({ type: "image" as "image" | "video", title: "", url: "", thumbnail: "", category: "General" });
 
-  const selectedItem = selectedIndex >= 0 ? media[selectedIndex] : null;
+  const sortedMedia = useMemo(() => {
+    const copy = [...media];
+    copy.sort((a, b) => {
+      if (sortBy === "type_asc") return (a.type || "").localeCompare(b.type || "");
+      if (sortBy === "type_desc") return (b.type || "").localeCompare(a.type || "");
+      const aDate = new Date(a.createdAt || 0).getTime();
+      const bDate = new Date(b.createdAt || 0).getTime();
+      return sortBy === "date_asc" ? aDate - bDate : bDate - aDate;
+    });
+    return copy;
+  }, [media, sortBy]);
+
+  const selectedItem = selectedIndex >= 0 ? sortedMedia[selectedIndex] : null;
 
   const handleSaveEdit = async () => {
     if (!editingMedia) return;
@@ -47,27 +61,37 @@ export default function AdminMediaPage() {
   };
 
   const handleNext = () => {
-    if (media.length === 0) return;
-    setSelectedIndex((prev) => (prev + 1) % media.length);
+    if (sortedMedia.length === 0) return;
+    setSelectedIndex((prev) => (prev + 1) % sortedMedia.length);
   };
 
   const handlePrev = () => {
-    if (media.length === 0) return;
-    setSelectedIndex((prev) => (prev - 1 + media.length) % media.length);
+    if (sortedMedia.length === 0) return;
+    setSelectedIndex((prev) => (prev - 1 + sortedMedia.length) % sortedMedia.length);
   };
 
   if (isLoading) return <div className="p-8 text-center text-muted-foreground italic">Updating gallery...</div>;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-serif font-bold">Media Management</h1>
           <p className="text-sm text-muted-foreground">Manage your images and video library.</p>
         </div>
-        <button onClick={() => setIsAdding(true)} className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-bold hover:opacity-90 transition-opacity">
-          <Plus className="h-4 w-4" /> Add Media
-        </button>
+        <div className="flex gap-2 items-center">
+          <select value={sortBy} onChange={(e) => setSortBy(e.target.value as any)} className="rounded-lg border border-border/50 bg-background px-3 py-2 text-sm">
+            <option value="date_desc">Date: Newest first</option>
+            <option value="date_asc">Date: Oldest first</option>
+            <option value="type_asc">Type: A → Z</option>
+            <option value="type_desc">Type: Z → A</option>
+          </select>
+          <button onClick={() => setViewMode("grid")} className={`p-2 rounded-md border ${viewMode === "grid" ? "bg-primary text-primary-foreground" : ""}`}><LayoutGrid className="h-4 w-4" /></button>
+          <button onClick={() => setViewMode("table")} className={`p-2 rounded-md border ${viewMode === "table" ? "bg-primary text-primary-foreground" : ""}`}><Table2 className="h-4 w-4" /></button>
+          <button onClick={() => setIsAdding(true)} className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-bold hover:opacity-90 transition-opacity">
+            <Plus className="h-4 w-4" /> Add Media
+          </button>
+        </div>
       </div>
 
       {editingMedia && (
@@ -81,7 +105,6 @@ export default function AdminMediaPage() {
             <input value={editingMedia.url} onChange={(e) => setEditingMedia({ ...editingMedia, url: e.target.value })} className="w-full bg-muted border-none rounded-lg px-4 py-2 text-sm" />
             <input value={editingMedia.thumbnail || ""} onChange={(e) => setEditingMedia({ ...editingMedia, thumbnail: e.target.value })} className="w-full bg-muted border-none rounded-lg px-4 py-2 text-sm" />
             <input value={editingMedia.category || "General"} onChange={(e) => setEditingMedia({ ...editingMedia, category: e.target.value })} className="w-full bg-muted border-none rounded-lg px-4 py-2 text-sm" />
-            <p className="text-xs text-muted-foreground">Tip: add multiple categories with commas, e.g. <span className="font-mono">University, hero-side</span>.</p>
             <select value={editingMedia.type} onChange={(e) => setEditingMedia({ ...editingMedia, type: e.target.value })} className="w-full bg-muted border-none rounded-lg px-4 py-2 text-sm">
               <option value="image">Image</option>
               <option value="video">Video</option>
@@ -111,33 +134,64 @@ export default function AdminMediaPage() {
         </form>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {media.map((item, index) => (
-          <div key={item.id} className="group relative cursor-pointer bg-card rounded-xl border border-border/40 overflow-hidden" onClick={() => setSelectedIndex(index)}>
-            <div className="aspect-[4/3] rounded-2xl overflow-hidden bg-muted border-b border-border/40 relative">
-              <img src={getMediaPreviewUrl(item)} alt={item.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-              <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                {item.type === "video" ? <Play className="h-8 w-8 text-white" /> : <Eye className="h-8 w-8 text-white" />}
+      {viewMode === "grid" ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {sortedMedia.map((item, index) => (
+            <div key={item.id} className="group relative cursor-pointer bg-card rounded-xl border border-border/40 overflow-hidden" onClick={() => setSelectedIndex(index)}>
+              <div className="aspect-[4/3] rounded-2xl overflow-hidden bg-muted border-b border-border/40 relative">
+                <img src={getMediaPreviewUrl(item)} alt={item.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  {item.type === "video" ? <Play className="h-8 w-8 text-white" /> : <Eye className="h-8 w-8 text-white" />}
+                </div>
+                <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={(e) => { e.stopPropagation(); setEditingMedia(item); }} className="p-2 bg-white/90 text-primary rounded-lg"><Edit2 className="h-4 w-4" /></button>
+                  <button onClick={(e) => { e.stopPropagation(); confirm("Delete this media?") && deleteMedia(item.id); }} className="p-2 bg-red-500/90 text-white rounded-lg"><Trash2 className="h-4 w-4" /></button>
+                </div>
+                <div className="absolute bottom-2 right-2">{item.type === "video" ? <Video className="h-5 w-5 text-white" /> : <ImageIcon className="h-5 w-5 text-white" />}</div>
               </div>
-
-              <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onClick={(e) => { e.stopPropagation(); setEditingMedia(item); }} className="p-2 bg-white/90 text-primary rounded-lg"><Edit2 className="h-4 w-4" /></button>
-                <button onClick={(e) => { e.stopPropagation(); confirm("Delete this media?") && deleteMedia(item.id); }} className="p-2 bg-red-500/90 text-white rounded-lg"><Trash2 className="h-4 w-4" /></button>
+              <div className="p-4">
+                <h3 className="font-bold text-sm mb-1 truncate">{item.title}</h3>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold">{item.category}</span>
+                  {item.url ? <a href={item.url} onClick={(e) => e.stopPropagation()} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline"><ExternalLink className="h-4 w-4" /></a> : null}
+                </div>
               </div>
-
-              <div className="absolute bottom-2 right-2">{item.type === "video" ? <Video className="h-5 w-5 text-white" /> : <ImageIcon className="h-5 w-5 text-white" />}</div>
             </div>
-
-            <div className="p-4">
-              <h3 className="font-bold text-sm mb-1 truncate">{item.title}</h3>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] text-muted-foreground uppercase font-bold">{item.category}</span>
-                {item.url ? <a href={item.url} onClick={(e) => e.stopPropagation()} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline"><ExternalLink className="h-4 w-4" /></a> : null}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-xl border border-border/40 bg-card overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50 text-muted-foreground">
+              <tr>
+                <th className="text-left py-3 px-4">Title</th>
+                <th className="text-left py-3 px-4">Type</th>
+                <th className="text-left py-3 px-4">Category</th>
+                <th className="text-left py-3 px-4">Created</th>
+                <th className="text-left py-3 px-4">URL</th>
+                <th className="text-left py-3 px-4">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedMedia.map((item) => (
+                <tr key={item.id} className="border-t border-border/30">
+                  <td className="py-3 px-4 font-medium">{item.title}</td>
+                  <td className="py-3 px-4 uppercase text-xs">{item.type}</td>
+                  <td className="py-3 px-4">{item.category || "General"}</td>
+                  <td className="py-3 px-4">{item.createdAt ? new Date(item.createdAt).toLocaleString() : "N/A"}</td>
+                  <td className="py-3 px-4 max-w-[260px] truncate"><a href={item.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{item.url}</a></td>
+                  <td className="py-3 px-4">
+                    <div className="flex gap-2">
+                      <button onClick={() => setEditingMedia(item)} className="px-2 py-1 text-xs rounded border">Edit</button>
+                      <button onClick={() => confirm("Delete this media?") && deleteMedia(item.id)} className="px-2 py-1 text-xs rounded border border-red-400 text-red-500">Delete</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {selectedItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/95 backdrop-blur-sm p-4 animate-in fade-in duration-300">
