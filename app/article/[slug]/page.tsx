@@ -29,23 +29,26 @@ function renderInlineMarkdownLinks(text: string) {
   });
 }
 
-
 function toReadableParagraphs(content: string): string[] {
-  const normalized = content.replace(/\s+/g, " ").trim();
+  const normalized = content.trim();
   if (!normalized) return [];
 
-  const fromBreaks = normalized.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  const fromBreaks = normalized
+    .split(/\n{2,}/)
+    .map((p) => p.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
   if (fromBreaks.length > 1) return fromBreaks;
 
-  const sentences = normalized.split(/(?<=[.!?])\s+/).filter(Boolean);
-  if (sentences.length <= 3) return [normalized];
+  const compact = normalized.replace(/\s+/g, " ").trim();
+  const sentences = compact.split(/(?<=[.!?])\s+/).filter(Boolean);
+  if (sentences.length <= 3) return [compact];
 
   const chunks: string[] = [];
   let current: string[] = [];
 
   for (const sentence of sentences) {
     current.push(sentence);
-    if (current.length >= 3) {
+    if (current.length >= 2) {
       chunks.push(current.join(" "));
       current = [];
     }
@@ -53,6 +56,11 @@ function toReadableParagraphs(content: string): string[] {
 
   if (current.length > 0) chunks.push(current.join(" "));
   return chunks;
+}
+
+function extractImageCandidates(content: string): string[] {
+  const matches = content.match(/https?:\/\/[^\s)"']+\.(?:jpg|jpeg|png|webp|gif)/gi) || [];
+  return Array.from(new Set(matches));
 }
 
 export default function ArticlePage() {
@@ -108,7 +116,17 @@ export default function ArticlePage() {
 
   const contentBlocks = toReadableParagraphs(content).map((line) => polishText(line)).filter(Boolean);
 
-  const relatedArticles = articles.filter(a => a.category === article.category && a.id !== article.id).slice(0, 3);
+  const extracted = extractImageCandidates(content);
+  const fallbackInline = [
+    `https://picsum.photos/seed/${article.id}-inline-1/1200/700`,
+    `https://picsum.photos/seed/${article.id}-inline-2/1200/700`,
+  ];
+  const inlineImages = Array.from(new Set([article.image, ...extracted, ...fallbackInline])).slice(0, 3);
+
+  const relatedArticles = articles
+    .filter((a) => a.id !== article.id)
+    .filter((a) => a.category === article.category || (a.categories || []).some((c) => article.categories?.some((ac) => ac.id === c.id)))
+    .slice(0, 4);
 
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href);
@@ -132,40 +150,27 @@ export default function ArticlePage() {
               {article.category}
             </span>
             <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest flex items-center gap-1">
-              <Clock className="h-3 w-3" /> {article.date} {article.createdAt && `• ${new Date(article.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+              <Clock className="h-3 w-3" /> {article.date} {article.createdAt && `• ${new Date(article.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}
             </span>
           </div>
 
-          <h1 className="text-4xl md:text-6xl font-serif font-bold mb-6 leading-tight">
-            {title}
-          </h1>
+          <h1 className="text-4xl md:text-6xl font-serif font-bold mb-6 leading-tight">{title}</h1>
 
           <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5 md:p-6 mb-8 shadow-sm">
-            <p className="text-lg md:text-2xl text-foreground/90 font-serif italic leading-relaxed">
-              {summary}
-            </p>
+            <p className="text-lg md:text-2xl text-foreground/90 font-serif italic leading-relaxed">{summary}</p>
           </div>
 
           <div className="flex items-center justify-between py-6 border-y border-border/40 mb-12">
             <div className="flex items-center gap-4">
-              <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center font-bold text-primary">
-                {article.author.charAt(0)}
-              </div>
+              <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center font-bold text-primary">{article.author.charAt(0)}</div>
               <div>
                 <span className="block text-sm font-bold">{article.author}</span>
                 <span className="block text-xs text-muted-foreground">Campus Correspondent</span>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <button
-                onClick={handleShare}
-                className="p-2 rounded-full hover:bg-muted transition-colors" title="Share"
-              >
-                <Share2 className="h-5 w-5" />
-              </button>
-              <button className="p-2 rounded-full hover:bg-muted transition-colors" title="Save">
-                <Bookmark className="h-5 w-5" />
-              </button>
+              <button onClick={handleShare} className="p-2 rounded-full hover:bg-muted transition-colors" title="Share"><Share2 className="h-5 w-5" /></button>
+              <button className="p-2 rounded-full hover:bg-muted transition-colors" title="Save"><Bookmark className="h-5 w-5" /></button>
             </div>
           </div>
         </div>
@@ -174,11 +179,7 @@ export default function ArticlePage() {
           <div className="aspect-[21/9] rounded-3xl overflow-hidden border border-border/40 shadow-xl">
             <img src={article.image} alt={title} className="w-full h-full object-cover" />
           </div>
-          {imageCaption && (
-            <figcaption className="mt-4 text-center text-sm text-muted-foreground font-serif italic">
-              {imageCaption}
-            </figcaption>
-          )}
+          {imageCaption && <figcaption className="mt-4 text-center text-sm text-muted-foreground font-serif italic">{imageCaption}</figcaption>}
         </figure>
       </header>
 
@@ -186,43 +187,37 @@ export default function ArticlePage() {
         <div className="max-w-3xl mx-auto">
           <div className="mb-8 flex items-center justify-end gap-2 text-xs">
             <span className="text-muted-foreground">Text size</span>
-            <button
-              type="button"
-              onClick={() => setFontScale("md")}
-              className={`px-2 py-1 rounded border ${fontScale === "md" ? "bg-primary text-primary-foreground border-primary" : "border-border"}`}
-            >
-              A
-            </button>
-            <button
-              type="button"
-              onClick={() => setFontScale("lg")}
-              className={`px-2 py-1 rounded border ${fontScale === "lg" ? "bg-primary text-primary-foreground border-primary" : "border-border"}`}
-            >
-              A+
-            </button>
+            <button type="button" onClick={() => setFontScale("md")} className={`px-2 py-1 rounded border ${fontScale === "md" ? "bg-primary text-primary-foreground border-primary" : "border-border"}`}>A</button>
+            <button type="button" onClick={() => setFontScale("lg")} className={`px-2 py-1 rounded border ${fontScale === "lg" ? "bg-primary text-primary-foreground border-primary" : "border-border"}`}>A+</button>
           </div>
 
-          <div className="space-y-5">
+          <div className="space-y-6">
             {contentBlocks.map((block: string, i: number) => {
-              if (block === "---") {
-                return <hr key={`sep-${i}`} className="my-8 border-border/50" />;
-              }
+              if (block === "---") return <hr key={`sep-${i}`} className="my-8 border-border/50" />;
 
               const isLead = i === 0;
               const isSourceLine = /original source:/i.test(block);
+              const injectImage = i > 0 && i % 3 === 0 && inlineImages[Math.floor(i / 3) - 1];
 
               return (
-                <p
-                  key={`p-${i}`}
-                  className={[
-                    fontScale === "lg" ? "text-[1.12rem]" : "text-base",
-                    "leading-8 text-foreground/90 text-justify",
-                    isLead ? "first-letter:text-4xl first-letter:font-serif first-letter:font-bold first-letter:mr-1" : "",
-                    isSourceLine ? "mt-10 rounded-xl border border-border/40 bg-muted/30 px-4 py-3 text-sm" : "",
-                  ].join(" ")}
-                >
-                  {renderInlineMarkdownLinks(block)}
-                </p>
+                <div key={`chunk-${i}`} className="space-y-4">
+                  <p
+                    className={[
+                      fontScale === "lg" ? "text-[1.12rem]" : "text-base",
+                      "leading-8 text-foreground/90",
+                      isLead ? "first-letter:text-4xl first-letter:font-serif first-letter:font-bold first-letter:mr-1" : "",
+                      isSourceLine ? "mt-10 rounded-xl border border-border/40 bg-muted/30 px-4 py-3 text-sm" : "",
+                    ].join(" ")}
+                  >
+                    {renderInlineMarkdownLinks(block)}
+                  </p>
+
+                  {injectImage && (
+                    <figure className="rounded-2xl overflow-hidden border border-border/40">
+                      <img src={injectImage} alt={`${title} visual ${i}`} className="w-full h-auto object-cover" />
+                    </figure>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -231,9 +226,7 @@ export default function ArticlePage() {
             <div className="mt-12 flex flex-wrap gap-2">
               <span className="text-xs font-bold text-muted-foreground uppercase py-1">Filed under:</span>
               {(article as any).categories.map((cat: any) => (
-                <span key={cat.id} className="text-xs font-bold px-3 py-1 bg-muted rounded-full">
-                  #{cat.name}
-                </span>
+                <span key={cat.id} className="text-xs font-bold px-3 py-1 bg-muted rounded-full">#{cat.name}</span>
               ))}
             </div>
           )}

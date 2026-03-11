@@ -1,7 +1,7 @@
 "use client";
 
 import { Eye, Loader2, Save, Trash2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 type Slug = "privacy-policy" | "terms-of-use";
@@ -30,9 +30,9 @@ export function AdminStaticPageEditor({ slug, heading }: { slug: Slug; heading: 
   const [resetting, setResetting] = useState(false);
   const [activeLang, setActiveLang] = useState<LangKey>("en");
   const [previewMode, setPreviewMode] = useState(false);
+  const editorRef = useRef<HTMLDivElement | null>(null);
 
   const currentMeta = useMemo(() => languageMeta.find((x) => x.key === activeLang)!, [activeLang]);
-  const contentId = `content-${currentMeta.key}`;
 
   const getCurrentContent = () => String(draft[currentMeta.contentKey] || "");
 
@@ -40,52 +40,19 @@ export function AdminStaticPageEditor({ slug, heading }: { slug: Slug; heading: 
     setDraft((prev) => ({ ...prev, [field]: value }));
   };
 
-  const wrapSelection = (id: string, before: string, after: string = before) => {
-    const element = document.getElementById(id) as HTMLTextAreaElement | null;
-    if (!element) return;
-
-    const start = element.selectionStart ?? 0;
-    const end = element.selectionEnd ?? 0;
-    const value = element.value;
-    const selected = value.slice(start, end) || "text";
-    const next = `${value.slice(0, start)}${before}${selected}${after}${value.slice(end)}`;
-
-    setCurrentField(currentMeta.contentKey, next);
-
-    requestAnimationFrame(() => {
-      element.focus();
-      const pos = start + before.length + selected.length + after.length;
-      element.setSelectionRange(pos, pos);
-    });
+  const runCommand = (command: string, value?: string) => {
+    editorRef.current?.focus();
+    document.execCommand(command, false, value);
+    const html = editorRef.current?.innerHTML || "";
+    setCurrentField(currentMeta.contentKey, html);
   };
 
-  const insertTemplate = (id: string, template: string) => {
-    const element = document.getElementById(id) as HTMLTextAreaElement | null;
-    if (!element) return;
-
-    const cursor = element.selectionStart ?? element.value.length;
-    const next = `${element.value.slice(0, cursor)}${template}${element.value.slice(cursor)}`;
-    setCurrentField(currentMeta.contentKey, next);
-    requestAnimationFrame(() => {
-      element.focus();
-      const pos = cursor + template.length;
-      element.setSelectionRange(pos, pos);
-    });
+  const insertTemplate = (template: string) => {
+    editorRef.current?.focus();
+    document.execCommand("insertHTML", false, template);
+    const html = editorRef.current?.innerHTML || "";
+    setCurrentField(currentMeta.contentKey, html);
   };
-
-  const EditorTools = ({ id }: { id: string }) => (
-    <div className="flex flex-wrap gap-2 pb-2">
-      <button type="button" onClick={() => wrapSelection(id, "<strong>", "</strong>")} className="px-2 py-1 text-xs rounded border border-border hover:bg-muted">Bold</button>
-      <button type="button" onClick={() => wrapSelection(id, "<em>", "</em>")} className="px-2 py-1 text-xs rounded border border-border hover:bg-muted">Italic</button>
-      <button type="button" onClick={() => wrapSelection(id, "<h2>", "</h2>")} className="px-2 py-1 text-xs rounded border border-border hover:bg-muted">H2</button>
-      <button type="button" onClick={() => wrapSelection(id, "<h3>", "</h3>")} className="px-2 py-1 text-xs rounded border border-border hover:bg-muted">H3</button>
-      <button type="button" onClick={() => wrapSelection(id, "<blockquote>", "</blockquote>")} className="px-2 py-1 text-xs rounded border border-border hover:bg-muted">Quote</button>
-      <button type="button" onClick={() => wrapSelection(id, "<ul>\n<li>", "</li>\n</ul>")} className="px-2 py-1 text-xs rounded border border-border hover:bg-muted">List</button>
-      <button type="button" onClick={() => wrapSelection(id, "<ol>\n<li>", "</li>\n</ol>")} className="px-2 py-1 text-xs rounded border border-border hover:bg-muted">Numbered</button>
-      <button type="button" onClick={() => insertTemplate(id, '<a href="https://example.com" target="_blank" rel="noopener noreferrer">Link text</a>')} className="px-2 py-1 text-xs rounded border border-border hover:bg-muted">Link</button>
-      <button type="button" onClick={() => insertTemplate(id, "<hr />\n")} className="px-2 py-1 text-xs rounded border border-border hover:bg-muted">Divider</button>
-    </div>
-  );
 
   useEffect(() => {
     const load = async () => {
@@ -111,6 +78,12 @@ export function AdminStaticPageEditor({ slug, heading }: { slug: Slug; heading: 
     };
     load();
   }, [slug]);
+
+  useEffect(() => {
+    if (editorRef.current && !previewMode) {
+      editorRef.current.innerHTML = getCurrentContent();
+    }
+  }, [activeLang, previewMode]);
 
   const save = async () => {
     if (!draft.title.trim() || !draft.content.trim()) {
@@ -176,12 +149,7 @@ export function AdminStaticPageEditor({ slug, heading }: { slug: Slug; heading: 
       <div className="rounded-xl border border-border/40 bg-card p-4 space-y-4">
         <div className="flex flex-wrap gap-2">
           {languageMeta.map((lang) => (
-            <button
-              key={lang.key}
-              type="button"
-              onClick={() => setActiveLang(lang.key)}
-              className={`px-3 py-1.5 rounded-md text-sm border ${activeLang === lang.key ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
-            >
+            <button key={lang.key} type="button" onClick={() => setActiveLang(lang.key)} className={`px-3 py-1.5 rounded-md text-sm border ${activeLang === lang.key ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}>
               {lang.label}
             </button>
           ))}
@@ -203,14 +171,23 @@ export function AdminStaticPageEditor({ slug, heading }: { slug: Slug; heading: 
         {!previewMode ? (
           <div className="space-y-2">
             <label className="text-sm font-medium">{currentMeta.label} content</label>
-            <EditorTools id={contentId} />
-            <textarea
-              id={contentId}
-              rows={18}
-              value={getCurrentContent()}
-              onChange={(e) => setCurrentField(currentMeta.contentKey, e.target.value)}
-              placeholder={`Content (${currentMeta.label})`}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono"
+            <div className="flex flex-wrap gap-2 pb-2">
+              <button type="button" onClick={() => runCommand("bold")} className="px-2 py-1 text-xs rounded border border-border hover:bg-muted">Bold</button>
+              <button type="button" onClick={() => runCommand("italic")} className="px-2 py-1 text-xs rounded border border-border hover:bg-muted">Italic</button>
+              <button type="button" onClick={() => runCommand("formatBlock", "h2")} className="px-2 py-1 text-xs rounded border border-border hover:bg-muted">H2</button>
+              <button type="button" onClick={() => runCommand("formatBlock", "h3")} className="px-2 py-1 text-xs rounded border border-border hover:bg-muted">H3</button>
+              <button type="button" onClick={() => runCommand("insertUnorderedList")} className="px-2 py-1 text-xs rounded border border-border hover:bg-muted">List</button>
+              <button type="button" onClick={() => runCommand("insertOrderedList")} className="px-2 py-1 text-xs rounded border border-border hover:bg-muted">Numbered</button>
+              <button type="button" onClick={() => insertTemplate('<blockquote>Quote</blockquote>')} className="px-2 py-1 text-xs rounded border border-border hover:bg-muted">Quote</button>
+              <button type="button" onClick={() => insertTemplate('<a href="https://example.com" target="_blank" rel="noopener noreferrer">Link text</a>')} className="px-2 py-1 text-xs rounded border border-border hover:bg-muted">Link</button>
+              <button type="button" onClick={() => insertTemplate("<hr />")} className="px-2 py-1 text-xs rounded border border-border hover:bg-muted">Divider</button>
+            </div>
+            <div
+              ref={editorRef}
+              contentEditable
+              suppressContentEditableWarning
+              onInput={(e) => setCurrentField(currentMeta.contentKey, (e.target as HTMLDivElement).innerHTML)}
+              className="min-h-[420px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring [&_p]:mb-3"
             />
           </div>
         ) : (
@@ -225,7 +202,7 @@ export function AdminStaticPageEditor({ slug, heading }: { slug: Slug; heading: 
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Tip: edit one language at a time for better readability. English content/title are required; RU/UZ can be optional fallbacks.
+        Tip: this editor uses browser rich-text commands for legal/static pages. English content/title are required; RU/UZ can be optional fallbacks.
       </p>
     </div>
   );

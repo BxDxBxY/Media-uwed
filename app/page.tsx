@@ -217,41 +217,6 @@ export default function Home() {
       </section>
 
 
-      <section className="container mx-auto px-4 py-8 md:py-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-7">
-          {columnSections.map((column) => {
-            const lead = column.items[0];
-            const rest = column.items.slice(1);
-            return (
-              <div key={column.title} className="space-y-4">
-                <div className="border-t-2 border-border/80 pt-3 flex items-center justify-between">
-                  <h3 className="font-bold uppercase tracking-wide text-lg">{column.title}</h3>
-                  <ChevronRight className="h-5 w-5" />
-                </div>
-
-                {lead && (
-                  <Link href={`/article/${lead.slug}`} className="block group">
-                    <div className="aspect-[16/10] overflow-hidden bg-muted">
-                      <img src={lead.image} alt={localizedText(lead, language, "title")} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                    </div>
-                    <h4 className="text-2xl font-serif font-bold mt-3 leading-tight group-hover:text-primary transition-colors">{localizedText(lead, language, "title")}</h4>
-                    <p className="text-base text-muted-foreground mt-2 line-clamp-3">{localizedText(lead, language, "summary")}</p>
-                  </Link>
-                )}
-
-                <div className="space-y-0">
-                  {rest.map((item) => (
-                    <Link key={item.id} href={`/article/${item.slug}`} className="block py-4 border-t border-border/40 group">
-                      <h5 className="text-[1.9rem] leading-tight font-serif font-semibold group-hover:text-primary transition-colors line-clamp-2">{localizedText(item, language, "title")}</h5>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
       <section className="container mx-auto px-4 py-16 space-y-14">
         {structuredBlocks.map((block) => {
           const lead = block.items[0];
@@ -358,6 +323,42 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      <section className="container mx-auto px-4 py-8 md:py-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-7">
+          {columnSections.map((column) => {
+            const lead = column.items[0];
+            const rest = column.items.slice(1);
+            return (
+              <div key={column.title} className="space-y-4">
+                <div className="border-t-2 border-border/80 pt-3 flex items-center justify-between">
+                  <h3 className="font-bold uppercase tracking-wide text-lg">{column.title}</h3>
+                  <ChevronRight className="h-5 w-5" />
+                </div>
+
+                {lead && (
+                  <Link href={`/article/${lead.slug}`} className="block group">
+                    <div className="aspect-[16/10] overflow-hidden bg-muted">
+                      <img src={lead.image} alt={localizedText(lead, language, "title")} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                    </div>
+                    <h4 className="text-2xl font-serif font-bold mt-3 leading-tight group-hover:text-primary transition-colors">{localizedText(lead, language, "title")}</h4>
+                    <p className="text-base text-muted-foreground mt-2 line-clamp-3">{localizedText(lead, language, "summary")}</p>
+                  </Link>
+                )}
+
+                <div className="space-y-0">
+                  {rest.map((item) => (
+                    <Link key={item.id} href={`/article/${item.slug}`} className="block py-4 border-t border-border/40 group">
+                      <h5 className="text-[1.9rem] leading-tight font-serif font-semibold group-hover:text-primary transition-colors line-clamp-2">{localizedText(item, language, "title")}</h5>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
     </main>
   );
 }
