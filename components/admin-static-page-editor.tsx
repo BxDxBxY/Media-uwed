@@ -1,10 +1,11 @@
 "use client";
 
-import { Loader2, Save, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Eye, Loader2, Save, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 type Slug = "privacy-policy" | "terms-of-use";
+type LangKey = "en" | "ru" | "uz";
 
 type Draft = {
   slug: Slug;
@@ -16,11 +17,28 @@ type Draft = {
   contentUz: string;
 };
 
+const languageMeta: Array<{ key: LangKey; label: string; titleKey: keyof Draft; contentKey: keyof Draft }> = [
+  { key: "en", label: "English", titleKey: "title", contentKey: "content" },
+  { key: "ru", label: "Russian", titleKey: "titleRu", contentKey: "contentRu" },
+  { key: "uz", label: "Uzbek", titleKey: "titleUz", contentKey: "contentUz" },
+];
+
 export function AdminStaticPageEditor({ slug, heading }: { slug: Slug; heading: string }) {
   const [draft, setDraft] = useState<Draft>({ slug, title: "", titleRu: "", titleUz: "", content: "", contentRu: "", contentUz: "" });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [activeLang, setActiveLang] = useState<LangKey>("en");
+  const [previewMode, setPreviewMode] = useState(false);
+
+  const currentMeta = useMemo(() => languageMeta.find((x) => x.key === activeLang)!, [activeLang]);
+  const contentId = `content-${currentMeta.key}`;
+
+  const getCurrentContent = () => String(draft[currentMeta.contentKey] || "");
+
+  const setCurrentField = (field: keyof Draft, value: string) => {
+    setDraft((prev) => ({ ...prev, [field]: value }));
+  };
 
   const wrapSelection = (id: string, before: string, after: string = before) => {
     const element = document.getElementById(id) as HTMLTextAreaElement | null;
@@ -32,8 +50,7 @@ export function AdminStaticPageEditor({ slug, heading }: { slug: Slug; heading: 
     const selected = value.slice(start, end) || "text";
     const next = `${value.slice(0, start)}${before}${selected}${after}${value.slice(end)}`;
 
-    const key = id.replace("content-", "") as "content" | "contentRu" | "contentUz";
-    setDraft((prev) => ({ ...prev, [key]: next }));
+    setCurrentField(currentMeta.contentKey, next);
 
     requestAnimationFrame(() => {
       element.focus();
@@ -42,14 +59,31 @@ export function AdminStaticPageEditor({ slug, heading }: { slug: Slug; heading: 
     });
   };
 
+  const insertTemplate = (id: string, template: string) => {
+    const element = document.getElementById(id) as HTMLTextAreaElement | null;
+    if (!element) return;
+
+    const cursor = element.selectionStart ?? element.value.length;
+    const next = `${element.value.slice(0, cursor)}${template}${element.value.slice(cursor)}`;
+    setCurrentField(currentMeta.contentKey, next);
+    requestAnimationFrame(() => {
+      element.focus();
+      const pos = cursor + template.length;
+      element.setSelectionRange(pos, pos);
+    });
+  };
+
   const EditorTools = ({ id }: { id: string }) => (
     <div className="flex flex-wrap gap-2 pb-2">
       <button type="button" onClick={() => wrapSelection(id, "<strong>", "</strong>")} className="px-2 py-1 text-xs rounded border border-border hover:bg-muted">Bold</button>
-      <button type="button" onClick={() => wrapSelection(id, "<mark>", "</mark>")} className="px-2 py-1 text-xs rounded border border-border hover:bg-muted">Highlight</button>
+      <button type="button" onClick={() => wrapSelection(id, "<em>", "</em>")} className="px-2 py-1 text-xs rounded border border-border hover:bg-muted">Italic</button>
       <button type="button" onClick={() => wrapSelection(id, "<h2>", "</h2>")} className="px-2 py-1 text-xs rounded border border-border hover:bg-muted">H2</button>
       <button type="button" onClick={() => wrapSelection(id, "<h3>", "</h3>")} className="px-2 py-1 text-xs rounded border border-border hover:bg-muted">H3</button>
       <button type="button" onClick={() => wrapSelection(id, "<blockquote>", "</blockquote>")} className="px-2 py-1 text-xs rounded border border-border hover:bg-muted">Quote</button>
-      <button type="button" onClick={() => wrapSelection(id, "<ul><li>", "</li></ul>")} className="px-2 py-1 text-xs rounded border border-border hover:bg-muted">List</button>
+      <button type="button" onClick={() => wrapSelection(id, "<ul>\n<li>", "</li>\n</ul>")} className="px-2 py-1 text-xs rounded border border-border hover:bg-muted">List</button>
+      <button type="button" onClick={() => wrapSelection(id, "<ol>\n<li>", "</li>\n</ol>")} className="px-2 py-1 text-xs rounded border border-border hover:bg-muted">Numbered</button>
+      <button type="button" onClick={() => insertTemplate(id, '<a href="https://example.com" target="_blank" rel="noopener noreferrer">Link text</a>')} className="px-2 py-1 text-xs rounded border border-border hover:bg-muted">Link</button>
+      <button type="button" onClick={() => insertTemplate(id, "<hr />\n")} className="px-2 py-1 text-xs rounded border border-border hover:bg-muted">Divider</button>
     </div>
   );
 
@@ -126,8 +160,8 @@ export function AdminStaticPageEditor({ slug, heading }: { slug: Slug; heading: 
   if (loading) return <div className="p-8 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin inline mr-2" />Loading page data...</div>;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="space-y-5">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <h1 className="text-2xl font-serif font-bold">{heading}</h1>
         <div className="flex gap-2">
           <button onClick={reset} disabled={resetting || saving} className="inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm hover:bg-muted disabled:opacity-60">
@@ -139,26 +173,60 @@ export function AdminStaticPageEditor({ slug, heading }: { slug: Slug; heading: 
         </div>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-3">
-        <input value={draft.title} onChange={(e) => setDraft((prev) => ({ ...prev, title: e.target.value }))} placeholder="Title (EN)" className="rounded-md border border-input bg-background px-3 py-2 text-sm" />
-        <input value={draft.titleRu} onChange={(e) => setDraft((prev) => ({ ...prev, titleRu: e.target.value }))} placeholder="Title (RU)" className="rounded-md border border-input bg-background px-3 py-2 text-sm" />
-        <input value={draft.titleUz} onChange={(e) => setDraft((prev) => ({ ...prev, titleUz: e.target.value }))} placeholder="Title (UZ)" className="rounded-md border border-input bg-background px-3 py-2 text-sm" />
+      <div className="rounded-xl border border-border/40 bg-card p-4 space-y-4">
+        <div className="flex flex-wrap gap-2">
+          {languageMeta.map((lang) => (
+            <button
+              key={lang.key}
+              type="button"
+              onClick={() => setActiveLang(lang.key)}
+              className={`px-3 py-1.5 rounded-md text-sm border ${activeLang === lang.key ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
+            >
+              {lang.label}
+            </button>
+          ))}
+          <button type="button" onClick={() => setPreviewMode((v) => !v)} className="ml-auto inline-flex items-center gap-2 px-3 py-1.5 rounded-md border border-border hover:bg-muted text-sm">
+            <Eye className="h-4 w-4" /> {previewMode ? "Edit" : "Preview"}
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          <label className="text-sm font-medium">{currentMeta.label} title</label>
+          <input
+            value={String(draft[currentMeta.titleKey] || "")}
+            onChange={(e) => setCurrentField(currentMeta.titleKey, e.target.value)}
+            placeholder={`Title (${currentMeta.label})`}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          />
+        </div>
+
+        {!previewMode ? (
+          <div className="space-y-2">
+            <label className="text-sm font-medium">{currentMeta.label} content</label>
+            <EditorTools id={contentId} />
+            <textarea
+              id={contentId}
+              rows={18}
+              value={getCurrentContent()}
+              onChange={(e) => setCurrentField(currentMeta.contentKey, e.target.value)}
+              placeholder={`Content (${currentMeta.label})`}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono"
+            />
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Preview ({currentMeta.label})</label>
+            <div
+              className="rounded-lg border border-border/40 bg-background p-4 md:p-6 leading-7 text-base [&_p]:mb-4 [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mt-6 [&_h2]:mb-3 [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:mt-5 [&_h3]:mb-2 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_blockquote]:border-l-4 [&_blockquote]:pl-4 [&_blockquote]:italic [&_a]:text-primary [&_a]:underline"
+              dangerouslySetInnerHTML={{ __html: getCurrentContent() }}
+            />
+          </div>
+        )}
       </div>
 
-      <div className="grid md:grid-cols-3 gap-3">
-        <div>
-          <EditorTools id="content-content" />
-          <textarea id="content-content" rows={14} value={draft.content} onChange={(e) => setDraft((prev) => ({ ...prev, content: e.target.value }))} placeholder="Content (EN)" className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
-        </div>
-        <div>
-          <EditorTools id="content-contentRu" />
-          <textarea id="content-contentRu" rows={14} value={draft.contentRu} onChange={(e) => setDraft((prev) => ({ ...prev, contentRu: e.target.value }))} placeholder="Content (RU)" className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
-        </div>
-        <div>
-          <EditorTools id="content-contentUz" />
-          <textarea id="content-contentUz" rows={14} value={draft.contentUz} onChange={(e) => setDraft((prev) => ({ ...prev, contentUz: e.target.value }))} placeholder="Content (UZ)" className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
-        </div>
-      </div>
+      <p className="text-xs text-muted-foreground">
+        Tip: edit one language at a time for better readability. English content/title are required; RU/UZ can be optional fallbacks.
+      </p>
     </div>
   );
 }
