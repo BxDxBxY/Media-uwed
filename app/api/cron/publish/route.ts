@@ -1,24 +1,69 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { sendTelegramMessage } from "@/lib/telegram";
+import { decryptSecret } from "@/lib/security";
+import { logger } from "@/lib/logger";
 
-// Helper to generate URL-safe slugs
 function generateSlug(text: string): string {
   return text
     .toString()
     .toLowerCase()
     .trim()
-    .replace(/[^\w\s-]/g, "") // Remove non-word chars (except spaces and hyphens)
-    .replace(/[\s_]+/g, "-") // Replace spaces/underscores with -
-    .replace(/^-+|-+$/g, ""); // Remove leading/trailing -
+    .replace(/[^\w\s-]/g, "")
+    .replace(/[\s_]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function escapeTelegramHtml(value: string) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function buildLangLink(articleUrl: string, lang: "ru" | "en" | "uz") {
+  return `${articleUrl}?lang=${lang}`;
+}
+
+function buildTelegramNewsMessage(input: {
+  titleRu: string;
+  summaryRu: string;
+  titleEn: string;
+  summaryEn: string;
+  titleUz: string;
+  summaryUz: string;
+  articleUrl: string;
+}) {
+  const ruLink = buildLangLink(input.articleUrl, "ru");
+  const enLink = buildLangLink(input.articleUrl, "en");
+  const uzLink = buildLangLink(input.articleUrl, "uz");
+
+  return [
+    `🇷🇺 <b>${escapeTelegramHtml(input.titleRu)}</b>`,
+    escapeTelegramHtml(input.summaryRu),
+    `<a href=\"${ruLink}\">${escapeTelegramHtml(ruLink)}</a>`,
+    "",
+    `🇬🇧 <b>${escapeTelegramHtml(input.titleEn)}</b>`,
+    escapeTelegramHtml(input.summaryEn),
+    `<a href=\"${enLink}\">${escapeTelegramHtml(enLink)}</a>`,
+    "",
+    `🇺🇿 <b>${escapeTelegramHtml(input.titleUz)}</b>`,
+    escapeTelegramHtml(input.summaryUz),
+    `<a href=\"${uzLink}\">${escapeTelegramHtml(uzLink)}</a>`,
+  ].join("\n");
 }
 
 export const maxDuration = 60;
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
-    // Find items marked as 'ready' by admin
+    const body = await request.json().catch(() => ({}));
+    const processedIds = Array.isArray(body?.processedIds) ? body.processedIds.filter(Boolean) : null;
+
     const readyToPublish = await prisma.articleProcessed.findMany({
-      where: { status: "ready" },
+      where: processedIds && processedIds.length > 0
+        ? { id: { in: processedIds }, status: { in: ["ready", "pending_review"] } }
+        : { status: "ready" },
       include: { raw: { include: { source: true } } },
       take: 20,
     });
@@ -26,36 +71,58 @@ export async function POST() {
     if (readyToPublish.length === 0) {
       return NextResponse.json({
         publishedCount: 0,
-        message:
-          "No articles with 'ready' status found. Please review and approve articles first.",
+        message: processedIds && processedIds.length > 0
+          ? "No matching review items found for single/batch publish."
+          : "No articles with 'ready' status found. Please review and approve articles first.",
       });
     }
 
+    const telegramIntegration = await prisma.integrationConfig.findUnique({
+      where: { integrationType: "telegram" },
+    });
+
+    const telegramEnabled = Boolean(telegramIntegration?.enabled && telegramIntegration?.sendOnPublish);
+    const telegramBotToken = decryptSecret(telegramIntegration?.providerApiKeyEncrypted)?.trim();
+
     let publishedCount = 0;
+    let telegramSentCount = 0;
     const errors: string[] = [];
+
+    if (telegramEnabled && (!telegramBotToken || !telegramIntegration?.channelId?.trim())) {
+      logger.error("Telegram is enabled but credentials are incomplete", {
+        hasToken: Boolean(telegramBotToken),
+        hasChannelId: Boolean(telegramIntegration?.channelId?.trim()),
+      });
+      errors.push("Telegram is enabled but bot token or channel ID is missing.");
+    }
 
     for (const item of readyToPublish) {
       try {
-        // Robust slug generation
-        const baseSlug = generateSlug(item.headlineEn || "news-article").slice(
-          0,
-          50,
-        );
+        const baseSlug = generateSlug(item.headlineEn || "news-article").slice(0, 50);
         const randomSuffix = Math.random().toString(36).substring(2, 7);
         const slug = `${baseSlug || "article"}-${randomSuffix}`;
 
-        // Append source link to content
-        const sourceLinkText = `\n\n---\n*Original source: [${item.raw.source.name}](${item.raw.url})*`;
+        let rawJson: Record<string, unknown> = {};
+        try {
+          rawJson = item.raw.rawJson ? JSON.parse(item.raw.rawJson) : {};
+        } catch {
+          rawJson = {};
+        }
+
+        const detailImages = Array.isArray(rawJson.detailImages)
+          ? rawJson.detailImages.filter((x) => typeof x === "string" && /^https?:\/\//.test(x)).slice(0, 4)
+          : [];
+
+        const inlineImageRefs = detailImages.length > 0
+          ? `\n\nMedia references (for rendering):\n${detailImages.join("\n")}`
+          : "";
+
+        const sourceLinkText = `\n\n---\n*Original source: [${item.raw.source.name}](${item.raw.url})*${inlineImageRefs}`;
 
         const contentEn = (item.contentEn || item.summaryEn) + sourceLinkText;
-        const contentRu = item.contentRu
-          ? item.contentRu + sourceLinkText
-          : null;
-        const contentUz = item.contentUz
-          ? item.contentUz + sourceLinkText
-          : null;
+        const contentRu = item.contentRu ? item.contentRu + sourceLinkText : null;
+        const contentUz = item.contentUz ? item.contentUz + sourceLinkText : null;
 
-        // Handle Categories
         const categoryNames = item.categories
           ? item.categories
               .split(",")
@@ -63,7 +130,6 @@ export async function POST() {
               .filter(Boolean)
           : ["News"];
 
-        // Create or find categories
         const categoryConnect = await Promise.all(
           categoryNames.map(async (name) => {
             const cat = await prisma.category.upsert({
@@ -75,8 +141,7 @@ export async function POST() {
           }),
         );
 
-        // Create the main Article
-        await prisma.article.create({
+        const article = await prisma.article.create({
           data: {
             title: item.headlineEn,
             titleRu: item.headlineRu,
@@ -87,10 +152,8 @@ export async function POST() {
             content: contentEn,
             contentRu: contentRu,
             contentUz: contentUz,
-            slug: slug,
-            image:
-              item.raw.imageUrl ||
-              `https://picsum.photos/seed/${item.id}/800/600`,
+            slug,
+            image: item.raw.imageUrl || `https://picsum.photos/seed/${item.id}/800/600`,
             author: item.raw.author || item.raw.source.name || "Global Media",
             url: item.raw.url,
             date: new Date().toLocaleDateString("en-US", {
@@ -104,26 +167,59 @@ export async function POST() {
           },
         });
 
-        // Mark as published
         await prisma.articleProcessed.update({
           where: { id: item.id },
           data: { status: "published" },
         });
 
+        if (telegramEnabled && telegramBotToken && telegramIntegration?.channelId?.trim()) {
+          try {
+            const articleUrl = `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/article/${article.slug}`;
+            const telegramMessage = buildTelegramNewsMessage({
+              titleRu: item.headlineRu || item.headlineEn,
+              summaryRu: item.summaryRu || item.summaryEn,
+              titleEn: item.headlineEn,
+              summaryEn: item.summaryEn,
+              titleUz: item.headlineUz || item.headlineEn,
+              summaryUz: item.summaryUz || item.summaryEn,
+              articleUrl,
+            });
+
+            await sendTelegramMessage({
+              botToken: telegramBotToken,
+              chatId: telegramIntegration.channelId.trim(),
+              text: telegramMessage,
+              photoUrl: article.image,
+              parseMode: "HTML",
+              disableWebPagePreview: false,
+              retries: telegramIntegration.retryLimit,
+            });
+            telegramSentCount++;
+          } catch (telegramError) {
+            logger.error("Telegram delivery failed for published article", {
+              itemId: item.id,
+              error: telegramError instanceof Error ? telegramError.message : String(telegramError),
+            });
+            errors.push(`Item ${item.id}: published but Telegram delivery failed`);
+          }
+        }
+
         publishedCount++;
       } catch (error: any) {
-        console.error(`Failed to publish item ${item.id}:`, error);
-        errors.push(`Item ${item.id}: ${error.message || "Unknown error"}`);
+        logger.error("Failed to publish item", { itemId: item.id, error: error?.message || "Unknown error" });
+        errors.push(`Item ${item.id}: ${error?.message || "Unknown error"}`);
       }
     }
 
     return NextResponse.json({
       publishedCount,
+      telegramSentCount,
+      telegramEnabled,
       errors: errors.length > 0 ? errors : undefined,
-      message: `Successfully published ${publishedCount} articles.`,
+      message: `Successfully published ${publishedCount} articles. Telegram sent: ${telegramSentCount}.`,
     });
   } catch (error: any) {
-    console.error("Critical error in publish endpoint:", error);
+    logger.error("Critical error in publish endpoint", { error: error?.message || "Unknown" });
     return NextResponse.json(
       {
         error: "Failed to publish",

@@ -14,13 +14,22 @@ export interface ProcessedNews {
   categories: string[];
 }
 
+
+
+export type AiTaskConfig = {
+  summarizationEnabled?: boolean;
+  categorizationEnabled?: boolean;
+  translationPolicy?: "full" | "summary_only" | "disabled";
+  providerApiKey?: string;
+  providerModel?: string;
+};
 // Free/no-auth translation endpoints (may rate-limit sometimes)
 const LIBRETRANSLATE_URL = "https://libretranslate.de/translate"; // public instance
 const MYMEMORY_URL = "https://api.mymemory.translated.net/get";
 
 const MAX_TRANSLATE_CHARS = 450;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const OPENROUTER_MODEL = process.env.OPENROUTER_TRANSLATE_MODEL || "openai/gpt-5.2";
+const OPENROUTER_MODEL = process.env.OPENROUTER_TRANSLATE_MODEL || "openai/gpt-4o-mini";
 const OPENROUTER_REFERER = process.env.OPENROUTER_REFERER || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 const OPENROUTER_TITLE = process.env.OPENROUTER_TITLE || "University Media AI";
 
@@ -67,8 +76,14 @@ async function translateWithOpenRouterChunk(
   chunk: string,
   source: "en" | "ru" | "uz",
   target: "en" | "ru" | "uz",
+  apiKey: string | null,
+  model: string,
 ): Promise<string | null> {
-  if (!OPENROUTER_API_KEY) return null;
+  const safeKey = (apiKey || "").trim();
+  if (!safeKey) {
+    console.log("OpenRouter key missing or empty after trim; skipping provider call");
+    return null;
+  }
 
   try {
     const prompt = [
@@ -80,10 +95,16 @@ async function translateWithOpenRouterChunk(
       chunk,
     ].join("\n");
 
+    console.log({
+      hasKey: Boolean(safeKey),
+      keyPrefix: safeKey.slice(0, 8),
+      model,
+    });
+
     const res = await axios.post(
       "https://openrouter.ai/api/v1/chat/completions",
       {
-        model: OPENROUTER_MODEL,
+        model,
         messages: [{ role: "user", content: prompt }],
         temperature: 0.1,
         stream: false,
@@ -91,7 +112,7 @@ async function translateWithOpenRouterChunk(
       {
         timeout: 25_000,
         headers: {
-          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          Authorization: `Bearer ${safeKey}`,
           "Content-Type": "application/json",
           "HTTP-Referer": OPENROUTER_REFERER,
           "X-OpenRouter-Title": OPENROUTER_TITLE,
@@ -102,8 +123,11 @@ async function translateWithOpenRouterChunk(
     const out = res.data?.choices?.[0]?.message?.content?.trim() || "";
 
     return out ? cleanText(out) : null;
-  } catch (error) {
-    console.error("OpenRouter translation error:", error);
+  } catch (error: any) {
+    console.error("OpenRouter error status:", error?.response?.status);
+    console.error("OpenRouter error data:", error?.response?.data);
+    console.error("OpenRouter error headers:", error?.response?.headers);
+    console.error("OpenRouter translation error:", error?.message || error);
     return null;
   }
 }
@@ -172,6 +196,7 @@ async function translate(
   text: string,
   source: "en" | "ru" | "uz",
   target: "en" | "ru" | "uz",
+  options?: { providerApiKey?: string; providerModel?: string },
 ) {
   const q = cleanText(text);
   if (!q) return "";
@@ -183,7 +208,14 @@ async function translate(
   for (const chunk of chunks) {
     let translatedChunk = "";
 
-    translatedChunk = (await translateWithOpenRouterChunk(chunk, source, target)) || "";
+    translatedChunk =
+      (await translateWithOpenRouterChunk(
+        chunk,
+        source,
+        target,
+        options?.providerApiKey || OPENROUTER_API_KEY || null,
+        options?.providerModel || OPENROUTER_MODEL,
+      )) || "";
 
     // 2) LibreTranslate
     if (!translatedChunk) {
@@ -228,8 +260,9 @@ async function translateWithPivot(
   text: string,
   source: "en" | "ru" | "uz",
   target: "en" | "ru" | "uz",
+  options?: { providerApiKey?: string; providerModel?: string },
 ): Promise<string> {
-  const primary = await translate(text, source, target);
+  const primary = await translate(text, source, target, options);
   const normalizedSource = cleanText(text);
 
   if (target === source || !normalizedSource) return primary;
@@ -237,10 +270,10 @@ async function translateWithPivot(
   const unchanged = cleanText(primary).toLowerCase() === normalizedSource.toLowerCase();
   if (!unchanged || source === "en" || target === "en") return primary;
 
-  const pivot = await translate(text, source, "en");
+  const pivot = await translate(text, source, "en", options);
   if (!pivot || cleanText(pivot).toLowerCase() === normalizedSource.toLowerCase()) return primary;
 
-  const pivoted = await translate(pivot, "en", target);
+  const pivoted = await translate(pivot, "en", target, options);
   return cleanText(pivoted) || primary;
 }
 
@@ -297,6 +330,7 @@ export async function processNewsAI(
   description: string,
   sourceLanguage: "en" | "ru" | "uz" = "en",
   detailedContent?: string,
+  taskConfig: AiTaskConfig = {},
 ): Promise<ProcessedNews | null> {
   try {
     const src = sourceLanguage;
@@ -305,33 +339,54 @@ export async function processNewsAI(
     const rewrittenSummary = paraphraseBasic(description || title);
     const rewrittenContent = paraphraseBasic(detailedContent || description || title);
 
-    const [headlineEn, headlineRu, headlineUz] = await Promise.all([
-      translateWithPivot(rewrittenTitle, src, "en"),
-      translateWithPivot(rewrittenTitle, src, "ru"),
-      translateWithPivot(rewrittenTitle, src, "uz"),
-    ]);
+    const translationPolicy = taskConfig.translationPolicy ?? "full";
 
-    const [summaryEn, summaryRu, summaryUz] = await Promise.all([
-      translateWithPivot(rewrittenSummary, src, "en"),
-      translateWithPivot(rewrittenSummary, src, "ru"),
-      translateWithPivot(rewrittenSummary, src, "uz"),
-    ]);
+    const shouldTranslateTitle = translationPolicy !== "disabled";
+    const shouldTranslateSummary = translationPolicy !== "disabled";
+    const shouldTranslateContent = translationPolicy === "full";
 
-    const [contentEn, contentRu, contentUz] = await Promise.all([
-      translateWithPivot(rewrittenContent, src, "en"),
-      translateWithPivot(rewrittenContent, src, "ru"),
-      translateWithPivot(rewrittenContent, src, "uz"),
-    ]);
+    const [headlineEn, headlineRu, headlineUz] = shouldTranslateTitle
+      ? await Promise.all([
+          translateWithPivot(rewrittenTitle, src, "en", taskConfig),
+          translateWithPivot(rewrittenTitle, src, "ru", taskConfig),
+          translateWithPivot(rewrittenTitle, src, "uz", taskConfig),
+        ])
+      : [rewrittenTitle, rewrittenTitle, rewrittenTitle];
 
-    const categories = detectCategories(title, `${description || ""} ${detailedContent || ""}`);
+    const [summaryEn, summaryRu, summaryUz] = shouldTranslateSummary
+      ? await Promise.all([
+          translateWithPivot(rewrittenSummary, src, "en", taskConfig),
+          translateWithPivot(rewrittenSummary, src, "ru", taskConfig),
+          translateWithPivot(rewrittenSummary, src, "uz", taskConfig),
+        ])
+      : [rewrittenSummary, rewrittenSummary, rewrittenSummary];
+
+    const [contentEn, contentRu, contentUz] = shouldTranslateContent
+      ? await Promise.all([
+          translateWithPivot(rewrittenContent, src, "en", taskConfig),
+          translateWithPivot(rewrittenContent, src, "ru", taskConfig),
+          translateWithPivot(rewrittenContent, src, "uz", taskConfig),
+        ])
+      : [rewrittenContent, rewrittenContent, rewrittenContent];
+
+    const summarySource = taskConfig.summarizationEnabled === false ? title : description || title;
+    const normalizedSummary = paraphraseBasic(summarySource);
+
+    const finalSummaryEn = taskConfig.summarizationEnabled === false ? polishText(title) : polishText(summaryEn || normalizedSummary);
+    const finalSummaryRu = taskConfig.summarizationEnabled === false ? polishText(headlineRu) : polishText(summaryRu || normalizedSummary);
+    const finalSummaryUz = taskConfig.summarizationEnabled === false ? polishText(headlineUz) : polishText(summaryUz || normalizedSummary);
+
+    const categories = taskConfig.categorizationEnabled === false
+      ? ["News"]
+      : detectCategories(title, `${description || ""} ${detailedContent || ""}`);
 
     return {
       headlineEn: polishText(headlineEn),
       headlineRu: polishText(headlineRu),
       headlineUz: polishText(headlineUz),
-      summaryEn: polishText(summaryEn),
-      summaryRu: polishText(summaryRu),
-      summaryUz: polishText(summaryUz),
+      summaryEn: finalSummaryEn,
+      summaryRu: finalSummaryRu,
+      summaryUz: finalSummaryUz,
       contentEn: polishText(contentEn),
       contentRu: polishText(contentRu),
       contentUz: polishText(contentUz),

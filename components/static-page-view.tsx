@@ -53,10 +53,19 @@ export function StaticPageView({ slug }: { slug: StaticPage["slug"] }) {
 
   const safeHtml = useMemo(() => {
     const raw = localized?.content || "";
-    return raw
+    const cleaned = raw
       .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
       .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, "")
       .replace(/on\w+\s*=\s*"[^"]*"/gi, "");
+
+    if (!/<(p|h2|h3|ul|ol|blockquote|div|section|article|br)\b/i.test(cleaned)) {
+      return cleaned
+        .split(/\n{2,}/)
+        .map((part) => `<p>${part.replace(/\n/g, "<br />")}</p>`)
+        .join("");
+    }
+
+    return cleaned;
   }, [localized?.content]);
 
   if (loading) {
@@ -74,9 +83,9 @@ export function StaticPageView({ slug }: { slug: StaticPage["slug"] }) {
 
   return (
     <main className="container mx-auto px-4 py-12 max-w-4xl">
-      <h1 className="text-4xl md:text-5xl font-serif font-bold mb-6">{localized.title}</h1>
+      <h1 className="text-4xl md:text-5xl font-serif font-bold mb-8 leading-tight">{localized.title}</h1>
       <div
-        className="rounded-2xl border border-border/40 bg-card p-6 md:p-8 leading-8 text-base text-foreground/90 whitespace-pre-wrap text-justify [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:my-4 [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:my-3 [&_blockquote]:border-l-4 [&_blockquote]:pl-4 [&_blockquote]:italic [&_ul]:list-disc [&_ul]:pl-6 [&_strong]:font-semibold [&_mark]:bg-yellow-300/50"
+        className="rounded-2xl border border-border/40 bg-card p-6 md:p-9 text-base text-foreground/90 [&_p]:mb-4 [&_p]:leading-8 [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mt-8 [&_h2]:mb-4 [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:mt-6 [&_h3]:mb-3 [&_blockquote]:border-l-4 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-4 [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:my-4 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:my-4 [&_li]:mb-2 [&_strong]:font-semibold [&_mark]:bg-yellow-300/50 [&_a]:text-primary [&_a]:underline"
         dangerouslySetInnerHTML={{ __html: safeHtml }}
       />
     </main>

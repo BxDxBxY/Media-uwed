@@ -25,6 +25,22 @@ import { useGlobalContext } from "@/lib/context";
 
 type Tab = "review" | "raw";
 type Lang = "en" | "ru" | "uz";
+type IntegrationType = "ai" | "telegram";
+
+type IntegrationConfig = {
+    integrationType: IntegrationType;
+    enabled: boolean;
+    provider: string;
+    channelId: string;
+    sendOnPublish: boolean;
+    aiSummarization: boolean;
+    aiCategorization: boolean;
+    translationPolicy: "full" | "summary_only" | "disabled";
+    retryLimit: number;
+    hasProviderApiKey?: boolean;
+    hasWebhookToken?: boolean;
+    secretFingerprint?: string | null;
+};
 
 export default function AutomationPage() {
     const { sources, refreshData } = useGlobalContext();
@@ -58,12 +74,52 @@ export default function AutomationPage() {
     const [showFeedManagement, setShowFeedManagement] = useState(false);
     const [showPipelineSettings, setShowPipelineSettings] = useState(false);
     const [isRetranslating, setIsRetranslating] = useState(false);
+    const [isPublishingSingle, setIsPublishingSingle] = useState(false);
 
     const [page, setPage] = useState(1);
     const [sortBy, setSortBy] = useState<"newest" | "oldest">("newest");
     const itemsPerPage = 5;
 
     const [lang, setLang] = useState<Lang>("en");
+
+    const [integrationConfigs, setIntegrationConfigs] = useState<Record<IntegrationType, IntegrationConfig>>({
+        ai: {
+            integrationType: "ai",
+            enabled: true,
+            provider: "openrouter",
+            channelId: "",
+            sendOnPublish: false,
+            aiSummarization: true,
+            aiCategorization: true,
+            translationPolicy: "full",
+            retryLimit: 3,
+            hasProviderApiKey: false,
+            hasWebhookToken: false,
+            secretFingerprint: null,
+        },
+        telegram: {
+            integrationType: "telegram",
+            enabled: false,
+            provider: "telegram-bot-api",
+            channelId: "",
+            sendOnPublish: false,
+            aiSummarization: true,
+            aiCategorization: true,
+            translationPolicy: "full",
+            retryLimit: 3,
+            hasProviderApiKey: false,
+            hasWebhookToken: false,
+            secretFingerprint: null,
+        },
+    });
+    const [isSavingIntegration, setIsSavingIntegration] = useState(false);
+    const [isSendingTelegramTest, setIsSendingTelegramTest] = useState(false);
+    const [isSavingSecret, setIsSavingSecret] = useState(false);
+    const [showIntegrationsPanel, setShowIntegrationsPanel] = useState(false);
+    const [pendingSecrets, setPendingSecrets] = useState<Record<IntegrationType, { providerApiKey: string; webhookToken: string }>>({
+        ai: { providerApiKey: "", webhookToken: "" },
+        telegram: { providerApiKey: "", webhookToken: "" },
+    });
 
     const fetchReviewItems = async (withLoader: boolean = true) => {
         if (withLoader) setIsLoadingReview(true);
@@ -76,6 +132,22 @@ export default function AutomationPage() {
             console.error("Failed to fetch review items", e);
         } finally {
             if (withLoader) setIsLoadingReview(false);
+        }
+    };
+
+
+    const loadIntegrationConfigs = async () => {
+        try {
+            const res = await fetch("/api/admin/integrations");
+            if (!res.ok) return;
+            const data = await res.json();
+            const byType = (data.configs || []).reduce((acc: any, item: IntegrationConfig) => {
+                acc[item.integrationType] = item;
+                return acc;
+            }, {});
+            setIntegrationConfigs((prev) => ({ ...prev, ...byType }));
+        } catch (error) {
+            console.error("Failed to load integration configs", error);
         }
     };
 
@@ -103,6 +175,7 @@ export default function AutomationPage() {
     useEffect(() => {
         fetchReviewItems();
         fetchRawItems();
+        loadIntegrationConfigs();
     }, []);
 
     useEffect(() => {
@@ -415,11 +488,17 @@ export default function AutomationPage() {
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(data.error || "Failed to re-translate article");
 
-            toast.success("Article re-translated");
-            await fetchReviewItems(false);
-            const refreshed = await fetch("/api/admin/automation/review").then((r) => r.json()).catch(() => ({ items: [] }));
-            const updated = (refreshed.items || []).find((item: any) => item.rawId === rawId);
-            if (updated) setSelectedReviewItem(updated);
+            const preview = (data.previews || []).find((item: any) => item.rawId === rawId);
+            if (!preview) {
+                toast.warning(data.message || "No re-translation preview generated");
+                return;
+            }
+
+            setSelectedReviewItem((prev: any) => (prev ? { ...prev, ...preview } : prev));
+            setProcessedItems((items) =>
+                items.map((item) => (item.rawId === rawId ? { ...item, ...preview } : item)),
+            );
+            toast.success("Re-translation preview generated. Click Save Changes to persist.");
         } catch (error) {
             toast.error(error instanceof Error ? error.message : "Failed to re-translate article");
         } finally {
@@ -445,13 +524,61 @@ export default function AutomationPage() {
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(data.error || "Failed to re-translate selected articles");
 
-            toast.success(`Re-translated ${data.processedCount ?? rawIds.length} article(s)`);
+            const previews = Array.isArray(data.previews) ? data.previews : [];
+            if (previews.length === 0) {
+                toast.warning(data.message || "No selected items were re-translated");
+                return;
+            }
+
+            const previewByRawId = new Map(previews.map((item: any) => [item.rawId, item]));
+            setProcessedItems((items) => items.map((item) => {
+                const preview = previewByRawId.get(item.rawId);
+                return preview ? { ...item, ...preview } : item;
+            }));
+
+            if (selectedReviewItem?.rawId && previewByRawId.has(selectedReviewItem.rawId)) {
+                setSelectedReviewItem((prev: any) => {
+                    if (!prev) return prev;
+                    const preview = previewByRawId.get(prev.rawId);
+                    return preview ? { ...prev, ...preview } : prev;
+                });
+            }
+
+            toast.success(`Generated ${previews.length} re-translation preview(s). Save changes to persist.`);
             setSelectedReviewIds([]);
-            await fetchReviewItems(false);
         } catch (error) {
             toast.error(error instanceof Error ? error.message : "Failed to re-translate selected articles");
         } finally {
             setIsRetranslating(false);
+        }
+    };
+
+
+    const handlePublishSingleReview = async (processedId: string) => {
+        if (!processedId) return toast.error("Missing review item id");
+
+        setIsPublishingSingle(true);
+        try {
+            const res = await fetch("/api/cron/publish", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ processedIds: [processedId] }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || "Failed to publish selected article");
+
+            if ((data.publishedCount ?? 0) === 0) {
+                toast.warning(data.message || "No article was published");
+            } else {
+                toast.success(`Article published. Telegram sent: ${data.telegramSentCount ?? 0}`);
+                setSelectedReviewItem(null);
+                fetchReviewItems(false);
+                refreshData();
+            }
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Failed to publish selected article");
+        } finally {
+            setIsPublishingSingle(false);
         }
     };
 
@@ -499,6 +626,80 @@ export default function AutomationPage() {
         setPipelineSettings((prev) => ({ ...prev, [key]: !prev[key] }));
     };
 
+    const updateIntegration = (type: IntegrationType, patch: Partial<IntegrationConfig>) => {
+        setIntegrationConfigs((prev) => ({
+            ...prev,
+            [type]: {
+                ...prev[type],
+                ...patch,
+            },
+        }));
+    };
+
+    const saveIntegration = async (type: IntegrationType) => {
+        setIsSavingIntegration(true);
+        try {
+            const res = await fetch("/api/admin/integrations", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(integrationConfigs[type]),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || "Failed to save integration");
+            toast.success(`${type === "ai" ? "AI" : "Telegram"} integration saved`);
+            loadIntegrationConfigs();
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Failed to save integration");
+        } finally {
+            setIsSavingIntegration(false);
+        }
+    };
+
+
+    const saveSecret = async (type: IntegrationType) => {
+        const payload = pendingSecrets[type];
+        if (!payload.providerApiKey.trim() && !payload.webhookToken.trim()) {
+            toast.warning("Enter a secret value first");
+            return;
+        }
+
+        setIsSavingSecret(true);
+        try {
+            const res = await fetch("/api/admin/integrations/secret", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ integrationType: type, ...payload }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || "Failed to save secret");
+            toast.success(`${type === "ai" ? "AI" : "Telegram"} secret updated securely`);
+            setPendingSecrets((prev) => ({ ...prev, [type]: { providerApiKey: "", webhookToken: "" } }));
+            loadIntegrationConfigs();
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Failed to save secret");
+        } finally {
+            setIsSavingSecret(false);
+        }
+    };
+
+    const sendTelegramTest = async () => {
+        setIsSendingTelegramTest(true);
+        try {
+            const res = await fetch("/api/admin/integrations/test-message", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ message: "✅ Test message from automation integrations panel" }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || "Failed to send Telegram test");
+            toast.success("Telegram test message sent");
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Failed to send Telegram test");
+        } finally {
+            setIsSendingTelegramTest(false);
+        }
+    };
+
     return (
         <div className="space-y-8">
             {/* Header */}
@@ -539,9 +740,14 @@ export default function AutomationPage() {
             </div>
 
             <div className="space-y-3">
-                <button type="button" onClick={() => setShowRequirements((prev) => !prev)} className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-border text-sm font-semibold hover:bg-muted">
-                    <SlidersHorizontal className="h-4 w-4" /> {showRequirements ? "Hide requirements" : "Show requirements"}
-                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                    <button type="button" onClick={() => setShowRequirements((prev) => !prev)} className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-border text-sm font-semibold hover:bg-muted">
+                        <SlidersHorizontal className="h-4 w-4" /> {showRequirements ? "Hide requirements" : "Show requirements"}
+                    </button>
+                    <button type="button" onClick={() => setShowIntegrationsPanel((prev) => !prev)} className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-border text-sm font-semibold hover:bg-muted">
+                        <Settings2 className="h-4 w-4" /> {showIntegrationsPanel ? "Hide integrations" : "Show integrations"}
+                    </button>
+                </div>
 
                 {showRequirements && (
             <div className="p-4 rounded-xl border border-border/40 bg-card grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -589,6 +795,55 @@ export default function AutomationPage() {
             </div>
                 )}
             </div>
+
+            {showIntegrationsPanel && (
+            <section className="rounded-xl border border-border/40 bg-card p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-semibold flex items-center gap-2"><Settings2 className="h-4 w-4" />Integrations</h2>
+                    <span className="text-xs text-muted-foreground">Secure AI + Telegram control plane</span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="rounded-lg border border-border/40 p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                            <h3 className="font-medium">AI Modules</h3>
+                            <input type="checkbox" checked={integrationConfigs.ai.enabled} onChange={(e) => updateIntegration("ai", { enabled: e.target.checked })} />
+                        </div>
+                        <input className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm" placeholder="Provider model (e.g. openai/gpt-5.2)" value={integrationConfigs.ai.provider} onChange={(e) => updateIntegration("ai", { provider: e.target.value })} />
+                        <input className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm" placeholder="Paste AI provider API key to rotate" value={pendingSecrets.ai.providerApiKey} onChange={(e) => setPendingSecrets((prev) => ({ ...prev, ai: { ...prev.ai, providerApiKey: e.target.value } }))} />
+                        <p className="text-xs text-muted-foreground">Stored encrypted. Current key: {integrationConfigs.ai.hasProviderApiKey ? `configured (${integrationConfigs.ai.secretFingerprint || "fingerprint unavailable"})` : "not configured"}</p>
+                        <div className="flex gap-2">
+                            <button type="button" onClick={() => saveSecret("ai")} disabled={isSavingSecret} className="px-3 py-2 rounded-md border border-border text-sm font-semibold disabled:opacity-60">{isSavingSecret ? "Saving..." : "Rotate AI key"}</button>
+                        </div>
+                        <label className="flex items-center justify-between text-sm"><span>Summarization</span><input type="checkbox" checked={integrationConfigs.ai.aiSummarization} onChange={(e) => updateIntegration("ai", { aiSummarization: e.target.checked })} /></label>
+                        <label className="flex items-center justify-between text-sm"><span>Categorization</span><input type="checkbox" checked={integrationConfigs.ai.aiCategorization} onChange={(e) => updateIntegration("ai", { aiCategorization: e.target.checked })} /></label>
+                        <select className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm" value={integrationConfigs.ai.translationPolicy} onChange={(e) => updateIntegration("ai", { translationPolicy: e.target.value as any })}>
+                            <option value="full">Full translation</option>
+                            <option value="summary_only">Summary-only translation</option>
+                            <option value="disabled">Translation disabled</option>
+                        </select>
+                        <button type="button" onClick={() => saveIntegration("ai")} disabled={isSavingIntegration} className="px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-60">{isSavingIntegration ? "Saving..." : "Save AI config"}</button>
+                    </div>
+
+                    <div className="rounded-lg border border-border/40 p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                            <h3 className="font-medium">Telegram Connector</h3>
+                            <input type="checkbox" checked={integrationConfigs.telegram.enabled} onChange={(e) => updateIntegration("telegram", { enabled: e.target.checked })} />
+                        </div>
+                        <input className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm" placeholder="Provider" value={integrationConfigs.telegram.provider} onChange={(e) => updateIntegration("telegram", { provider: e.target.value })} />
+                        <input className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm" placeholder="Paste Telegram bot token to rotate" value={pendingSecrets.telegram.providerApiKey} onChange={(e) => setPendingSecrets((prev) => ({ ...prev, telegram: { ...prev.telegram, providerApiKey: e.target.value } }))} />
+                        <p className="text-xs text-muted-foreground">Bot token: {integrationConfigs.telegram.hasProviderApiKey ? `configured (${integrationConfigs.telegram.secretFingerprint || "fingerprint unavailable"})` : "not configured"}</p>
+                        <input className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm" placeholder="Channel/chat ID" value={integrationConfigs.telegram.channelId} onChange={(e) => updateIntegration("telegram", { channelId: e.target.value })} />
+                        <input className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm" placeholder="Webhook token (optional)" value={pendingSecrets.telegram.webhookToken} onChange={(e) => setPendingSecrets((prev) => ({ ...prev, telegram: { ...prev.telegram, webhookToken: e.target.value } }))} />
+                        <label className="flex items-center justify-between text-sm"><span>Send selected/published news to Telegram</span><input type="checkbox" checked={integrationConfigs.telegram.sendOnPublish} onChange={(e) => updateIntegration("telegram", { sendOnPublish: e.target.checked })} /></label>
+                        <button type="button" onClick={() => saveSecret("telegram")} disabled={isSavingSecret} className="px-3 py-2 rounded-md border border-border text-sm font-semibold disabled:opacity-60">{isSavingSecret ? "Saving..." : "Rotate Telegram secrets"}</button>
+                        <button type="button" onClick={() => saveIntegration("telegram")} disabled={isSavingIntegration} className="px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-60">{isSavingIntegration ? "Saving..." : "Save Telegram config"}</button>
+                        <button type="button" onClick={sendTelegramTest} disabled={isSendingTelegramTest} className="px-3 py-2 rounded-md border border-border text-sm font-semibold disabled:opacity-60">{isSendingTelegramTest ? "Sending..." : "Send test message"}</button>
+                    </div>
+                </div>
+                <p className="text-xs text-muted-foreground">Secrets are encrypted server-side and never returned in plaintext to the browser.</p>
+            </section>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Left column */}
@@ -1205,8 +1460,18 @@ export default function AutomationPage() {
                         </div>
 
                         <div className="p-6 border-t border-border/40 bg-muted/20 flex items-center justify-between">
-                            <div className="text-[10px] font-bold text-muted-foreground">
-                                SOURCE: {String(selectedReviewItem?.raw?.source?.name || "Unknown").toUpperCase()}
+                            <div className="text-[10px] font-bold text-muted-foreground space-y-1">
+                                <div>SOURCE: {String(selectedReviewItem?.raw?.source?.name || "Unknown").toUpperCase()}</div>
+                                {selectedReviewItem?.raw?.url && (
+                                    <a
+                                        href={selectedReviewItem.raw.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 text-primary hover:underline"
+                                    >
+                                        Open original article <ExternalLink className="h-3 w-3" />
+                                    </a>
+                                )}
                             </div>
                             <div className="flex items-center gap-3">
                                 <button
@@ -1225,6 +1490,16 @@ export default function AutomationPage() {
                                 >
                                     {isRetranslating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Brain className="h-4 w-4" />}
                                     Re-translate
+                                </button>
+
+                                <button
+                                    onClick={() => handlePublishSingleReview(selectedReviewItem.id)}
+                                    disabled={isPublishingSingle}
+                                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 text-white text-xs font-bold hover:bg-green-700 disabled:opacity-50"
+                                    type="button"
+                                >
+                                    {isPublishingSingle ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
+                                    Publish this article
                                 </button>
 
                                 <button

@@ -231,3 +231,23 @@ model AdminUser {
 
   @@map("admin_users")
 }
+
+model IntegrationConfig {
+  id                      String   @id @default(uuid())
+  integrationType         String   @unique
+  enabled                 Boolean  @default(false)
+  provider                String?
+  providerApiKeyEncrypted String?
+  providerApiKeyHash      String?
+  channelId               String?
+  webhookTokenEncrypted   String?
+  sendOnPublish           Boolean  @default(false)
+  aiSummarization         Boolean  @default(true)
+  aiCategorization        Boolean  @default(true)
+  translationPolicy       String   @default("full")
+  retryLimit              Int      @default(3)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@map("integration_configs")
+}

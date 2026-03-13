@@ -41,7 +41,7 @@ export async function scrapeOgImage(url: string): Promise<string | null> {
   }
 }
 
-export async function scrapeArticleDetails(url: string): Promise<{ content: string | null; imageUrl: string | null }> {
+export async function scrapeArticleDetails(url: string): Promise<{ content: string | null; imageUrl: string | null; imageUrls: string[] }> {
   try {
     const response = await axios.get(url, {
       timeout: 15000,
@@ -79,19 +79,23 @@ export async function scrapeArticleDetails(url: string): Promise<{ content: stri
       if (content.length > 700) break;
     }
 
-    const imageUrl =
-      $("meta[property='og:image']").attr("content") ||
-      $("meta[name='twitter:image']").attr("content") ||
-      $("article img").first().attr("src") ||
-      $("main img").first().attr("src") ||
-      null;
+    const imageCandidates = [
+      $("meta[property='og:image']").attr("content"),
+      $("meta[name='twitter:image']").attr("content"),
+      ...$("article img, main img, .content img").map((_, img) => $(img).attr("src")).get(),
+    ]
+      .filter((v): v is string => Boolean(v && /^https?:\/\//.test(v)));
+
+    const imageUrls = Array.from(new Set(imageCandidates)).slice(0, 6);
+    const imageUrl = imageUrls[0] || null;
 
     return {
       content: content || null,
       imageUrl: imageUrl || null,
+      imageUrls,
     };
   } catch (error) {
     console.error(`Article detail scraper error for ${url}:`, error);
-    return { content: null, imageUrl: null };
+    return { content: null, imageUrl: null, imageUrls: [] };
   }
 }
