@@ -102,7 +102,22 @@ export async function POST(request: Request) {
         const randomSuffix = Math.random().toString(36).substring(2, 7);
         const slug = `${baseSlug || "article"}-${randomSuffix}`;
 
-        const sourceLinkText = `\n\n---\n*Original source: [${item.raw.source.name}](${item.raw.url})*`;
+        let rawJson: Record<string, unknown> = {};
+        try {
+          rawJson = item.raw.rawJson ? JSON.parse(item.raw.rawJson) : {};
+        } catch {
+          rawJson = {};
+        }
+
+        const detailImages = Array.isArray(rawJson.detailImages)
+          ? rawJson.detailImages.filter((x) => typeof x === "string" && /^https?:\/\//.test(x)).slice(0, 4)
+          : [];
+
+        const inlineImageRefs = detailImages.length > 0
+          ? `\n\nMedia references (for rendering):\n${detailImages.join("\n")}`
+          : "";
+
+        const sourceLinkText = `\n\n---\n*Original source: [${item.raw.source.name}](${item.raw.url})*${inlineImageRefs}`;
 
         const contentEn = (item.contentEn || item.summaryEn) + sourceLinkText;
         const contentRu = item.contentRu ? item.contentRu + sourceLinkText : null;
@@ -174,6 +189,7 @@ export async function POST(request: Request) {
               botToken: telegramBotToken,
               chatId: telegramIntegration.channelId.trim(),
               text: telegramMessage,
+              photoUrl: article.image,
               parseMode: "HTML",
               disableWebPagePreview: false,
               retries: telegramIntegration.retryLimit,

@@ -9,6 +9,14 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { extractInlineImageUrls, splitReadableParagraphs } from "@/lib/article-format";
 
+function stripInlineImageUrls(content: string): string {
+  return String(content || "")
+    .replace(/https?:\/\/[^\s)"']+\.(?:jpg|jpeg|png|webp|gif)/gi, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 function renderInlineMarkdownLinks(text: string) {
   const parts = text.split(/(\[[^\]]+\]\([^\)]+\))/g);
 
@@ -81,9 +89,9 @@ export default function ArticlePage() {
   const content = polishText(getLocalized("content") || "");
   const imageCaption = polishText(getLocalized("imageCaption") || "");
 
-  const contentBlocks = splitReadableParagraphs(content).map((line) => polishText(line)).filter(Boolean);
-
   const extracted = extractInlineImageUrls(content);
+  const cleanDisplayContent = stripInlineImageUrls(content);
+  const contentBlocks = splitReadableParagraphs(cleanDisplayContent).map((line) => polishText(line)).filter(Boolean);
   const fallbackInline = [
     `https://picsum.photos/seed/${article.id}-inline-1/1200/700`,
     `https://picsum.photos/seed/${article.id}-inline-2/1200/700`,
@@ -164,14 +172,14 @@ export default function ArticlePage() {
 
               const isLead = i === 0;
               const isSourceLine = /original source:/i.test(block);
-              const injectImage = i > 0 && i % 3 === 0 && inlineImages[Math.floor(i / 3) - 1];
+              const injectImage = i > 0 && i % 2 === 0 && inlineImages[Math.floor(i / 2) - 1];
 
               return (
-                <div key={`chunk-${i}`} className="space-y-4">
+                <div key={`chunk-${i}`} className="space-y-5">
                   <p
                     className={[
                       fontScale === "lg" ? "text-[1.12rem]" : "text-base",
-                      "leading-8 text-foreground/90",
+                      "leading-8 md:leading-9 text-foreground/90 whitespace-pre-line",
                       isLead ? "first-letter:text-4xl first-letter:font-serif first-letter:font-bold first-letter:mr-1" : "",
                       isSourceLine ? "mt-10 rounded-xl border border-border/40 bg-muted/30 px-4 py-3 text-sm" : "",
                     ].join(" ")}

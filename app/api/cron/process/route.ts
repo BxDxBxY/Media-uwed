@@ -89,6 +89,7 @@ export async function POST(request: Request) {
       try {
         let detailedContent = "";
         let finalImageUrl = raw.imageUrl;
+        let detailImages: string[] = [];
 
         let parsedRawJson: Record<string, unknown> = {};
         try {
@@ -102,10 +103,14 @@ export async function POST(request: Request) {
 
         if (existingDetail.length > 200) {
           detailedContent = existingDetail;
+          detailImages = Array.isArray((parsedRawJson as any).detailImages)
+            ? (parsedRawJson as any).detailImages.filter((x: unknown): x is string => typeof x === "string")
+            : [];
         } else {
           try {
             const details = await scrapeArticleDetails(raw.url);
             detailedContent = details.content || "";
+            detailImages = Array.isArray(details.imageUrls) ? details.imageUrls : [];
             if (!finalImageUrl && details.imageUrl) {
               finalImageUrl = details.imageUrl;
             }
@@ -121,6 +126,7 @@ export async function POST(request: Request) {
                 ...parsedRawJson,
                 fullContent: detailedContent || null,
                 detailFetchedAt: new Date().toISOString(),
+                detailImages: detailImages.length > 0 ? detailImages : null,
               }),
             },
           });
