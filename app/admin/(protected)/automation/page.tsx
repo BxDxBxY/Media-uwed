@@ -114,6 +114,7 @@ export default function AutomationPage() {
     const [isSavingIntegration, setIsSavingIntegration] = useState(false);
     const [isSendingTelegramTest, setIsSendingTelegramTest] = useState(false);
     const [isSavingSecret, setIsSavingSecret] = useState(false);
+    const [showIntegrationsPanel, setShowIntegrationsPanel] = useState(false);
     const [pendingSecrets, setPendingSecrets] = useState<Record<IntegrationType, { providerApiKey: string; webhookToken: string }>>({
         ai: { providerApiKey: "", webhookToken: "" },
         telegram: { providerApiKey: "", webhookToken: "" },
@@ -486,7 +487,11 @@ export default function AutomationPage() {
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(data.error || "Failed to re-translate article");
 
-            toast.success("Article re-translated");
+            if ((data.processedCount ?? 0) === 0) {
+                toast.warning(data.message || "No items were re-translated");
+            } else {
+                toast.success("Article re-translated");
+            }
             await fetchReviewItems(false);
             const refreshed = await fetch("/api/admin/automation/review").then((r) => r.json()).catch(() => ({ items: [] }));
             const updated = (refreshed.items || []).find((item: any) => item.rawId === rawId);
@@ -516,7 +521,11 @@ export default function AutomationPage() {
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(data.error || "Failed to re-translate selected articles");
 
-            toast.success(`Re-translated ${data.processedCount ?? rawIds.length} article(s)`);
+            if ((data.processedCount ?? 0) === 0) {
+                toast.warning(data.message || "No selected items were re-translated");
+            } else {
+                toast.success(`Re-translated ${data.processedCount ?? rawIds.length} article(s)`);
+            }
             setSelectedReviewIds([]);
             await fetchReviewItems(false);
         } catch (error) {
@@ -684,9 +693,14 @@ export default function AutomationPage() {
             </div>
 
             <div className="space-y-3">
-                <button type="button" onClick={() => setShowRequirements((prev) => !prev)} className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-border text-sm font-semibold hover:bg-muted">
-                    <SlidersHorizontal className="h-4 w-4" /> {showRequirements ? "Hide requirements" : "Show requirements"}
-                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                    <button type="button" onClick={() => setShowRequirements((prev) => !prev)} className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-border text-sm font-semibold hover:bg-muted">
+                        <SlidersHorizontal className="h-4 w-4" /> {showRequirements ? "Hide requirements" : "Show requirements"}
+                    </button>
+                    <button type="button" onClick={() => setShowIntegrationsPanel((prev) => !prev)} className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-border text-sm font-semibold hover:bg-muted">
+                        <Settings2 className="h-4 w-4" /> {showIntegrationsPanel ? "Hide integrations" : "Show integrations"}
+                    </button>
+                </div>
 
                 {showRequirements && (
             <div className="p-4 rounded-xl border border-border/40 bg-card grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -735,6 +749,7 @@ export default function AutomationPage() {
                 )}
             </div>
 
+            {showIntegrationsPanel && (
             <section className="rounded-xl border border-border/40 bg-card p-5 space-y-4">
                 <div className="flex items-center justify-between">
                     <h2 className="text-lg font-semibold flex items-center gap-2"><Settings2 className="h-4 w-4" />Integrations</h2>
@@ -781,6 +796,7 @@ export default function AutomationPage() {
                 </div>
                 <p className="text-xs text-muted-foreground">Secrets are encrypted server-side and never returned in plaintext to the browser.</p>
             </section>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Left column */}

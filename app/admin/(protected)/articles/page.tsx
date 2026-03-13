@@ -4,6 +4,7 @@ import Link from "next/link";
 import { PlusCircle, Search, FileEdit, Trash2, ChevronLeft, ChevronRight, Filter } from "lucide-react";
 import { useGlobalContext } from "@/lib/context";
 import { useMemo, useState } from "react";
+import { compactExcerpt } from "@/lib/article-format";
 
 const PAGE_SIZE = 10;
 
@@ -126,6 +127,7 @@ export default function AdminArticlesPage() {
           <thead className="border-b border-border/40 bg-muted/50">
             <tr>
               <th className="px-6 py-3 font-medium text-muted-foreground">Title</th>
+              <th className="px-6 py-3 font-medium text-muted-foreground">Preview</th>
               <th className="px-6 py-3 font-medium text-muted-foreground">Category</th>
               <th className="px-6 py-3 font-medium text-muted-foreground">Author</th>
               <th className="px-6 py-3 font-medium text-muted-foreground">Date</th>
@@ -137,6 +139,7 @@ export default function AdminArticlesPage() {
             {paginatedArticles.map((article) => (
               <tr key={article.id} className="transition-colors hover:bg-muted/30">
                 <td className="max-w-sm truncate px-6 py-4 font-medium">{article.title}</td>
+                <td className="px-6 py-4 max-w-md"><p className="line-clamp-2 text-xs text-muted-foreground leading-5">{compactExcerpt(article.summary || article.content)}</p></td>
                 <td className="px-6 py-4">
                   <div className="flex flex-wrap gap-1">
                     {articleCategories(article).slice(0, 2).map((cat) => (

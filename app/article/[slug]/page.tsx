@@ -7,6 +7,7 @@ import { Clock, Share2, ArrowLeft, Bookmark, MessageSquare, Loader2 } from "luci
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { extractInlineImageUrls, splitReadableParagraphs } from "@/lib/article-format";
 
 function renderInlineMarkdownLinks(text: string) {
   const parts = text.split(/(\[[^\]]+\]\([^\)]+\))/g);
@@ -27,40 +28,6 @@ function renderInlineMarkdownLinks(text: string) {
       </a>
     );
   });
-}
-
-function toReadableParagraphs(content: string): string[] {
-  const normalized = content.trim();
-  if (!normalized) return [];
-
-  const fromBreaks = normalized
-    .split(/\n{2,}/)
-    .map((p) => p.replace(/\s+/g, " ").trim())
-    .filter(Boolean);
-  if (fromBreaks.length > 1) return fromBreaks;
-
-  const compact = normalized.replace(/\s+/g, " ").trim();
-  const sentences = compact.split(/(?<=[.!?])\s+/).filter(Boolean);
-  if (sentences.length <= 3) return [compact];
-
-  const chunks: string[] = [];
-  let current: string[] = [];
-
-  for (const sentence of sentences) {
-    current.push(sentence);
-    if (current.length >= 2) {
-      chunks.push(current.join(" "));
-      current = [];
-    }
-  }
-
-  if (current.length > 0) chunks.push(current.join(" "));
-  return chunks;
-}
-
-function extractImageCandidates(content: string): string[] {
-  const matches = content.match(/https?:\/\/[^\s)"']+\.(?:jpg|jpeg|png|webp|gif)/gi) || [];
-  return Array.from(new Set(matches));
 }
 
 export default function ArticlePage() {
@@ -114,9 +81,9 @@ export default function ArticlePage() {
   const content = polishText(getLocalized("content") || "");
   const imageCaption = polishText(getLocalized("imageCaption") || "");
 
-  const contentBlocks = toReadableParagraphs(content).map((line) => polishText(line)).filter(Boolean);
+  const contentBlocks = splitReadableParagraphs(content).map((line) => polishText(line)).filter(Boolean);
 
-  const extracted = extractImageCandidates(content);
+  const extracted = extractInlineImageUrls(content);
   const fallbackInline = [
     `https://picsum.photos/seed/${article.id}-inline-1/1200/700`,
     `https://picsum.photos/seed/${article.id}-inline-2/1200/700`,

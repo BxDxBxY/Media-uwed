@@ -57,14 +57,6 @@ export async function POST(request: Request) {
       where: { integrationType: "ai" },
     });
 
-    if (aiIntegration && !aiIntegration.enabled) {
-      return NextResponse.json({
-        processedCount: 0,
-        skippedByRequirements: targetArticles.length,
-        message: "AI integration is disabled in admin integrations settings.",
-      });
-    }
-
     if (filteredArticles.length === 0) {
       return NextResponse.json({
         processedCount: 0,
