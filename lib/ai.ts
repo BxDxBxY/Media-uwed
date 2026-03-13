@@ -29,9 +29,16 @@ const MYMEMORY_URL = "https://api.mymemory.translated.net/get";
 
 const MAX_TRANSLATE_CHARS = 450;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const OPENROUTER_MODEL = process.env.OPENROUTER_TRANSLATE_MODEL || "openai/gpt-5.2";
+const OPENROUTER_MODEL = process.env.OPENROUTER_TRANSLATE_MODEL || "openai/gpt-4o-mini";
 const OPENROUTER_REFERER = process.env.OPENROUTER_REFERER || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 const OPENROUTER_TITLE = process.env.OPENROUTER_TITLE || "University Media AI";
+
+const openRouterClient = axios.create({
+  baseURL: "https://openrouter.ai/api/v1",
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
 
 function chunkText(input: string, limit: number = MAX_TRANSLATE_CHARS): string[] {
   const text = cleanText(input);
@@ -91,8 +98,15 @@ async function translateWithOpenRouterChunk(
       chunk,
     ].join("\n");
 
-    const res = await axios.post(
-      "https://openrouter.ai/api/v1/chat/completions",
+    if (process.env.NODE_ENV !== "production") {
+      console.log({
+        hasKey: Boolean(apiKey),
+        baseURL: "https://openrouter.ai/api/v1",
+      });
+    }
+
+    const res = await openRouterClient.post(
+      "/chat/completions",
       {
         model,
         messages: [{ role: "user", content: prompt }],
@@ -103,7 +117,6 @@ async function translateWithOpenRouterChunk(
         timeout: 25_000,
         headers: {
           Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
           "HTTP-Referer": OPENROUTER_REFERER,
           "X-OpenRouter-Title": OPENROUTER_TITLE,
         },
@@ -113,8 +126,11 @@ async function translateWithOpenRouterChunk(
     const out = res.data?.choices?.[0]?.message?.content?.trim() || "";
 
     return out ? cleanText(out) : null;
-  } catch (error) {
-    console.error("OpenRouter translation error:", error);
+  } catch (error: any) {
+    console.error("OpenRouter error status:", error?.response?.status);
+    console.error("OpenRouter error data:", error?.response?.data);
+    console.error("OpenRouter error headers:", error?.response?.headers);
+    console.error("OpenRouter translation error:", error?.message || error);
     return null;
   }
 }

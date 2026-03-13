@@ -139,7 +139,11 @@ export default function AdminArticlesPage() {
             {paginatedArticles.map((article) => (
               <tr key={article.id} className="transition-colors hover:bg-muted/30">
                 <td className="max-w-sm truncate px-6 py-4 font-medium">{article.title}</td>
-                <td className="px-6 py-4 max-w-md"><p className="line-clamp-2 text-xs text-muted-foreground leading-5">{compactExcerpt(article.summary || article.content)}</p></td>
+                <td className="px-6 py-4 max-w-md">
+                  <Link href={`/article/${article.slug}`} target="_blank" className="block hover:underline">
+                    <p className="line-clamp-2 text-xs text-muted-foreground leading-5">{compactExcerpt(article.summary || article.content)}</p>
+                  </Link>
+                </td>
                 <td className="px-6 py-4">
                   <div className="flex flex-wrap gap-1">
                     {articleCategories(article).slice(0, 2).map((cat) => (

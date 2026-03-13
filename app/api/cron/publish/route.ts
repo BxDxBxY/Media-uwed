@@ -35,10 +35,15 @@ function buildTelegramNewsMessage(input: {
 
 export const maxDuration = 60;
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
+    const body = await request.json().catch(() => ({}));
+    const processedIds = Array.isArray(body?.processedIds) ? body.processedIds.filter(Boolean) : null;
+
     const readyToPublish = await prisma.articleProcessed.findMany({
-      where: { status: "ready" },
+      where: processedIds && processedIds.length > 0
+        ? { id: { in: processedIds }, status: { in: ["ready", "pending_review"] } }
+        : { status: "ready" },
       include: { raw: { include: { source: true } } },
       take: 20,
     });
@@ -46,8 +51,9 @@ export async function POST() {
     if (readyToPublish.length === 0) {
       return NextResponse.json({
         publishedCount: 0,
-        message:
-          "No articles with 'ready' status found. Please review and approve articles first.",
+        message: processedIds && processedIds.length > 0
+          ? "No matching review items found for single/batch publish."
+          : "No articles with 'ready' status found. Please review and approve articles first.",
       });
     }
 

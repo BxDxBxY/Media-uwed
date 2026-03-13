@@ -70,6 +70,7 @@ export async function POST(request: Request) {
 
     let processedCount = 0;
     let failedCount = 0;
+    const previews: Array<Record<string, unknown>> = [];
 
     const aiProviderApiKey = decryptSecret(aiIntegration?.providerApiKeyEncrypted);
 
@@ -141,7 +142,23 @@ export async function POST(request: Request) {
           continue;
         }
 
-        if (raw.processed) {
+        if (retranslate) {
+          previews.push({
+            rawId: raw.id,
+            processedId: raw.processed?.id || null,
+            headlineEn: aiResult.headlineEn,
+            headlineRu: aiResult.headlineRu,
+            headlineUz: aiResult.headlineUz,
+            summaryEn: aiResult.summaryEn,
+            summaryRu: aiResult.summaryRu,
+            summaryUz: aiResult.summaryUz,
+            contentEn: aiResult.contentEn,
+            contentRu: aiResult.contentRu,
+            contentUz: aiResult.contentUz,
+            categories: aiResult.categories.join(", "),
+            rawImageUrl: finalImageUrl || null,
+          });
+        } else if (raw.processed) {
           await prisma.articleProcessed.update({
             where: { id: raw.processed.id },
             data: {
@@ -192,7 +209,10 @@ export async function POST(request: Request) {
       requirementsApplied: effectiveInclude.length > 0 || exclude.length > 0,
       aiStrictMode: Boolean(aiStrictMode),
       aiInstructionTerms: instructionTerms.length,
-      message: `Successfully processed ${processedCount} articles. Status: pending_review.`,
+      previews: retranslate ? previews : undefined,
+      message: retranslate
+        ? `Generated ${processedCount} re-translation preview(s). Save changes to persist.`
+        : `Successfully processed ${processedCount} articles. Status: pending_review.`,
     });
   } catch (error) {
     console.error("Error in process endpoint:", error);

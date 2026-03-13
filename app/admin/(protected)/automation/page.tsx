@@ -74,6 +74,7 @@ export default function AutomationPage() {
     const [showFeedManagement, setShowFeedManagement] = useState(false);
     const [showPipelineSettings, setShowPipelineSettings] = useState(false);
     const [isRetranslating, setIsRetranslating] = useState(false);
+    const [isPublishingSingle, setIsPublishingSingle] = useState(false);
 
     const [page, setPage] = useState(1);
     const [sortBy, setSortBy] = useState<"newest" | "oldest">("newest");
@@ -487,15 +488,17 @@ export default function AutomationPage() {
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(data.error || "Failed to re-translate article");
 
-            if ((data.processedCount ?? 0) === 0) {
-                toast.warning(data.message || "No items were re-translated");
-            } else {
-                toast.success("Article re-translated");
+            const preview = (data.previews || []).find((item: any) => item.rawId === rawId);
+            if (!preview) {
+                toast.warning(data.message || "No re-translation preview generated");
+                return;
             }
-            await fetchReviewItems(false);
-            const refreshed = await fetch("/api/admin/automation/review").then((r) => r.json()).catch(() => ({ items: [] }));
-            const updated = (refreshed.items || []).find((item: any) => item.rawId === rawId);
-            if (updated) setSelectedReviewItem(updated);
+
+            setSelectedReviewItem((prev: any) => (prev ? { ...prev, ...preview } : prev));
+            setProcessedItems((items) =>
+                items.map((item) => (item.rawId === rawId ? { ...item, ...preview } : item)),
+            );
+            toast.success("Re-translation preview generated. Click Save Changes to persist.");
         } catch (error) {
             toast.error(error instanceof Error ? error.message : "Failed to re-translate article");
         } finally {
@@ -521,17 +524,61 @@ export default function AutomationPage() {
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(data.error || "Failed to re-translate selected articles");
 
-            if ((data.processedCount ?? 0) === 0) {
+            const previews = Array.isArray(data.previews) ? data.previews : [];
+            if (previews.length === 0) {
                 toast.warning(data.message || "No selected items were re-translated");
-            } else {
-                toast.success(`Re-translated ${data.processedCount ?? rawIds.length} article(s)`);
+                return;
             }
+
+            const previewByRawId = new Map(previews.map((item: any) => [item.rawId, item]));
+            setProcessedItems((items) => items.map((item) => {
+                const preview = previewByRawId.get(item.rawId);
+                return preview ? { ...item, ...preview } : item;
+            }));
+
+            if (selectedReviewItem?.rawId && previewByRawId.has(selectedReviewItem.rawId)) {
+                setSelectedReviewItem((prev: any) => {
+                    if (!prev) return prev;
+                    const preview = previewByRawId.get(prev.rawId);
+                    return preview ? { ...prev, ...preview } : prev;
+                });
+            }
+
+            toast.success(`Generated ${previews.length} re-translation preview(s). Save changes to persist.`);
             setSelectedReviewIds([]);
-            await fetchReviewItems(false);
         } catch (error) {
             toast.error(error instanceof Error ? error.message : "Failed to re-translate selected articles");
         } finally {
             setIsRetranslating(false);
+        }
+    };
+
+
+    const handlePublishSingleReview = async (processedId: string) => {
+        if (!processedId) return toast.error("Missing review item id");
+
+        setIsPublishingSingle(true);
+        try {
+            const res = await fetch("/api/cron/publish", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ processedIds: [processedId] }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || "Failed to publish selected article");
+
+            if ((data.publishedCount ?? 0) === 0) {
+                toast.warning(data.message || "No article was published");
+            } else {
+                toast.success(`Article published. Telegram sent: ${data.telegramSentCount ?? 0}`);
+                setSelectedReviewItem(null);
+                fetchReviewItems(false);
+                refreshData();
+            }
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Failed to publish selected article");
+        } finally {
+            setIsPublishingSingle(false);
         }
     };
 
@@ -1413,8 +1460,18 @@ export default function AutomationPage() {
                         </div>
 
                         <div className="p-6 border-t border-border/40 bg-muted/20 flex items-center justify-between">
-                            <div className="text-[10px] font-bold text-muted-foreground">
-                                SOURCE: {String(selectedReviewItem?.raw?.source?.name || "Unknown").toUpperCase()}
+                            <div className="text-[10px] font-bold text-muted-foreground space-y-1">
+                                <div>SOURCE: {String(selectedReviewItem?.raw?.source?.name || "Unknown").toUpperCase()}</div>
+                                {selectedReviewItem?.raw?.url && (
+                                    <a
+                                        href={selectedReviewItem.raw.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 text-primary hover:underline"
+                                    >
+                                        Open original article <ExternalLink className="h-3 w-3" />
+                                    </a>
+                                )}
                             </div>
                             <div className="flex items-center gap-3">
                                 <button
@@ -1433,6 +1490,16 @@ export default function AutomationPage() {
                                 >
                                     {isRetranslating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Brain className="h-4 w-4" />}
                                     Re-translate
+                                </button>
+
+                                <button
+                                    onClick={() => handlePublishSingleReview(selectedReviewItem.id)}
+                                    disabled={isPublishingSingle}
+                                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 text-white text-xs font-bold hover:bg-green-700 disabled:opacity-50"
+                                    type="button"
+                                >
+                                    {isPublishingSingle ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
+                                    Publish this article
                                 </button>
 
                                 <button
