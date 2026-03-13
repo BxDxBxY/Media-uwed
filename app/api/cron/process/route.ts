@@ -73,11 +73,16 @@ export async function POST(request: Request) {
     const previews: Array<Record<string, unknown>> = [];
 
     const aiProviderApiKey = decryptSecret(aiIntegration?.providerApiKeyEncrypted);
+    const aiProviderModel =
+      ((aiIntegration as any)?.providerModel as string | undefined)?.trim() ||
+      process.env.OPENROUTER_TRANSLATE_MODEL ||
+      "openai/gpt-4o-mini";
 
     console.log("processNewsAI provider key check", {
       hasTaskProviderKey: Boolean(aiProviderApiKey && aiProviderApiKey.trim()),
       integrationEnabled: aiIntegration?.enabled ?? true,
-      providerModel: aiIntegration?.provider || null,
+      providerName: aiIntegration?.provider || null,
+      providerModel: aiProviderModel,
     });
 
     for (const raw of filteredArticles) {
@@ -139,7 +144,7 @@ export async function POST(request: Request) {
                 ? aiIntegration.translationPolicy
                 : "full",
             providerApiKey: aiProviderApiKey || undefined,
-            providerModel: aiIntegration?.provider || undefined,
+            providerModel: aiProviderModel,
           },
         );
 
