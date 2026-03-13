@@ -33,13 +33,6 @@ const OPENROUTER_MODEL = process.env.OPENROUTER_TRANSLATE_MODEL || "openai/gpt-4
 const OPENROUTER_REFERER = process.env.OPENROUTER_REFERER || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 const OPENROUTER_TITLE = process.env.OPENROUTER_TITLE || "University Media AI";
 
-const openRouterClient = axios.create({
-  baseURL: "https://openrouter.ai/api/v1",
-  headers: {
-    "Content-Type": "application/json",
-  },
-});
-
 function chunkText(input: string, limit: number = MAX_TRANSLATE_CHARS): string[] {
   const text = cleanText(input);
   if (!text) return [];
@@ -86,7 +79,11 @@ async function translateWithOpenRouterChunk(
   apiKey: string | null,
   model: string,
 ): Promise<string | null> {
-  if (!apiKey) return null;
+  const safeKey = (apiKey || "").trim();
+  if (!safeKey) {
+    console.log("OpenRouter key missing or empty after trim; skipping provider call");
+    return null;
+  }
 
   try {
     const prompt = [
@@ -98,15 +95,14 @@ async function translateWithOpenRouterChunk(
       chunk,
     ].join("\n");
 
-    if (process.env.NODE_ENV !== "production") {
-      console.log({
-        hasKey: Boolean(apiKey),
-        baseURL: "https://openrouter.ai/api/v1",
-      });
-    }
+    console.log({
+      hasKey: Boolean(safeKey),
+      keyPrefix: safeKey.slice(0, 8),
+      model,
+    });
 
-    const res = await openRouterClient.post(
-      "/chat/completions",
+    const res = await axios.post(
+      "https://openrouter.ai/api/v1/chat/completions",
       {
         model,
         messages: [{ role: "user", content: prompt }],
@@ -116,7 +112,8 @@ async function translateWithOpenRouterChunk(
       {
         timeout: 25_000,
         headers: {
-          Authorization: `Bearer ${apiKey}`,
+          Authorization: `Bearer ${safeKey}`,
+          "Content-Type": "application/json",
           "HTTP-Referer": OPENROUTER_REFERER,
           "X-OpenRouter-Title": OPENROUTER_TITLE,
         },

@@ -14,22 +14,42 @@ function generateSlug(text: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+function escapeTelegramHtml(value: string) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function buildLangLink(articleUrl: string, lang: "ru" | "en" | "uz") {
+  return `${articleUrl}?lang=${lang}`;
+}
+
 function buildTelegramNewsMessage(input: {
-  title: string;
-  summary: string;
-  sourceName: string;
-  categoryNames: string[];
+  titleRu: string;
+  summaryRu: string;
+  titleEn: string;
+  summaryEn: string;
+  titleUz: string;
+  summaryUz: string;
   articleUrl: string;
 }) {
-  const categoryText = input.categoryNames.length > 0 ? input.categoryNames.join(", ") : "News";
+  const ruLink = buildLangLink(input.articleUrl, "ru");
+  const enLink = buildLangLink(input.articleUrl, "en");
+  const uzLink = buildLangLink(input.articleUrl, "uz");
+
   return [
-    `📰 <b>${input.title}</b>`,
+    `🇷🇺 <b>${escapeTelegramHtml(input.titleRu)}</b>`,
+    escapeTelegramHtml(input.summaryRu),
+    `<a href=\"${ruLink}\">${escapeTelegramHtml(ruLink)}</a>`,
     "",
-    input.summary,
+    `🇬🇧 <b>${escapeTelegramHtml(input.titleEn)}</b>`,
+    escapeTelegramHtml(input.summaryEn),
+    `<a href=\"${enLink}\">${escapeTelegramHtml(enLink)}</a>`,
     "",
-    `🏷️ <b>Categories:</b> ${categoryText}`,
-    `🌐 <b>Source:</b> ${input.sourceName}`,
-    `<a href=\"${input.articleUrl}\">Read full article</a>`,
+    `🇺🇿 <b>${escapeTelegramHtml(input.titleUz)}</b>`,
+    escapeTelegramHtml(input.summaryUz),
+    `<a href=\"${uzLink}\">${escapeTelegramHtml(uzLink)}</a>`,
   ].join("\n");
 }
 
@@ -62,11 +82,19 @@ export async function POST(request: Request) {
     });
 
     const telegramEnabled = Boolean(telegramIntegration?.enabled && telegramIntegration?.sendOnPublish);
-    const telegramBotToken = decryptSecret(telegramIntegration?.providerApiKeyEncrypted);
+    const telegramBotToken = decryptSecret(telegramIntegration?.providerApiKeyEncrypted)?.trim();
 
     let publishedCount = 0;
     let telegramSentCount = 0;
     const errors: string[] = [];
+
+    if (telegramEnabled && (!telegramBotToken || !telegramIntegration?.channelId?.trim())) {
+      logger.error("Telegram is enabled but credentials are incomplete", {
+        hasToken: Boolean(telegramBotToken),
+        hasChannelId: Boolean(telegramIntegration?.channelId?.trim()),
+      });
+      errors.push("Telegram is enabled but bot token or channel ID is missing.");
+    }
 
     for (const item of readyToPublish) {
       try {
@@ -129,20 +157,22 @@ export async function POST(request: Request) {
           data: { status: "published" },
         });
 
-        if (telegramEnabled && telegramBotToken && telegramIntegration?.channelId) {
+        if (telegramEnabled && telegramBotToken && telegramIntegration?.channelId?.trim()) {
           try {
             const articleUrl = `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/article/${article.slug}`;
             const telegramMessage = buildTelegramNewsMessage({
-              title: item.headlineEn,
-              summary: item.summaryEn,
-              sourceName: item.raw.source.name,
-              categoryNames,
+              titleRu: item.headlineRu || item.headlineEn,
+              summaryRu: item.summaryRu || item.summaryEn,
+              titleEn: item.headlineEn,
+              summaryEn: item.summaryEn,
+              titleUz: item.headlineUz || item.headlineEn,
+              summaryUz: item.summaryUz || item.summaryEn,
               articleUrl,
             });
 
             await sendTelegramMessage({
               botToken: telegramBotToken,
-              chatId: telegramIntegration.channelId,
+              chatId: telegramIntegration.channelId.trim(),
               text: telegramMessage,
               parseMode: "HTML",
               disableWebPagePreview: false,

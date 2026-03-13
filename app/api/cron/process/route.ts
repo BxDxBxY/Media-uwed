@@ -74,6 +74,12 @@ export async function POST(request: Request) {
 
     const aiProviderApiKey = decryptSecret(aiIntegration?.providerApiKeyEncrypted);
 
+    console.log("processNewsAI provider key check", {
+      hasTaskProviderKey: Boolean(aiProviderApiKey && aiProviderApiKey.trim()),
+      integrationEnabled: aiIntegration?.enabled ?? true,
+      providerModel: aiIntegration?.provider || null,
+    });
+
     for (const raw of filteredArticles) {
       try {
         let detailedContent = "";
