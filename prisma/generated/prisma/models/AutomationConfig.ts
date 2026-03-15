@@ -20,8 +20,18 @@ export type AutomationConfigModel = runtime.Types.Result.DefaultSelection<Prisma
 
 export type AggregateAutomationConfig = {
   _count: AutomationConfigCountAggregateOutputType | null
+  _avg: AutomationConfigAvgAggregateOutputType | null
+  _sum: AutomationConfigSumAggregateOutputType | null
   _min: AutomationConfigMinAggregateOutputType | null
   _max: AutomationConfigMaxAggregateOutputType | null
+}
+
+export type AutomationConfigAvgAggregateOutputType = {
+  fetchPeriodMinutes: number | null
+}
+
+export type AutomationConfigSumAggregateOutputType = {
+  fetchPeriodMinutes: number | null
 }
 
 export type AutomationConfigMinAggregateOutputType = {
@@ -33,6 +43,8 @@ export type AutomationConfigMinAggregateOutputType = {
   automatedPull: boolean | null
   processing: boolean | null
   translation: boolean | null
+  fetchPeriodMinutes: number | null
+  lastScheduledRunAt: Date | null
   updatedAt: Date | null
 }
 
@@ -45,6 +57,8 @@ export type AutomationConfigMaxAggregateOutputType = {
   automatedPull: boolean | null
   processing: boolean | null
   translation: boolean | null
+  fetchPeriodMinutes: number | null
+  lastScheduledRunAt: Date | null
   updatedAt: Date | null
 }
 
@@ -57,10 +71,20 @@ export type AutomationConfigCountAggregateOutputType = {
   automatedPull: number
   processing: number
   translation: number
+  fetchPeriodMinutes: number
+  lastScheduledRunAt: number
   updatedAt: number
   _all: number
 }
 
+
+export type AutomationConfigAvgAggregateInputType = {
+  fetchPeriodMinutes?: true
+}
+
+export type AutomationConfigSumAggregateInputType = {
+  fetchPeriodMinutes?: true
+}
 
 export type AutomationConfigMinAggregateInputType = {
   id?: true
@@ -71,6 +95,8 @@ export type AutomationConfigMinAggregateInputType = {
   automatedPull?: true
   processing?: true
   translation?: true
+  fetchPeriodMinutes?: true
+  lastScheduledRunAt?: true
   updatedAt?: true
 }
 
@@ -83,6 +109,8 @@ export type AutomationConfigMaxAggregateInputType = {
   automatedPull?: true
   processing?: true
   translation?: true
+  fetchPeriodMinutes?: true
+  lastScheduledRunAt?: true
   updatedAt?: true
 }
 
@@ -95,6 +123,8 @@ export type AutomationConfigCountAggregateInputType = {
   automatedPull?: true
   processing?: true
   translation?: true
+  fetchPeriodMinutes?: true
+  lastScheduledRunAt?: true
   updatedAt?: true
   _all?: true
 }
@@ -137,6 +167,18 @@ export type AutomationConfigAggregateArgs<ExtArgs extends runtime.Types.Extensio
   /**
    * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
    * 
+   * Select which fields to average
+  **/
+  _avg?: AutomationConfigAvgAggregateInputType
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+   * 
+   * Select which fields to sum
+  **/
+  _sum?: AutomationConfigSumAggregateInputType
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+   * 
    * Select which fields to find the minimum value
   **/
   _min?: AutomationConfigMinAggregateInputType
@@ -167,6 +209,8 @@ export type AutomationConfigGroupByArgs<ExtArgs extends runtime.Types.Extensions
   take?: number
   skip?: number
   _count?: AutomationConfigCountAggregateInputType | true
+  _avg?: AutomationConfigAvgAggregateInputType
+  _sum?: AutomationConfigSumAggregateInputType
   _min?: AutomationConfigMinAggregateInputType
   _max?: AutomationConfigMaxAggregateInputType
 }
@@ -180,8 +224,12 @@ export type AutomationConfigGroupByOutputType = {
   automatedPull: boolean
   processing: boolean
   translation: boolean
+  fetchPeriodMinutes: number
+  lastScheduledRunAt: Date | null
   updatedAt: Date
   _count: AutomationConfigCountAggregateOutputType | null
+  _avg: AutomationConfigAvgAggregateOutputType | null
+  _sum: AutomationConfigSumAggregateOutputType | null
   _min: AutomationConfigMinAggregateOutputType | null
   _max: AutomationConfigMaxAggregateOutputType | null
 }
@@ -213,6 +261,8 @@ export type AutomationConfigWhereInput = {
   automatedPull?: Prisma.BoolFilter<"AutomationConfig"> | boolean
   processing?: Prisma.BoolFilter<"AutomationConfig"> | boolean
   translation?: Prisma.BoolFilter<"AutomationConfig"> | boolean
+  fetchPeriodMinutes?: Prisma.IntFilter<"AutomationConfig"> | number
+  lastScheduledRunAt?: Prisma.DateTimeNullableFilter<"AutomationConfig"> | Date | string | null
   updatedAt?: Prisma.DateTimeFilter<"AutomationConfig"> | Date | string
 }
 
@@ -225,6 +275,8 @@ export type AutomationConfigOrderByWithRelationInput = {
   automatedPull?: Prisma.SortOrder
   processing?: Prisma.SortOrder
   translation?: Prisma.SortOrder
+  fetchPeriodMinutes?: Prisma.SortOrder
+  lastScheduledRunAt?: Prisma.SortOrderInput | Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
 
@@ -240,6 +292,8 @@ export type AutomationConfigWhereUniqueInput = Prisma.AtLeast<{
   automatedPull?: Prisma.BoolFilter<"AutomationConfig"> | boolean
   processing?: Prisma.BoolFilter<"AutomationConfig"> | boolean
   translation?: Prisma.BoolFilter<"AutomationConfig"> | boolean
+  fetchPeriodMinutes?: Prisma.IntFilter<"AutomationConfig"> | number
+  lastScheduledRunAt?: Prisma.DateTimeNullableFilter<"AutomationConfig"> | Date | string | null
   updatedAt?: Prisma.DateTimeFilter<"AutomationConfig"> | Date | string
 }, "id">
 
@@ -252,10 +306,14 @@ export type AutomationConfigOrderByWithAggregationInput = {
   automatedPull?: Prisma.SortOrder
   processing?: Prisma.SortOrder
   translation?: Prisma.SortOrder
+  fetchPeriodMinutes?: Prisma.SortOrder
+  lastScheduledRunAt?: Prisma.SortOrderInput | Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.AutomationConfigCountOrderByAggregateInput
+  _avg?: Prisma.AutomationConfigAvgOrderByAggregateInput
   _max?: Prisma.AutomationConfigMaxOrderByAggregateInput
   _min?: Prisma.AutomationConfigMinOrderByAggregateInput
+  _sum?: Prisma.AutomationConfigSumOrderByAggregateInput
 }
 
 export type AutomationConfigScalarWhereWithAggregatesInput = {
@@ -270,6 +328,8 @@ export type AutomationConfigScalarWhereWithAggregatesInput = {
   automatedPull?: Prisma.BoolWithAggregatesFilter<"AutomationConfig"> | boolean
   processing?: Prisma.BoolWithAggregatesFilter<"AutomationConfig"> | boolean
   translation?: Prisma.BoolWithAggregatesFilter<"AutomationConfig"> | boolean
+  fetchPeriodMinutes?: Prisma.IntWithAggregatesFilter<"AutomationConfig"> | number
+  lastScheduledRunAt?: Prisma.DateTimeNullableWithAggregatesFilter<"AutomationConfig"> | Date | string | null
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"AutomationConfig"> | Date | string
 }
 
@@ -282,6 +342,8 @@ export type AutomationConfigCreateInput = {
   automatedPull?: boolean
   processing?: boolean
   translation?: boolean
+  fetchPeriodMinutes?: number
+  lastScheduledRunAt?: Date | string | null
   updatedAt?: Date | string
 }
 
@@ -294,6 +356,8 @@ export type AutomationConfigUncheckedCreateInput = {
   automatedPull?: boolean
   processing?: boolean
   translation?: boolean
+  fetchPeriodMinutes?: number
+  lastScheduledRunAt?: Date | string | null
   updatedAt?: Date | string
 }
 
@@ -306,6 +370,8 @@ export type AutomationConfigUpdateInput = {
   automatedPull?: Prisma.BoolFieldUpdateOperationsInput | boolean
   processing?: Prisma.BoolFieldUpdateOperationsInput | boolean
   translation?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  fetchPeriodMinutes?: Prisma.IntFieldUpdateOperationsInput | number
+  lastScheduledRunAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -318,6 +384,8 @@ export type AutomationConfigUncheckedUpdateInput = {
   automatedPull?: Prisma.BoolFieldUpdateOperationsInput | boolean
   processing?: Prisma.BoolFieldUpdateOperationsInput | boolean
   translation?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  fetchPeriodMinutes?: Prisma.IntFieldUpdateOperationsInput | number
+  lastScheduledRunAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -330,6 +398,8 @@ export type AutomationConfigCreateManyInput = {
   automatedPull?: boolean
   processing?: boolean
   translation?: boolean
+  fetchPeriodMinutes?: number
+  lastScheduledRunAt?: Date | string | null
   updatedAt?: Date | string
 }
 
@@ -342,6 +412,8 @@ export type AutomationConfigUpdateManyMutationInput = {
   automatedPull?: Prisma.BoolFieldUpdateOperationsInput | boolean
   processing?: Prisma.BoolFieldUpdateOperationsInput | boolean
   translation?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  fetchPeriodMinutes?: Prisma.IntFieldUpdateOperationsInput | number
+  lastScheduledRunAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -354,6 +426,8 @@ export type AutomationConfigUncheckedUpdateManyInput = {
   automatedPull?: Prisma.BoolFieldUpdateOperationsInput | boolean
   processing?: Prisma.BoolFieldUpdateOperationsInput | boolean
   translation?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  fetchPeriodMinutes?: Prisma.IntFieldUpdateOperationsInput | number
+  lastScheduledRunAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -366,7 +440,13 @@ export type AutomationConfigCountOrderByAggregateInput = {
   automatedPull?: Prisma.SortOrder
   processing?: Prisma.SortOrder
   translation?: Prisma.SortOrder
+  fetchPeriodMinutes?: Prisma.SortOrder
+  lastScheduledRunAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+}
+
+export type AutomationConfigAvgOrderByAggregateInput = {
+  fetchPeriodMinutes?: Prisma.SortOrder
 }
 
 export type AutomationConfigMaxOrderByAggregateInput = {
@@ -378,6 +458,8 @@ export type AutomationConfigMaxOrderByAggregateInput = {
   automatedPull?: Prisma.SortOrder
   processing?: Prisma.SortOrder
   translation?: Prisma.SortOrder
+  fetchPeriodMinutes?: Prisma.SortOrder
+  lastScheduledRunAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
 
@@ -390,7 +472,13 @@ export type AutomationConfigMinOrderByAggregateInput = {
   automatedPull?: Prisma.SortOrder
   processing?: Prisma.SortOrder
   translation?: Prisma.SortOrder
+  fetchPeriodMinutes?: Prisma.SortOrder
+  lastScheduledRunAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+}
+
+export type AutomationConfigSumOrderByAggregateInput = {
+  fetchPeriodMinutes?: Prisma.SortOrder
 }
 
 
@@ -404,6 +492,8 @@ export type AutomationConfigSelect<ExtArgs extends runtime.Types.Extensions.Inte
   automatedPull?: boolean
   processing?: boolean
   translation?: boolean
+  fetchPeriodMinutes?: boolean
+  lastScheduledRunAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["automationConfig"]>
 
@@ -416,6 +506,8 @@ export type AutomationConfigSelectCreateManyAndReturn<ExtArgs extends runtime.Ty
   automatedPull?: boolean
   processing?: boolean
   translation?: boolean
+  fetchPeriodMinutes?: boolean
+  lastScheduledRunAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["automationConfig"]>
 
@@ -428,6 +520,8 @@ export type AutomationConfigSelectUpdateManyAndReturn<ExtArgs extends runtime.Ty
   automatedPull?: boolean
   processing?: boolean
   translation?: boolean
+  fetchPeriodMinutes?: boolean
+  lastScheduledRunAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["automationConfig"]>
 
@@ -440,10 +534,12 @@ export type AutomationConfigSelectScalar = {
   automatedPull?: boolean
   processing?: boolean
   translation?: boolean
+  fetchPeriodMinutes?: boolean
+  lastScheduledRunAt?: boolean
   updatedAt?: boolean
 }
 
-export type AutomationConfigOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "includeKeywords" | "excludeKeywords" | "aiInstructions" | "aiStrictMode" | "automatedPull" | "processing" | "translation" | "updatedAt", ExtArgs["result"]["automationConfig"]>
+export type AutomationConfigOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "includeKeywords" | "excludeKeywords" | "aiInstructions" | "aiStrictMode" | "automatedPull" | "processing" | "translation" | "fetchPeriodMinutes" | "lastScheduledRunAt" | "updatedAt", ExtArgs["result"]["automationConfig"]>
 
 export type $AutomationConfigPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "AutomationConfig"
@@ -457,6 +553,8 @@ export type $AutomationConfigPayload<ExtArgs extends runtime.Types.Extensions.In
     automatedPull: boolean
     processing: boolean
     translation: boolean
+    fetchPeriodMinutes: number
+    lastScheduledRunAt: Date | null
     updatedAt: Date
   }, ExtArgs["result"]["automationConfig"]>
   composites: {}
@@ -889,6 +987,8 @@ export interface AutomationConfigFieldRefs {
   readonly automatedPull: Prisma.FieldRef<"AutomationConfig", 'Boolean'>
   readonly processing: Prisma.FieldRef<"AutomationConfig", 'Boolean'>
   readonly translation: Prisma.FieldRef<"AutomationConfig", 'Boolean'>
+  readonly fetchPeriodMinutes: Prisma.FieldRef<"AutomationConfig", 'Int'>
+  readonly lastScheduledRunAt: Prisma.FieldRef<"AutomationConfig", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"AutomationConfig", 'DateTime'>
 }
     

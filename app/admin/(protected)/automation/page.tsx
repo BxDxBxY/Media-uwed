@@ -72,6 +72,7 @@ export default function AutomationPage() {
         automatedPull: true,
         processing: true,
         translation: true,
+        fetchPeriodMinutes: 30,
     });
     const [showRequirements, setShowRequirements] = useState(false);
     const [showFeedManagement, setShowFeedManagement] = useState(false);
@@ -194,13 +195,14 @@ export default function AutomationPage() {
                 automatedPull: settings.automatedPull ?? true,
                 processing: settings.processing ?? true,
                 translation: settings.translation ?? true,
+                fetchPeriodMinutes: settings.fetchPeriodMinutes ?? 30,
             });
         } catch {
             // ignore
         }
     };
 
-    const saveAutomationSettings = async (next: { includeKeywords: string; excludeKeywords: string; aiInstructions: string; aiStrictMode: boolean; automatedPull: boolean; processing: boolean; translation: boolean; }) => {
+    const saveAutomationSettings = async (next: { includeKeywords: string; excludeKeywords: string; aiInstructions: string; aiStrictMode: boolean; automatedPull: boolean; processing: boolean; translation: boolean; fetchPeriodMinutes: number; }) => {
         await fetch("/api/admin/automation/settings", {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
@@ -231,6 +233,7 @@ export default function AutomationPage() {
                 automatedPull: pipelineSettings.automatedPull,
                 processing: pipelineSettings.processing,
                 translation: pipelineSettings.translation,
+                fetchPeriodMinutes: pipelineSettings.fetchPeriodMinutes,
             }).catch(() => null);
         }, 400);
 
@@ -245,7 +248,7 @@ export default function AutomationPage() {
             const res = await fetch("/api/cron/pull", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ includeKeywords, excludeKeywords, aiInstructions, aiStrictMode }),
+                body: JSON.stringify({ includeKeywords, excludeKeywords, aiInstructions, aiStrictMode, force: true }),
             });
             const data = await res.json().catch(() => ({}));
             if (res.ok) {
@@ -270,7 +273,7 @@ export default function AutomationPage() {
             const res = await fetch("/api/cron/process", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ includeKeywords, excludeKeywords, aiInstructions, aiStrictMode }),
+                body: JSON.stringify({ includeKeywords, excludeKeywords, aiInstructions, aiStrictMode, force: true }),
             });
             const data = await res.json().catch(() => ({}));
             if (res.ok) {
@@ -303,7 +306,7 @@ export default function AutomationPage() {
             const res = await fetch("/api/cron/process", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ ids: selectedRawIds, includeKeywords, excludeKeywords, aiInstructions, aiStrictMode }),
+                body: JSON.stringify({ ids: selectedRawIds, includeKeywords, excludeKeywords, aiInstructions, aiStrictMode, force: true }),
             });
             const data = await res.json().catch(() => ({}));
             if (res.ok) {
@@ -650,6 +653,7 @@ export default function AutomationPage() {
             automatedPull: next.automatedPull,
             processing: next.processing,
             translation: next.translation,
+            fetchPeriodMinutes: next.fetchPeriodMinutes,
         }).catch(() => null);
     };
 
@@ -1348,6 +1352,32 @@ export default function AutomationPage() {
                                     </div>
                                 </div>
                             ))}
+                            <div className="pt-2 border-t border-border/40 space-y-1">
+                                <label className="text-[11px] text-muted-foreground">Auto-fetch period (minutes)</label>
+                                <input
+                                    type="number"
+                                    min={5}
+                                    max={1440}
+                                    value={pipelineSettings.fetchPeriodMinutes}
+                                    onChange={(e) => {
+                                        const minutes = Math.min(1440, Math.max(5, Number(e.target.value) || 30));
+                                        const next = { ...pipelineSettings, fetchPeriodMinutes: minutes };
+                                        setPipelineSettings(next);
+                                        saveAutomationSettings({
+                                            includeKeywords,
+                                            excludeKeywords,
+                                            aiInstructions,
+                                            aiStrictMode,
+                                            automatedPull: next.automatedPull,
+                                            processing: next.processing,
+                                            translation: next.translation,
+                                            fetchPeriodMinutes: next.fetchPeriodMinutes,
+                                        }).catch(() => null);
+                                    }}
+                                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                />
+                                <p className="text-[11px] text-muted-foreground">Used by /api/cron/automation to run pull/process in background cadence.</p>
+                            </div>
                         </div>
                         )}
                     </div>

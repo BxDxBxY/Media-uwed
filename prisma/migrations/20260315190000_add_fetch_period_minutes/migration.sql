@@ -1,0 +1,3 @@
+ALTER TABLE "automation_configs"
+ADD COLUMN IF NOT EXISTS "fetchPeriodMinutes" INTEGER NOT NULL DEFAULT 30,
+ADD COLUMN IF NOT EXISTS "lastScheduledRunAt" TIMESTAMP;

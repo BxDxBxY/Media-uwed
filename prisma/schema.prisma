@@ -223,8 +223,10 @@ model AutomationConfig {
   aiStrictMode    Boolean  @default(false)
   automatedPull   Boolean  @default(true)
   processing      Boolean  @default(true)
-  translation     Boolean  @default(true)
-  updatedAt       DateTime @updatedAt
+  translation      Boolean  @default(true)
+  fetchPeriodMinutes  Int      @default(30)
+  lastScheduledRunAt DateTime?
+  updatedAt         DateTime @updatedAt
 
   @@map("automation_configs")
 }

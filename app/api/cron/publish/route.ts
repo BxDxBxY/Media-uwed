@@ -54,6 +54,21 @@ function buildTelegramNewsMessage(input: {
   ].join("\n");
 }
 
+
+function getPublicSiteBaseUrl() {
+  const candidate = (process.env.APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "").trim();
+  if (!candidate) return null;
+
+  try {
+    const parsed = new URL(candidate);
+    const host = parsed.hostname.toLowerCase();
+    if (host === "localhost" || host === "127.0.0.1") return null;
+    return parsed.origin;
+  } catch {
+    return null;
+  }
+}
+
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
@@ -84,10 +99,19 @@ export async function POST(request: Request) {
 
     const telegramEnabled = Boolean(telegramIntegration?.enabled && telegramIntegration?.sendOnPublish);
     const telegramBotToken = decryptSecret(telegramIntegration?.providerApiKeyEncrypted)?.trim();
+    const publicSiteBaseUrl = getPublicSiteBaseUrl();
 
     let publishedCount = 0;
     let telegramSentCount = 0;
     const errors: string[] = [];
+
+    if (telegramEnabled && !publicSiteBaseUrl) {
+      logger.error("Telegram publish skipped: missing valid public APP_URL/NEXT_PUBLIC_SITE_URL", {
+        appUrl: process.env.APP_URL || null,
+        nextPublicSiteUrl: process.env.NEXT_PUBLIC_SITE_URL || null,
+      });
+      errors.push("Telegram enabled but APP_URL/NEXT_PUBLIC_SITE_URL is missing or points to localhost.");
+    }
 
     if (telegramEnabled && (!telegramBotToken || !telegramIntegration?.channelId?.trim())) {
       logger.error("Telegram is enabled but credentials are incomplete", {
@@ -168,7 +192,7 @@ export async function POST(request: Request) {
 
         if (telegramEnabled && telegramBotToken && telegramIntegration?.channelId?.trim()) {
           try {
-            const articleUrl = `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/article/${article.slug}`;
+            const articleUrl = publicSiteBaseUrl ? `${publicSiteBaseUrl}/article/${article.slug}` : null;
             const telegramMessage = buildTelegramNewsMessage({
               titleRu: item.headlineRu || item.headlineEn,
               summaryRu: item.summaryRu || item.summaryEn,
@@ -178,8 +202,12 @@ export async function POST(request: Request) {
               summaryUz: item.summaryUz || item.summaryEn,
             });
 
-            logger.info("Publishing article to Telegram", { itemId: item.id, hasImage: Boolean(article.image), chatId: telegramIntegration.channelId.trim() });
-            await sendTelegramMessage({
+            if (!articleUrl) {
+              logger.error("Skipping Telegram send due to invalid public site URL", { itemId: item.id });
+              errors.push(`Item ${item.id}: Telegram skipped (invalid APP_URL/NEXT_PUBLIC_SITE_URL)`);
+            } else {
+              logger.info("Publishing article to Telegram", { itemId: item.id, hasImage: Boolean(article.image), chatId: telegramIntegration.channelId.trim(), articleUrl });
+              await sendTelegramMessage({
               botToken: telegramBotToken,
               chatId: telegramIntegration.channelId.trim(),
               text: telegramMessage,
@@ -190,7 +218,8 @@ export async function POST(request: Request) {
               buttonText: "Read on website",
               buttonUrl: articleUrl,
             });
-            telegramSentCount++;
+              telegramSentCount++;
+            }
           } catch (telegramError) {
             logger.error("Telegram delivery failed for published article", {
               itemId: item.id,

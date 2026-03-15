@@ -20,6 +20,7 @@ export async function POST(request: Request) {
       aiInstructions,
       aiStrictMode,
       retranslate,
+      force,
     } = await request.json().catch(() => ({
       ids: null,
       includeKeywords: [],
@@ -27,10 +28,20 @@ export async function POST(request: Request) {
       aiInstructions: "",
       aiStrictMode: false,
       retranslate: false,
+      force: false,
     }));
 
     const automationSettings = await prisma.automationConfig.findUnique({ where: { id: "default" } });
 
+
+    if (!automationSettings?.processing && !force) {
+      return NextResponse.json({
+        processedCount: 0,
+        failedCount: 0,
+        message: "Processing pipeline is disabled in admin settings.",
+        pipelineEnabled: false,
+      });
+    }
     const includeSource = includeKeywords ?? automationSettings?.includeKeywords ?? "";
     const excludeSource = excludeKeywords ?? automationSettings?.excludeKeywords ?? "";
     const instructionsSource = aiInstructions ?? automationSettings?.aiInstructions ?? "";

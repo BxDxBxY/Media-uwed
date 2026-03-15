@@ -1925,6 +1925,8 @@ export const AutomationConfigScalarFieldEnum = {
   automatedPull: 'automatedPull',
   processing: 'processing',
   translation: 'translation',
+  fetchPeriodMinutes: 'fetchPeriodMinutes',
+  lastScheduledRunAt: 'lastScheduledRunAt',
   updatedAt: 'updatedAt'
 } as const
 

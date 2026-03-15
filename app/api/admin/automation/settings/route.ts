@@ -10,6 +10,7 @@ const DEFAULT_AUTOMATION_SETTINGS = {
   automatedPull: true,
   processing: true,
   translation: true,
+  fetchPeriodMinutes: 30,
 };
 
 function normalizeString(value: unknown): string {
@@ -27,6 +28,10 @@ function normalizePayload(payload: unknown) {
     automatedPull: body.automatedPull === undefined ? true : Boolean(body.automatedPull),
     processing: body.processing === undefined ? true : Boolean(body.processing),
     translation: body.translation === undefined ? true : Boolean(body.translation),
+    fetchPeriodMinutes:
+      typeof body.fetchPeriodMinutes === "number" && Number.isFinite(body.fetchPeriodMinutes)
+        ? Math.min(1440, Math.max(5, Math.floor(body.fetchPeriodMinutes)))
+        : DEFAULT_AUTOMATION_SETTINGS.fetchPeriodMinutes,
   };
 }
 

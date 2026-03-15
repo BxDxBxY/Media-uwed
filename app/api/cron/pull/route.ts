@@ -12,13 +12,25 @@ export async function POST(request: Request) {
     const {
       includeKeywords,
       excludeKeywords,
+      force,
     } = await request.json().catch(() => ({
       includeKeywords: [],
       excludeKeywords: [],
+      force: false,
     }));
 
     const automationSettings = await prisma.automationConfig.findUnique({ where: { id: "default" } });
 
+
+    if (!automationSettings?.automatedPull && !force) {
+      return NextResponse.json({
+        sourcesChecked: 0,
+        itemsFetched: 0,
+        newInserted: 0,
+        message: "Automated pull pipeline is disabled in admin settings.",
+        pipelineEnabled: false,
+      });
+    }
     const includeSource = includeKeywords ?? automationSettings?.includeKeywords ?? "";
     const excludeSource = excludeKeywords ?? automationSettings?.excludeKeywords ?? "";
     const include = normalizeKeywords(includeSource);
