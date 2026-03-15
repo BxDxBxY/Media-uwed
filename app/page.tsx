@@ -50,9 +50,9 @@ export default function Home() {
   const breakingItems = articles.slice(0, 6);
 
   const categoryPools = [
-    { title: language === "ru" ? "Мир и политика" : language === "uz" ? "Jahon va siyosat" : "World & Policy", source: byCategory(articles, "World"), reverse: false },
-    { title: language === "ru" ? "Университет и кампус" : language === "uz" ? "Universitet va kampus" : "University & Campus", source: byCategory(articles, "University"), reverse: true },
-    { title: language === "ru" ? "Интервью и аналитика" : language === "uz" ? "Intervyu va tahlil" : "Interviews & Analysis", source: byCategory(articles, "Analysis"), reverse: false },
+    { key: "World", title: language === "ru" ? "Мир и политика" : language === "uz" ? "Jahon va siyosat" : "World & Policy", source: byCategory(articles, "World"), reverse: false },
+    { key: "University", title: language === "ru" ? "Университет и кампус" : language === "uz" ? "Universitet va kampus" : "University & Campus", source: byCategory(articles, "University"), reverse: true },
+    { key: "Analysis", title: language === "ru" ? "Интервью и аналитика" : language === "uz" ? "Intervyu va tahlil" : "Interviews & Analysis", source: byCategory(articles, "Analysis"), reverse: false },
   ];
 
   const used = new Set<string>();
@@ -76,7 +76,7 @@ export default function Home() {
       }
     }
 
-    return { title: pool.title, items: picked, reverse: pool.reverse };
+    return { key: pool.key, title: pool.title, items: picked, reverse: pool.reverse };
   });
 
   const hiddenHomeCategories = new Set(["hero-side", "hero-banner"]);
@@ -92,25 +92,50 @@ export default function Home() {
   const heroBackground = media.find((item) => hasMediaCategory(item.category, "hero-banner")) || null;
   const heroSide = media.find((item) => hasMediaCategory(item.category, "hero-side")) || null;
 
-
-  const columnSections = [
+  const columnPools = [
     {
+      key: "University",
       title: language === "ru" ? "Новости кампуса" : language === "uz" ? "Kampus yangiliklari" : "Campus News",
-      items: (byCategory(articles, "University").length ? byCategory(articles, "University") : articles).slice(0, 5),
+      source: byCategory(articles, "University").length ? byCategory(articles, "University") : articles,
     },
     {
+      key: "World",
       title: language === "ru" ? "Мир" : language === "uz" ? "Jahon" : "World",
-      items: (byCategory(articles, "World").length ? byCategory(articles, "World") : articles.slice(3)).slice(0, 5),
+      source: byCategory(articles, "World").length ? byCategory(articles, "World") : articles.slice(3),
     },
     {
+      key: "Economy",
       title: language === "ru" ? "Бизнес" : language === "uz" ? "Biznes" : "Business",
-      items: (byCategory(articles, "Economy").length ? byCategory(articles, "Economy") : articles.slice(6)).slice(0, 5),
+      source: byCategory(articles, "Economy").length ? byCategory(articles, "Economy") : articles.slice(6),
     },
     {
+      key: "Sports",
       title: language === "ru" ? "Спорт" : language === "uz" ? "Sport" : "Sport",
-      items: (byCategory(articles, "Sports").length ? byCategory(articles, "Sports") : articles.slice(9)).slice(0, 5),
+      source: byCategory(articles, "Sports").length ? byCategory(articles, "Sports") : articles.slice(9),
     },
   ];
+
+  const columnUsed = new Set<string>();
+  const columnSections = columnPools.map((pool) => {
+    const items: Article[] = [];
+    for (const item of pool.source) {
+      if (columnUsed.has(item.id)) continue;
+      columnUsed.add(item.id);
+      items.push(item);
+      if (items.length === 5) break;
+    }
+
+    if (items.length < 5) {
+      for (const fallback of articles) {
+        if (columnUsed.has(fallback.id)) continue;
+        columnUsed.add(fallback.id);
+        items.push(fallback);
+        if (items.length === 5) break;
+      }
+    }
+
+    return { key: pool.key, title: pool.title, items };
+  });
 
   const t = {
     breaking: language === "ru" ? "Срочно" : language === "uz" ? "Shoshilinch" : "Breaking",
@@ -228,7 +253,7 @@ export default function Home() {
             <div key={block.title}>
               <div className="flex items-center justify-between mb-5">
                 <h3 className="text-2xl font-serif font-bold flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-primary inline-block" />{block.title}</h3>
-                <Link href="/news" className="text-sm font-semibold text-primary hover:underline">{t.viewAll}</Link>
+                <Link href={`/news?category=${encodeURIComponent(block.key)}`} className="text-sm font-semibold text-primary hover:underline">{t.viewAll}</Link>
               </div>
 
               <div className={`grid grid-cols-1 lg:grid-cols-12 gap-6 ${block.reverse ? "lg:[&>*:first-child]:order-2" : ""}`}>
@@ -249,7 +274,7 @@ export default function Home() {
                         <Image src={item.image} alt={localizedText(item, language, "title")} fill unoptimized sizes="(max-width: 768px) 100vw, 25vw" className="object-cover group-hover:scale-105 transition-transform duration-500" />
                       </div>
                       <div className="p-3">
-                        <span className="text-[10px] font-bold text-primary uppercase">{getPrimaryCategory(item)}</span>
+                        <Link href={`/news?category=${encodeURIComponent(getPrimaryCategory(item))}`} className="text-[10px] font-bold text-primary uppercase hover:underline">{getPrimaryCategory(item)}</Link>
                         <h5 className="font-bold mt-1 leading-tight line-clamp-2 group-hover:text-primary transition-colors">{localizedText(item, language, "title")}</h5>
                       </div>
                     </Link>
@@ -259,6 +284,41 @@ export default function Home() {
             </div>
           );
         })}
+      </section>
+
+      <section className="container mx-auto px-4 py-8 md:py-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-7">
+          {columnSections.map((column) => {
+            const lead = column.items[0];
+            const rest = column.items.slice(1);
+            return (
+              <div key={column.title} className="space-y-4">
+                <Link href={`/news?category=${encodeURIComponent(column.key)}`} className="border-t-2 border-border/80 pt-3 flex items-center justify-between group">
+                  <h3 className="font-bold uppercase tracking-wide text-lg group-hover:text-primary transition-colors">{column.title}</h3>
+                  <ChevronRight className="h-5 w-5 group-hover:text-primary transition-colors" />
+                </Link>
+
+                {lead && (
+                  <Link href={`/article/${lead.slug}`} className="block group">
+                    <div className="aspect-[16/10] overflow-hidden bg-muted relative">
+                      <Image src={lead.image} alt={localizedText(lead, language, "title")} fill unoptimized sizes="(max-width: 768px) 100vw, 50vw" className="object-cover group-hover:scale-105 transition-transform" />
+                    </div>
+                    <h4 className="text-2xl font-serif font-bold mt-3 leading-tight group-hover:text-primary transition-colors">{localizedText(lead, language, "title")}</h4>
+                    <p className="text-base text-muted-foreground mt-2 line-clamp-3">{localizedText(lead, language, "summary")}</p>
+                  </Link>
+                )}
+
+                <div className="space-y-0">
+                  {rest.map((item) => (
+                    <Link key={item.id} href={`/article/${item.slug}`} className="block py-4 border-t border-border/40 group">
+                      <h5 className="text-[1.9rem] leading-tight font-serif font-semibold group-hover:text-primary transition-colors line-clamp-2">{localizedText(item, language, "title")}</h5>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </section>
 
       <section className="container mx-auto px-4 py-16">
@@ -322,41 +382,6 @@ export default function Home() {
               )}
             </Link>
           </div>
-        </div>
-      </section>
-
-      <section className="container mx-auto px-4 py-8 md:py-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-7">
-          {columnSections.map((column) => {
-            const lead = column.items[0];
-            const rest = column.items.slice(1);
-            return (
-              <div key={column.title} className="space-y-4">
-                <div className="border-t-2 border-border/80 pt-3 flex items-center justify-between">
-                  <h3 className="font-bold uppercase tracking-wide text-lg">{column.title}</h3>
-                  <ChevronRight className="h-5 w-5" />
-                </div>
-
-                {lead && (
-                  <Link href={`/article/${lead.slug}`} className="block group">
-                    <div className="aspect-[16/10] overflow-hidden bg-muted relative">
-                      <Image src={lead.image} alt={localizedText(lead, language, "title")} fill unoptimized sizes="(max-width: 768px) 100vw, 50vw" className="object-cover group-hover:scale-105 transition-transform" />
-                    </div>
-                    <h4 className="text-2xl font-serif font-bold mt-3 leading-tight group-hover:text-primary transition-colors">{localizedText(lead, language, "title")}</h4>
-                    <p className="text-base text-muted-foreground mt-2 line-clamp-3">{localizedText(lead, language, "summary")}</p>
-                  </Link>
-                )}
-
-                <div className="space-y-0">
-                  {rest.map((item) => (
-                    <Link key={item.id} href={`/article/${item.slug}`} className="block py-4 border-t border-border/40 group">
-                      <h5 className="text-[1.9rem] leading-tight font-serif font-semibold group-hover:text-primary transition-colors line-clamp-2">{localizedText(item, language, "title")}</h5>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
         </div>
       </section>
 

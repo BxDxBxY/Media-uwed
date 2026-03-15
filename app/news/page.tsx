@@ -5,6 +5,7 @@ import { Loader2, ArrowRight, Grid, List as ListIcon, Filter } from "lucide-reac
 import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 const PAGE_SIZE = 12;
 
@@ -15,12 +16,16 @@ function articleCategories(article: Article): string[] {
 }
 
 export default function NewsPage() {
-  const { language, searchQuery } = useGlobalContext();
-  const [activeCategory, setActiveCategory] = useState("All");
+  const { language, searchQuery, setSearchQuery } = useGlobalContext();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const [activeCategory, setActiveCategory] = useState(searchParams.get("category") || "All");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [showCategories, setShowCategories] = useState(false);
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [dateFrom, setDateFrom] = useState(searchParams.get("dateFrom") || "");
+  const [dateTo, setDateTo] = useState(searchParams.get("dateTo") || "");
   const [articles, setArticles] = useState<Article[]>([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -85,6 +90,26 @@ export default function NewsPage() {
     },
     [activeCategory, searchQuery, dateFrom, dateTo],
   );
+
+  useEffect(() => {
+    const queryFromUrl = searchParams.get("q") || "";
+    if (queryFromUrl !== searchQuery) {
+      setSearchQuery(queryFromUrl);
+    }
+  }, [searchParams, searchQuery, setSearchQuery]);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (activeCategory !== "All") params.set("category", activeCategory);
+    if (searchQuery?.trim()) params.set("q", searchQuery.trim());
+    if (dateFrom) params.set("dateFrom", dateFrom);
+    if (dateTo) params.set("dateTo", dateTo);
+    const next = params.toString();
+    const current = searchParams.toString();
+    if (next !== current) {
+      router.replace(next ? `${pathname}?${next}` : pathname);
+    }
+  }, [activeCategory, searchQuery, dateFrom, dateTo, pathname, router, searchParams]);
 
   useEffect(() => {
     loadArticles(1, true);
