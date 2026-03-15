@@ -216,7 +216,7 @@ export function GlobalProvider({ children }: { children: ReactNode }) {
 
     const recordVisit = async () => {
         try {
-            await fetch('/api/admin/stats/visit', { method: 'POST' });
+            await fetch('/api/frontend/visits', { method: 'POST' });
         } catch (e) { }
     };
 

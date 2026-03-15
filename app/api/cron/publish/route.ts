@@ -21,8 +21,15 @@ function escapeTelegramHtml(value: string) {
     .replace(/>/g, "&gt;");
 }
 
-function buildLangLink(articleUrl: string, lang: "ru" | "en" | "uz") {
-  return `${articleUrl}?lang=${lang}`;
+
+
+function sanitizeSourceUrl(rawUrl: string) {
+  try {
+    const parsed = new URL(rawUrl);
+    return `${parsed.origin}${parsed.pathname}`;
+  } catch {
+    return rawUrl;
+  }
 }
 
 function buildTelegramNewsMessage(input: {
@@ -32,24 +39,18 @@ function buildTelegramNewsMessage(input: {
   summaryEn: string;
   titleUz: string;
   summaryUz: string;
-  articleUrl: string;
 }) {
-  const ruLink = buildLangLink(input.articleUrl, "ru");
-  const enLink = buildLangLink(input.articleUrl, "en");
-  const uzLink = buildLangLink(input.articleUrl, "uz");
-
   return [
+    "📰 <b>New article published</b>",
+    "",
     `🇷🇺 <b>${escapeTelegramHtml(input.titleRu)}</b>`,
     escapeTelegramHtml(input.summaryRu),
-    `<a href=\"${ruLink}\">${escapeTelegramHtml(ruLink)}</a>`,
     "",
     `🇬🇧 <b>${escapeTelegramHtml(input.titleEn)}</b>`,
     escapeTelegramHtml(input.summaryEn),
-    `<a href=\"${enLink}\">${escapeTelegramHtml(enLink)}</a>`,
     "",
     `🇺🇿 <b>${escapeTelegramHtml(input.titleUz)}</b>`,
     escapeTelegramHtml(input.summaryUz),
-    `<a href=\"${uzLink}\">${escapeTelegramHtml(uzLink)}</a>`,
   ].join("\n");
 }
 
@@ -109,15 +110,8 @@ export async function POST(request: Request) {
           rawJson = {};
         }
 
-        const detailImages = Array.isArray(rawJson.detailImages)
-          ? rawJson.detailImages.filter((x) => typeof x === "string" && /^https?:\/\//.test(x)).slice(0, 4)
-          : [];
-
-        const inlineImageRefs = detailImages.length > 0
-          ? `\n\nMedia references (for rendering):\n${detailImages.join("\n")}`
-          : "";
-
-        const sourceLinkText = `\n\n---\n*Original source: [${item.raw.source.name}](${item.raw.url})*${inlineImageRefs}`;
+        const sourceUrl = sanitizeSourceUrl(item.raw.url);
+        const sourceLinkText = `\n\nOriginal source: [${item.raw.source.name}](${sourceUrl})`;
 
         const contentEn = (item.contentEn || item.summaryEn) + sourceLinkText;
         const contentRu = item.contentRu ? item.contentRu + sourceLinkText : null;
@@ -182,7 +176,6 @@ export async function POST(request: Request) {
               summaryEn: item.summaryEn,
               titleUz: item.headlineUz || item.headlineEn,
               summaryUz: item.summaryUz || item.summaryEn,
-              articleUrl,
             });
 
             await sendTelegramMessage({
@@ -193,6 +186,8 @@ export async function POST(request: Request) {
               parseMode: "HTML",
               disableWebPagePreview: false,
               retries: telegramIntegration.retryLimit,
+              buttonText: "Read on website",
+              buttonUrl: articleUrl,
             });
             telegramSentCount++;
           } catch (telegramError) {

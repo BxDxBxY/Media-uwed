@@ -124,8 +124,9 @@ async function translateWithOpenRouterChunk(
     );
 
     const out = res.data?.choices?.[0]?.message?.content?.trim() || "";
+    if (!out || isRefusalLike(out)) return null;
 
-    return out ? cleanText(out) : null;
+    return cleanText(out);
   } catch (error: any) {
     console.error("OpenRouter error status:", error?.response?.status);
     console.error("OpenRouter error data:", error?.response?.data);
@@ -137,6 +138,22 @@ async function translateWithOpenRouterChunk(
 function cleanText(s: string) {
   return polishText((s || "").replace(/\s+/g, " "));
 }
+
+function isRefusalLike(text: string): boolean {
+  const normalized = cleanText(text).toLowerCase();
+  if (!normalized) return false;
+  return [
+    "sorry",
+    "i can't help",
+    "i cannot help",
+    "i can't assist",
+    "i cannot assist",
+    "unable to assist",
+    "cannot comply",
+    "i'm not able to",
+  ].some((phrase) => normalized.includes(phrase));
+}
+
 
 export function detectSourceLanguage(input: string): "en" | "ru" | "uz" {
   const text = cleanText(input).toLowerCase();

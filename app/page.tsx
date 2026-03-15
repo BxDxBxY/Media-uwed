@@ -291,8 +291,11 @@ export default function Home() {
               <button type="submit" className="w-full rounded-lg bg-primary text-primary-foreground py-2 font-bold">{t.subscribe}</button>
 
               {(newsletterMessage === "animating" || newsletterMessage === "thanks") && (
-                <div className="absolute inset-0 bg-background dark:bg-card/95 flex items-center justify-center transition-opacity duration-500 animate-in fade-in">
-                  <p className="text-base font-semibold text-foreground">Submitted. Thank you!</p>
+                <div className="absolute inset-0 bg-background/95 dark:bg-card/95 backdrop-blur-sm flex items-center justify-center transition-all duration-500 animate-in fade-in zoom-in-95">
+                  <div className="text-center">
+                    <p className="text-base md:text-lg font-semibold text-foreground animate-pulse">Submitted. Thank you!</p>
+                    <p className="text-xs text-muted-foreground mt-1">You’re on the list ✨</p>
+                  </div>
                 </div>
               )}
             </form> : null}

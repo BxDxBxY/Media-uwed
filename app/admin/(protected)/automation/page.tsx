@@ -51,6 +51,7 @@ export default function AutomationPage() {
 
     const [isProcessing, setIsProcessing] = useState(false);
     const [isTranslating, setIsTranslating] = useState(false);
+    const [translationProgress, setTranslationProgress] = useState(0);
 
     const [processedItems, setProcessedItems] = useState<any[]>([]);
     const [rawItems, setRawItems] = useState<any[]>([]);
@@ -284,6 +285,7 @@ export default function AutomationPage() {
             });
             const data = await res.json().catch(() => ({}));
             if (res.ok) {
+                setTranslationProgress(100);
                 toast.success(`Processing complete: ${data.processedCount ?? "?"} items processed.`);
                 fetchReviewItems();
                 fetchRawItems();
@@ -302,6 +304,10 @@ export default function AutomationPage() {
         if (selectedRawIds.length === 0) return toast.warning("Select items to translate first");
 
         setIsTranslating(true);
+        setTranslationProgress(5);
+        const progressTimer = window.setInterval(() => {
+            setTranslationProgress((prev) => (prev >= 92 ? prev : prev + 6));
+        }, 600);
         toast.info(`Translating ${selectedRawIds.length} items...`);
 
         try {
@@ -312,6 +318,7 @@ export default function AutomationPage() {
             });
             const data = await res.json().catch(() => ({}));
             if (res.ok) {
+                setTranslationProgress(100);
                 toast.success(`Processing complete: ${data.processedCount ?? "?"} items processed.`);
                 setSelectedRawIds([]);
                 fetchReviewItems();
@@ -322,6 +329,8 @@ export default function AutomationPage() {
         } catch {
             toast.error("Network error during processing");
         } finally {
+            window.clearInterval(progressTimer);
+            window.setTimeout(() => setTranslationProgress(0), 500);
             setIsTranslating(false);
         }
     };
@@ -768,6 +777,18 @@ export default function AutomationPage() {
                 </div>
             </div>
 
+            {isTranslating && (
+                <div className="rounded-lg border border-border/40 bg-card p-3">
+                    <div className="flex items-center justify-between text-xs mb-2">
+                        <span className="text-muted-foreground">AI translation progress</span>
+                        <span className="font-semibold">{translationProgress}%</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                        <div className="h-full bg-primary transition-all duration-500" style={{ width: `${translationProgress}%` }} />
+                    </div>
+                </div>
+            )}
+
             <div className="space-y-3">
                 <div className="flex flex-wrap items-center gap-2">
                     <button type="button" onClick={() => setShowRequirements((prev) => !prev)} className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-border text-sm font-semibold hover:bg-muted">
@@ -780,32 +801,12 @@ export default function AutomationPage() {
 
                 {showRequirements && (
             <div className="p-4 rounded-xl border border-border/40 bg-card grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Automation requirements: include keywords</label>
-                    <input
-                        type="text"
-                        className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
-                        placeholder="e.g. university, research, scholarship"
-                        value={includeKeywords}
-                        onChange={(e) => setIncludeKeywords(e.target.value)}
-                    />
-                </div>
-                <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Exclude keywords</label>
-                    <input
-                        type="text"
-                        className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
-                        placeholder="e.g. celebrity, gossip"
-                        value={excludeKeywords}
-                        onChange={(e) => setExcludeKeywords(e.target.value)}
-                    />
-                </div>
                 <div className="space-y-2 md:col-span-2">
-                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">AI editorial instructions</label>
+                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">AI prompt</label>
                     <textarea
-                        rows={3}
+                        rows={4}
                         className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
-                        placeholder="Describe what the AI should prioritize, tone, and what to avoid."
+                        placeholder="Describe what to fetch/skip, translation style, paraphrasing tone, category priorities, and output rules."
                         value={aiInstructions}
                         onChange={(e) => setAiInstructions(e.target.value)}
                     />
@@ -815,11 +816,11 @@ export default function AutomationPage() {
                             checked={aiStrictMode}
                             onChange={(e) => setAiStrictMode(e.target.checked)}
                         />
-                        Strict mode: only process articles matching the AI instructions/keywords
+                        Strict mode: process only content that matches AI prompt terms.
                     </label>
                 </div>
                 <p className="md:col-span-2 text-xs text-muted-foreground">
-                    These admin requirements are applied when processing/translation is triggered, so the AI pipeline processes only matching items.
+                    AI and Telegram settings are saved independently in their own integration cards.
                 </p>
             </div>
                 )}

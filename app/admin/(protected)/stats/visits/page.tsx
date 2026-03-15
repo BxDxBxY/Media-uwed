@@ -13,22 +13,23 @@ type VisitsDetail = {
 };
 
 const GEO_COORDS: Record<string, { x: number; y: number }> = {
-  US: { x: 22, y: 38 },
-  CA: { x: 20, y: 28 },
-  BR: { x: 33, y: 63 },
-  GB: { x: 49, y: 29 },
-  FR: { x: 51, y: 34 },
-  DE: { x: 53, y: 32 },
-  ES: { x: 48, y: 38 },
-  RU: { x: 66, y: 25 },
-  TR: { x: 57, y: 39 },
-  UZ: { x: 64, y: 36 },
-  KZ: { x: 64, y: 30 },
-  IN: { x: 71, y: 46 },
-  CN: { x: 76, y: 37 },
-  SG: { x: 81, y: 60 },
-  AU: { x: 85, y: 76 },
-  LV: { x: 56, y: 26 },
+  US: { x: 20, y: 33 },
+  CA: { x: 20, y: 24 },
+  MX: { x: 19, y: 42 },
+  BR: { x: 30, y: 63 },
+  AR: { x: 29, y: 76 },
+  GB: { x: 48, y: 27 },
+  FR: { x: 50, y: 32 },
+  DE: { x: 52, y: 30 },
+  ES: { x: 48, y: 37 },
+  RU: { x: 65, y: 22 },
+  TR: { x: 57, y: 38 },
+  UZ: { x: 62, y: 36 },
+  KZ: { x: 63, y: 30 },
+  IN: { x: 68, y: 46 },
+  CN: { x: 74, y: 36 },
+  SG: { x: 76, y: 58 },
+  AU: { x: 82, y: 74 },
 };
 
 function countryName(code: string) {
@@ -42,9 +43,9 @@ function countryName(code: string) {
 
 function getMarkerPosition(code: string, index: number) {
   if (GEO_COORDS[code]) return GEO_COORDS[code];
-  const row = Math.floor(index / 6);
-  const col = index % 6;
-  return { x: 10 + col * 14, y: 72 + row * 8 };
+  const row = Math.floor(index / 7);
+  const col = index % 7;
+  return { x: 9 + col * 12.5, y: 83 + row * 7 };
 }
 
 export default function VisitsDetailPage() {
@@ -79,16 +80,21 @@ export default function VisitsDetailPage() {
       <div className="rounded-xl border border-border/40 bg-card p-6 space-y-4">
         <h2 className="font-semibold">Last {data?.windowDays || 30} days visits chart</h2>
         <div className="overflow-x-auto pb-2">
-          <div className="min-w-[720px] grid grid-cols-10 gap-3">
-            {(data?.daily || []).map((item) => (
-              <div key={item.date} className="space-y-2">
-                <div className="h-28 rounded bg-muted/60 relative overflow-hidden border border-border/30">
-                  <div className="absolute bottom-0 left-0 right-0 bg-primary/80" style={{ height: `${Math.max(8, (item.count / maxDaily) * 100)}%` }} />
+          <div className="min-w-[980px] flex items-end gap-2 h-64 px-2">
+            {(data?.daily || []).map((item) => {
+              const height = Math.max(6, Math.round((item.count / maxDaily) * 220));
+              return (
+                <div key={item.date} className="flex-1 min-w-6 flex flex-col items-center justify-end gap-1">
+                  <span className="text-[10px] font-semibold text-foreground/80">{item.count}</span>
+                  <div
+                    className="w-full rounded-t-md border border-primary/30 bg-gradient-to-t from-primary to-primary/40 transition-all duration-500"
+                    style={{ height }}
+                    title={`${item.date}: ${item.count}`}
+                  />
+                  <span className="text-[10px] text-muted-foreground">{item.date.slice(5)}</span>
                 </div>
-                <p className="text-[10px] text-muted-foreground text-center">{item.date.slice(5)}</p>
-                <p className="text-xs text-center font-semibold">{item.count}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
@@ -96,27 +102,25 @@ export default function VisitsDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="rounded-xl border border-border/40 bg-card p-6 space-y-4">
           <h2 className="font-semibold">World map by country visits</h2>
-          <div className="relative rounded-lg border border-border/40 bg-muted/20 p-4">
-            <svg viewBox="0 0 100 55" className="w-full h-auto" role="img" aria-label="World visits map">
-              <rect x="0" y="0" width="100" height="55" fill="hsl(var(--muted) / 0.25)" />
-              {[
-                { x: 14, y: 20, w: 20, h: 11 },
-                { x: 24, y: 36, w: 12, h: 14 },
-                { x: 42, y: 20, w: 22, h: 10 },
-                { x: 50, y: 31, w: 12, h: 15 },
-                { x: 64, y: 18, w: 24, h: 14 },
-                { x: 70, y: 34, w: 18, h: 12 },
-                { x: 80, y: 44, w: 12, h: 8 },
-              ].map((shape, idx) => (
-                <rect key={idx} x={shape.x} y={shape.y} width={shape.w} height={shape.h} rx="2" fill="hsl(var(--border) / 0.7)" />
-              ))}
+          <div className="relative rounded-lg border border-border/40 bg-background p-3">
+            <svg viewBox="0 0 100 60" className="w-full h-auto" role="img" aria-label="World visits map">
+              <rect x="0" y="0" width="100" height="60" rx="2" fill="hsl(var(--muted) / 0.2)" />
+              <path d="M9 19h18l3 3v7l-5 3H12l-3-4z" fill="hsl(var(--border) / 0.6)" />
+              <path d="M24 34h10l3 4v11l-3 3h-9l-2-3z" fill="hsl(var(--border) / 0.6)" />
+              <path d="M41 20h19l3 4v6l-2 3H44l-3-3z" fill="hsl(var(--border) / 0.6)" />
+              <path d="M51 34h10l2 3v11l-3 3h-8l-2-2z" fill="hsl(var(--border) / 0.6)" />
+              <path d="M62 18h22l2 3v11l-3 4H66l-4-4z" fill="hsl(var(--border) / 0.6)" />
+              <path d="M69 36h16l2 3v9l-3 2H72l-3-3z" fill="hsl(var(--border) / 0.6)" />
+              <path d="M80 49h10l2 2v5l-2 2h-8l-2-2z" fill="hsl(var(--border) / 0.6)" />
 
               {(data?.countries || []).slice(0, 24).map((entry, index) => {
                 const pos = getMarkerPosition(entry.country, index);
-                const intensity = 0.3 + (entry.visits / maxCountry) * 0.7;
+                const intensity = 0.25 + (entry.visits / maxCountry) * 0.75;
+                const radius = 1.2 + (entry.visits / maxCountry) * 2.5;
                 return (
                   <g key={entry.country}>
-                    <circle cx={pos.x} cy={pos.y} r={1.8 + (entry.visits / maxCountry) * 2.2} fill={`hsl(var(--primary) / ${intensity})`} stroke="hsl(var(--primary))" strokeWidth="0.3" />
+                    <circle cx={pos.x} cy={pos.y} r={radius + 1.2} fill={`hsl(var(--primary) / ${intensity * 0.15})`} />
+                    <circle cx={pos.x} cy={pos.y} r={radius} fill={`hsl(var(--primary) / ${intensity})`} stroke="hsl(var(--primary))" strokeWidth="0.35" />
                   </g>
                 );
               })}
@@ -127,12 +131,20 @@ export default function VisitsDetailPage() {
         <div className="rounded-xl border border-border/40 bg-card p-6 space-y-4">
           <h2 className="font-semibold">Country list</h2>
           <div className="space-y-2 max-h-80 overflow-auto pr-1">
-            {(data?.countries || []).map((entry) => (
-              <div key={entry.country} className="flex items-center justify-between rounded-md border border-border/40 p-2 text-sm">
-                <span>{countryName(entry.country)}</span>
-                <span className="font-semibold">{entry.visits}</span>
-              </div>
-            ))}
+            {(data?.countries || []).map((entry) => {
+              const progress = Math.max(4, (entry.visits / maxCountry) * 100);
+              return (
+                <div key={entry.country} className="rounded-md border border-border/40 p-2 text-sm">
+                  <div className="flex items-center justify-between mb-1">
+                    <span>{countryName(entry.country)}</span>
+                    <span className="font-semibold">{entry.visits}</span>
+                  </div>
+                  <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                    <div className="h-full rounded-full bg-primary" style={{ width: `${progress}%` }} />
+                  </div>
+                </div>
+              );
+            })}
             {(data?.countries || []).length === 0 && <p className="text-sm text-muted-foreground">No country data yet.</p>}
           </div>
         </div>
