@@ -9,6 +9,9 @@ import {
 
 export async function GET(request: Request) {
   try {
+    const unauthorized = requireAdmin(request);
+    if (unauthorized) return unauthorized;
+
     const { searchParams } = new URL(request.url);
     const includeKeywords = searchParams.get("includeKeywords") || "";
     const excludeKeywords = searchParams.get("excludeKeywords") || "";

@@ -37,6 +37,8 @@ type IntegrationConfig = {
     aiCategorization: boolean;
     translationPolicy: "full" | "summary_only" | "disabled";
     retryLimit: number;
+    providerModel?: string;
+    editorialPrompt?: string;
     hasProviderApiKey?: boolean;
     hasWebhookToken?: boolean;
     secretFingerprint?: string | null;
@@ -87,6 +89,8 @@ export default function AutomationPage() {
             integrationType: "ai",
             enabled: true,
             provider: "openrouter",
+            providerModel: "openai/gpt-4o-mini",
+            editorialPrompt: "",
             channelId: "",
             sendOnPublish: false,
             aiSummarization: true,
@@ -101,6 +105,8 @@ export default function AutomationPage() {
             integrationType: "telegram",
             enabled: false,
             provider: "telegram-bot-api",
+            providerModel: "",
+            editorialPrompt: "",
             channelId: "",
             sendOnPublish: false,
             aiSummarization: true,
@@ -141,7 +147,7 @@ export default function AutomationPage() {
             const res = await fetch("/api/admin/integrations");
             if (!res.ok) return;
             const data = await res.json();
-            const byType = (data.configs || []).reduce((acc: any, item: IntegrationConfig) => {
+            const byType = (data.configs || []).reduce((acc: Partial<Record<IntegrationType, IntegrationConfig>>, item: IntegrationConfig) => {
                 acc[item.integrationType] = item;
                 return acc;
             }, {});
@@ -176,40 +182,37 @@ export default function AutomationPage() {
         fetchReviewItems();
         fetchRawItems();
         loadIntegrationConfigs();
+        loadAutomationSettings();
+        refreshData();
     }, []);
 
-    useEffect(() => {
-        const saved = localStorage.getItem("automationRequirements");
-        if (!saved) return;
-
+    const loadAutomationSettings = async () => {
         try {
-            const parsed = JSON.parse(saved);
-            setIncludeKeywords(parsed.includeKeywords || "");
-            setExcludeKeywords(parsed.excludeKeywords || "");
-            setAiInstructions(parsed.aiInstructions || "");
-            setAiStrictMode(Boolean(parsed.aiStrictMode));
+            const res = await fetch("/api/admin/automation/settings");
+            if (!res.ok) return;
+            const data = await res.json();
+            const settings = data?.settings || {};
+            setIncludeKeywords(settings.includeKeywords || "");
+            setExcludeKeywords(settings.excludeKeywords || "");
+            setAiInstructions(settings.aiInstructions || "");
+            setAiStrictMode(Boolean(settings.aiStrictMode));
             setPipelineSettings({
-                automatedPull: parsed.pipelineSettings?.automatedPull ?? true,
-                processing: parsed.pipelineSettings?.processing ?? true,
-                translation: parsed.pipelineSettings?.translation ?? true,
+                automatedPull: settings.automatedPull ?? true,
+                processing: settings.processing ?? true,
+                translation: settings.translation ?? true,
             });
         } catch {
-            // ignore invalid local settings
+            // ignore
         }
-    }, []);
+    };
 
-    useEffect(() => {
-        localStorage.setItem(
-            "automationRequirements",
-            JSON.stringify({
-                includeKeywords,
-                excludeKeywords,
-                aiInstructions,
-                aiStrictMode,
-                pipelineSettings,
-            }),
-        );
-    }, [includeKeywords, excludeKeywords, aiInstructions, aiStrictMode, pipelineSettings]);
+    const saveAutomationSettings = async (next: { includeKeywords: string; excludeKeywords: string; aiInstructions: string; aiStrictMode: boolean; automatedPull: boolean; processing: boolean; translation: boolean; }) => {
+        await fetch("/api/admin/automation/settings", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(next),
+        });
+    };
 
     // Reset pagination when switching view
     useEffect(() => {
@@ -227,6 +230,22 @@ export default function AutomationPage() {
     useEffect(() => {
         fetchRawItems();
     }, [includeKeywords, excludeKeywords, aiInstructions, aiStrictMode]);
+
+    useEffect(() => {
+        const timeout = setTimeout(() => {
+            saveAutomationSettings({
+                includeKeywords,
+                excludeKeywords,
+                aiInstructions,
+                aiStrictMode,
+                automatedPull: pipelineSettings.automatedPull,
+                processing: pipelineSettings.processing,
+                translation: pipelineSettings.translation,
+            }).catch(() => null);
+        }, 400);
+
+        return () => clearTimeout(timeout);
+    }, [includeKeywords, excludeKeywords, aiInstructions, aiStrictMode, pipelineSettings]);
 
     const handleSync = async () => {
         if (!pipelineSettings.automatedPull) return toast.warning("Automated Pull is disabled in pipeline settings");
@@ -623,7 +642,17 @@ export default function AutomationPage() {
     const clearRawSelection = () => setSelectedRawIds([]);
 
     const updatePipeline = (key: "automatedPull" | "processing" | "translation") => {
-        setPipelineSettings((prev) => ({ ...prev, [key]: !prev[key] }));
+        const next = { ...pipelineSettings, [key]: !pipelineSettings[key] };
+        setPipelineSettings(next);
+        saveAutomationSettings({
+            includeKeywords,
+            excludeKeywords,
+            aiInstructions,
+            aiStrictMode,
+            automatedPull: next.automatedPull,
+            processing: next.processing,
+            translation: next.translation,
+        }).catch(() => null);
     };
 
     const updateIntegration = (type: IntegrationType, patch: Partial<IntegrationConfig>) => {
@@ -809,7 +838,8 @@ export default function AutomationPage() {
                             <h3 className="font-medium">AI Modules</h3>
                             <input type="checkbox" checked={integrationConfigs.ai.enabled} onChange={(e) => updateIntegration("ai", { enabled: e.target.checked })} />
                         </div>
-                        <input className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm" placeholder="Provider model (e.g. openai/gpt-5.2)" value={integrationConfigs.ai.provider} onChange={(e) => updateIntegration("ai", { provider: e.target.value })} />
+                        <input className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm" placeholder="Provider" value={integrationConfigs.ai.provider} onChange={(e) => updateIntegration("ai", { provider: e.target.value })} />
+                        <input className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm" placeholder="Provider model (e.g. openai/gpt-5.2)" value={integrationConfigs.ai.providerModel || ""} onChange={(e) => updateIntegration("ai", { providerModel: e.target.value })} />
                         <input className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm" placeholder="Paste AI provider API key to rotate" value={pendingSecrets.ai.providerApiKey} onChange={(e) => setPendingSecrets((prev) => ({ ...prev, ai: { ...prev.ai, providerApiKey: e.target.value } }))} />
                         <p className="text-xs text-muted-foreground">Stored encrypted. Current key: {integrationConfigs.ai.hasProviderApiKey ? `configured (${integrationConfigs.ai.secretFingerprint || "fingerprint unavailable"})` : "not configured"}</p>
                         <div className="flex gap-2">
@@ -817,7 +847,8 @@ export default function AutomationPage() {
                         </div>
                         <label className="flex items-center justify-between text-sm"><span>Summarization</span><input type="checkbox" checked={integrationConfigs.ai.aiSummarization} onChange={(e) => updateIntegration("ai", { aiSummarization: e.target.checked })} /></label>
                         <label className="flex items-center justify-between text-sm"><span>Categorization</span><input type="checkbox" checked={integrationConfigs.ai.aiCategorization} onChange={(e) => updateIntegration("ai", { aiCategorization: e.target.checked })} /></label>
-                        <select className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm" value={integrationConfigs.ai.translationPolicy} onChange={(e) => updateIntegration("ai", { translationPolicy: e.target.value as any })}>
+                        <textarea className="w-full min-h-24 px-3 py-2 rounded-md border border-input bg-background text-sm" placeholder="AI editorial prompt: translation/paraphrasing instructions" value={integrationConfigs.ai.editorialPrompt || ""} onChange={(e) => updateIntegration("ai", { editorialPrompt: e.target.value })} />
+                        <select className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm" value={integrationConfigs.ai.translationPolicy} onChange={(e) => updateIntegration("ai", { translationPolicy: e.target.value as IntegrationConfig["translationPolicy"] })}>
                             <option value="full">Full translation</option>
                             <option value="summary_only">Summary-only translation</option>
                             <option value="disabled">Translation disabled</option>

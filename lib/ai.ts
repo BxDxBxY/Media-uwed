@@ -22,6 +22,7 @@ export type AiTaskConfig = {
   translationPolicy?: "full" | "summary_only" | "disabled";
   providerApiKey?: string;
   providerModel?: string;
+  editorialPrompt?: string;
 };
 // Free/no-auth translation endpoints (may rate-limit sometimes)
 const LIBRETRANSLATE_URL = "https://libretranslate.de/translate"; // public instance
@@ -78,6 +79,7 @@ async function translateWithOpenRouterChunk(
   target: "en" | "ru" | "uz",
   apiKey: string | null,
   model: string,
+  editorialPrompt?: string,
 ): Promise<string | null> {
   const safeKey = (apiKey || "").trim();
   if (!safeKey) {
@@ -87,13 +89,14 @@ async function translateWithOpenRouterChunk(
 
   try {
     const prompt = [
-      "You are a professional news translator.",
+      "You are a professional news translator and editor.",
       `Translate the text from ${source} to ${target}.`,
       "Return only translated text with no markdown, no explanations, no extra labels.",
       "Keep names, numbers, and factual meaning accurate.",
+      editorialPrompt ? `Editorial instructions from admin: ${editorialPrompt}` : null,
       "Input:",
       chunk,
-    ].join("\n");
+    ].filter(Boolean).join("\n");
 
     console.log({
       hasKey: Boolean(safeKey),
@@ -196,7 +199,7 @@ async function translate(
   text: string,
   source: "en" | "ru" | "uz",
   target: "en" | "ru" | "uz",
-  options?: { providerApiKey?: string; providerModel?: string },
+  options?: { providerApiKey?: string; providerModel?: string; editorialPrompt?: string },
 ) {
   const q = cleanText(text);
   if (!q) return "";
@@ -215,6 +218,7 @@ async function translate(
         target,
         options?.providerApiKey || OPENROUTER_API_KEY || null,
         options?.providerModel || OPENROUTER_MODEL,
+        options?.editorialPrompt,
       )) || "";
 
     // 2) LibreTranslate
@@ -260,7 +264,7 @@ async function translateWithPivot(
   text: string,
   source: "en" | "ru" | "uz",
   target: "en" | "ru" | "uz",
-  options?: { providerApiKey?: string; providerModel?: string },
+  options?: { providerApiKey?: string; providerModel?: string; editorialPrompt?: string },
 ): Promise<string> {
   const primary = await translate(text, source, target, options);
   const normalizedSource = cleanText(text);

@@ -39,6 +39,7 @@ export type IntegrationConfigMinAggregateOutputType = {
   integrationType: string | null
   enabled: boolean | null
   provider: string | null
+  providerModel: string | null
   providerApiKeyEncrypted: string | null
   providerApiKeyHash: string | null
   channelId: string | null
@@ -47,6 +48,7 @@ export type IntegrationConfigMinAggregateOutputType = {
   aiSummarization: boolean | null
   aiCategorization: boolean | null
   translationPolicy: string | null
+  editorialPrompt: string | null
   retryLimit: number | null
   createdAt: Date | null
   updatedAt: Date | null
@@ -57,6 +59,7 @@ export type IntegrationConfigMaxAggregateOutputType = {
   integrationType: string | null
   enabled: boolean | null
   provider: string | null
+  providerModel: string | null
   providerApiKeyEncrypted: string | null
   providerApiKeyHash: string | null
   channelId: string | null
@@ -65,6 +68,7 @@ export type IntegrationConfigMaxAggregateOutputType = {
   aiSummarization: boolean | null
   aiCategorization: boolean | null
   translationPolicy: string | null
+  editorialPrompt: string | null
   retryLimit: number | null
   createdAt: Date | null
   updatedAt: Date | null
@@ -75,6 +79,7 @@ export type IntegrationConfigCountAggregateOutputType = {
   integrationType: number
   enabled: number
   provider: number
+  providerModel: number
   providerApiKeyEncrypted: number
   providerApiKeyHash: number
   channelId: number
@@ -83,6 +88,7 @@ export type IntegrationConfigCountAggregateOutputType = {
   aiSummarization: number
   aiCategorization: number
   translationPolicy: number
+  editorialPrompt: number
   retryLimit: number
   createdAt: number
   updatedAt: number
@@ -103,6 +109,7 @@ export type IntegrationConfigMinAggregateInputType = {
   integrationType?: true
   enabled?: true
   provider?: true
+  providerModel?: true
   providerApiKeyEncrypted?: true
   providerApiKeyHash?: true
   channelId?: true
@@ -111,6 +118,7 @@ export type IntegrationConfigMinAggregateInputType = {
   aiSummarization?: true
   aiCategorization?: true
   translationPolicy?: true
+  editorialPrompt?: true
   retryLimit?: true
   createdAt?: true
   updatedAt?: true
@@ -121,6 +129,7 @@ export type IntegrationConfigMaxAggregateInputType = {
   integrationType?: true
   enabled?: true
   provider?: true
+  providerModel?: true
   providerApiKeyEncrypted?: true
   providerApiKeyHash?: true
   channelId?: true
@@ -129,6 +138,7 @@ export type IntegrationConfigMaxAggregateInputType = {
   aiSummarization?: true
   aiCategorization?: true
   translationPolicy?: true
+  editorialPrompt?: true
   retryLimit?: true
   createdAt?: true
   updatedAt?: true
@@ -139,6 +149,7 @@ export type IntegrationConfigCountAggregateInputType = {
   integrationType?: true
   enabled?: true
   provider?: true
+  providerModel?: true
   providerApiKeyEncrypted?: true
   providerApiKeyHash?: true
   channelId?: true
@@ -147,6 +158,7 @@ export type IntegrationConfigCountAggregateInputType = {
   aiSummarization?: true
   aiCategorization?: true
   translationPolicy?: true
+  editorialPrompt?: true
   retryLimit?: true
   createdAt?: true
   updatedAt?: true
@@ -244,6 +256,7 @@ export type IntegrationConfigGroupByOutputType = {
   integrationType: string
   enabled: boolean
   provider: string | null
+  providerModel: string | null
   providerApiKeyEncrypted: string | null
   providerApiKeyHash: string | null
   channelId: string | null
@@ -252,6 +265,7 @@ export type IntegrationConfigGroupByOutputType = {
   aiSummarization: boolean
   aiCategorization: boolean
   translationPolicy: string
+  editorialPrompt: string | null
   retryLimit: number
   createdAt: Date
   updatedAt: Date
@@ -285,6 +299,7 @@ export type IntegrationConfigWhereInput = {
   integrationType?: Prisma.StringFilter<"IntegrationConfig"> | string
   enabled?: Prisma.BoolFilter<"IntegrationConfig"> | boolean
   provider?: Prisma.StringNullableFilter<"IntegrationConfig"> | string | null
+  providerModel?: Prisma.StringNullableFilter<"IntegrationConfig"> | string | null
   providerApiKeyEncrypted?: Prisma.StringNullableFilter<"IntegrationConfig"> | string | null
   providerApiKeyHash?: Prisma.StringNullableFilter<"IntegrationConfig"> | string | null
   channelId?: Prisma.StringNullableFilter<"IntegrationConfig"> | string | null
@@ -293,6 +308,7 @@ export type IntegrationConfigWhereInput = {
   aiSummarization?: Prisma.BoolFilter<"IntegrationConfig"> | boolean
   aiCategorization?: Prisma.BoolFilter<"IntegrationConfig"> | boolean
   translationPolicy?: Prisma.StringFilter<"IntegrationConfig"> | string
+  editorialPrompt?: Prisma.StringNullableFilter<"IntegrationConfig"> | string | null
   retryLimit?: Prisma.IntFilter<"IntegrationConfig"> | number
   createdAt?: Prisma.DateTimeFilter<"IntegrationConfig"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"IntegrationConfig"> | Date | string
@@ -303,6 +319,7 @@ export type IntegrationConfigOrderByWithRelationInput = {
   integrationType?: Prisma.SortOrder
   enabled?: Prisma.SortOrder
   provider?: Prisma.SortOrderInput | Prisma.SortOrder
+  providerModel?: Prisma.SortOrderInput | Prisma.SortOrder
   providerApiKeyEncrypted?: Prisma.SortOrderInput | Prisma.SortOrder
   providerApiKeyHash?: Prisma.SortOrderInput | Prisma.SortOrder
   channelId?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -311,6 +328,7 @@ export type IntegrationConfigOrderByWithRelationInput = {
   aiSummarization?: Prisma.SortOrder
   aiCategorization?: Prisma.SortOrder
   translationPolicy?: Prisma.SortOrder
+  editorialPrompt?: Prisma.SortOrderInput | Prisma.SortOrder
   retryLimit?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -324,6 +342,7 @@ export type IntegrationConfigWhereUniqueInput = Prisma.AtLeast<{
   NOT?: Prisma.IntegrationConfigWhereInput | Prisma.IntegrationConfigWhereInput[]
   enabled?: Prisma.BoolFilter<"IntegrationConfig"> | boolean
   provider?: Prisma.StringNullableFilter<"IntegrationConfig"> | string | null
+  providerModel?: Prisma.StringNullableFilter<"IntegrationConfig"> | string | null
   providerApiKeyEncrypted?: Prisma.StringNullableFilter<"IntegrationConfig"> | string | null
   providerApiKeyHash?: Prisma.StringNullableFilter<"IntegrationConfig"> | string | null
   channelId?: Prisma.StringNullableFilter<"IntegrationConfig"> | string | null
@@ -332,6 +351,7 @@ export type IntegrationConfigWhereUniqueInput = Prisma.AtLeast<{
   aiSummarization?: Prisma.BoolFilter<"IntegrationConfig"> | boolean
   aiCategorization?: Prisma.BoolFilter<"IntegrationConfig"> | boolean
   translationPolicy?: Prisma.StringFilter<"IntegrationConfig"> | string
+  editorialPrompt?: Prisma.StringNullableFilter<"IntegrationConfig"> | string | null
   retryLimit?: Prisma.IntFilter<"IntegrationConfig"> | number
   createdAt?: Prisma.DateTimeFilter<"IntegrationConfig"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"IntegrationConfig"> | Date | string
@@ -342,6 +362,7 @@ export type IntegrationConfigOrderByWithAggregationInput = {
   integrationType?: Prisma.SortOrder
   enabled?: Prisma.SortOrder
   provider?: Prisma.SortOrderInput | Prisma.SortOrder
+  providerModel?: Prisma.SortOrderInput | Prisma.SortOrder
   providerApiKeyEncrypted?: Prisma.SortOrderInput | Prisma.SortOrder
   providerApiKeyHash?: Prisma.SortOrderInput | Prisma.SortOrder
   channelId?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -350,6 +371,7 @@ export type IntegrationConfigOrderByWithAggregationInput = {
   aiSummarization?: Prisma.SortOrder
   aiCategorization?: Prisma.SortOrder
   translationPolicy?: Prisma.SortOrder
+  editorialPrompt?: Prisma.SortOrderInput | Prisma.SortOrder
   retryLimit?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -368,6 +390,7 @@ export type IntegrationConfigScalarWhereWithAggregatesInput = {
   integrationType?: Prisma.StringWithAggregatesFilter<"IntegrationConfig"> | string
   enabled?: Prisma.BoolWithAggregatesFilter<"IntegrationConfig"> | boolean
   provider?: Prisma.StringNullableWithAggregatesFilter<"IntegrationConfig"> | string | null
+  providerModel?: Prisma.StringNullableWithAggregatesFilter<"IntegrationConfig"> | string | null
   providerApiKeyEncrypted?: Prisma.StringNullableWithAggregatesFilter<"IntegrationConfig"> | string | null
   providerApiKeyHash?: Prisma.StringNullableWithAggregatesFilter<"IntegrationConfig"> | string | null
   channelId?: Prisma.StringNullableWithAggregatesFilter<"IntegrationConfig"> | string | null
@@ -376,6 +399,7 @@ export type IntegrationConfigScalarWhereWithAggregatesInput = {
   aiSummarization?: Prisma.BoolWithAggregatesFilter<"IntegrationConfig"> | boolean
   aiCategorization?: Prisma.BoolWithAggregatesFilter<"IntegrationConfig"> | boolean
   translationPolicy?: Prisma.StringWithAggregatesFilter<"IntegrationConfig"> | string
+  editorialPrompt?: Prisma.StringNullableWithAggregatesFilter<"IntegrationConfig"> | string | null
   retryLimit?: Prisma.IntWithAggregatesFilter<"IntegrationConfig"> | number
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"IntegrationConfig"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"IntegrationConfig"> | Date | string
@@ -386,6 +410,7 @@ export type IntegrationConfigCreateInput = {
   integrationType: string
   enabled?: boolean
   provider?: string | null
+  providerModel?: string | null
   providerApiKeyEncrypted?: string | null
   providerApiKeyHash?: string | null
   channelId?: string | null
@@ -394,6 +419,7 @@ export type IntegrationConfigCreateInput = {
   aiSummarization?: boolean
   aiCategorization?: boolean
   translationPolicy?: string
+  editorialPrompt?: string | null
   retryLimit?: number
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -404,6 +430,7 @@ export type IntegrationConfigUncheckedCreateInput = {
   integrationType: string
   enabled?: boolean
   provider?: string | null
+  providerModel?: string | null
   providerApiKeyEncrypted?: string | null
   providerApiKeyHash?: string | null
   channelId?: string | null
@@ -412,6 +439,7 @@ export type IntegrationConfigUncheckedCreateInput = {
   aiSummarization?: boolean
   aiCategorization?: boolean
   translationPolicy?: string
+  editorialPrompt?: string | null
   retryLimit?: number
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -422,6 +450,7 @@ export type IntegrationConfigUpdateInput = {
   integrationType?: Prisma.StringFieldUpdateOperationsInput | string
   enabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   provider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  providerModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   providerApiKeyEncrypted?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   providerApiKeyHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   channelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -430,6 +459,7 @@ export type IntegrationConfigUpdateInput = {
   aiSummarization?: Prisma.BoolFieldUpdateOperationsInput | boolean
   aiCategorization?: Prisma.BoolFieldUpdateOperationsInput | boolean
   translationPolicy?: Prisma.StringFieldUpdateOperationsInput | string
+  editorialPrompt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   retryLimit?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -440,6 +470,7 @@ export type IntegrationConfigUncheckedUpdateInput = {
   integrationType?: Prisma.StringFieldUpdateOperationsInput | string
   enabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   provider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  providerModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   providerApiKeyEncrypted?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   providerApiKeyHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   channelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -448,6 +479,7 @@ export type IntegrationConfigUncheckedUpdateInput = {
   aiSummarization?: Prisma.BoolFieldUpdateOperationsInput | boolean
   aiCategorization?: Prisma.BoolFieldUpdateOperationsInput | boolean
   translationPolicy?: Prisma.StringFieldUpdateOperationsInput | string
+  editorialPrompt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   retryLimit?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -458,6 +490,7 @@ export type IntegrationConfigCreateManyInput = {
   integrationType: string
   enabled?: boolean
   provider?: string | null
+  providerModel?: string | null
   providerApiKeyEncrypted?: string | null
   providerApiKeyHash?: string | null
   channelId?: string | null
@@ -466,6 +499,7 @@ export type IntegrationConfigCreateManyInput = {
   aiSummarization?: boolean
   aiCategorization?: boolean
   translationPolicy?: string
+  editorialPrompt?: string | null
   retryLimit?: number
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -476,6 +510,7 @@ export type IntegrationConfigUpdateManyMutationInput = {
   integrationType?: Prisma.StringFieldUpdateOperationsInput | string
   enabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   provider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  providerModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   providerApiKeyEncrypted?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   providerApiKeyHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   channelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -484,6 +519,7 @@ export type IntegrationConfigUpdateManyMutationInput = {
   aiSummarization?: Prisma.BoolFieldUpdateOperationsInput | boolean
   aiCategorization?: Prisma.BoolFieldUpdateOperationsInput | boolean
   translationPolicy?: Prisma.StringFieldUpdateOperationsInput | string
+  editorialPrompt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   retryLimit?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -494,6 +530,7 @@ export type IntegrationConfigUncheckedUpdateManyInput = {
   integrationType?: Prisma.StringFieldUpdateOperationsInput | string
   enabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   provider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  providerModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   providerApiKeyEncrypted?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   providerApiKeyHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   channelId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -502,6 +539,7 @@ export type IntegrationConfigUncheckedUpdateManyInput = {
   aiSummarization?: Prisma.BoolFieldUpdateOperationsInput | boolean
   aiCategorization?: Prisma.BoolFieldUpdateOperationsInput | boolean
   translationPolicy?: Prisma.StringFieldUpdateOperationsInput | string
+  editorialPrompt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   retryLimit?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -512,6 +550,7 @@ export type IntegrationConfigCountOrderByAggregateInput = {
   integrationType?: Prisma.SortOrder
   enabled?: Prisma.SortOrder
   provider?: Prisma.SortOrder
+  providerModel?: Prisma.SortOrder
   providerApiKeyEncrypted?: Prisma.SortOrder
   providerApiKeyHash?: Prisma.SortOrder
   channelId?: Prisma.SortOrder
@@ -520,6 +559,7 @@ export type IntegrationConfigCountOrderByAggregateInput = {
   aiSummarization?: Prisma.SortOrder
   aiCategorization?: Prisma.SortOrder
   translationPolicy?: Prisma.SortOrder
+  editorialPrompt?: Prisma.SortOrder
   retryLimit?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -534,6 +574,7 @@ export type IntegrationConfigMaxOrderByAggregateInput = {
   integrationType?: Prisma.SortOrder
   enabled?: Prisma.SortOrder
   provider?: Prisma.SortOrder
+  providerModel?: Prisma.SortOrder
   providerApiKeyEncrypted?: Prisma.SortOrder
   providerApiKeyHash?: Prisma.SortOrder
   channelId?: Prisma.SortOrder
@@ -542,6 +583,7 @@ export type IntegrationConfigMaxOrderByAggregateInput = {
   aiSummarization?: Prisma.SortOrder
   aiCategorization?: Prisma.SortOrder
   translationPolicy?: Prisma.SortOrder
+  editorialPrompt?: Prisma.SortOrder
   retryLimit?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -552,6 +594,7 @@ export type IntegrationConfigMinOrderByAggregateInput = {
   integrationType?: Prisma.SortOrder
   enabled?: Prisma.SortOrder
   provider?: Prisma.SortOrder
+  providerModel?: Prisma.SortOrder
   providerApiKeyEncrypted?: Prisma.SortOrder
   providerApiKeyHash?: Prisma.SortOrder
   channelId?: Prisma.SortOrder
@@ -560,6 +603,7 @@ export type IntegrationConfigMinOrderByAggregateInput = {
   aiSummarization?: Prisma.SortOrder
   aiCategorization?: Prisma.SortOrder
   translationPolicy?: Prisma.SortOrder
+  editorialPrompt?: Prisma.SortOrder
   retryLimit?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -576,6 +620,7 @@ export type IntegrationConfigSelect<ExtArgs extends runtime.Types.Extensions.Int
   integrationType?: boolean
   enabled?: boolean
   provider?: boolean
+  providerModel?: boolean
   providerApiKeyEncrypted?: boolean
   providerApiKeyHash?: boolean
   channelId?: boolean
@@ -584,6 +629,7 @@ export type IntegrationConfigSelect<ExtArgs extends runtime.Types.Extensions.Int
   aiSummarization?: boolean
   aiCategorization?: boolean
   translationPolicy?: boolean
+  editorialPrompt?: boolean
   retryLimit?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -594,6 +640,7 @@ export type IntegrationConfigSelectCreateManyAndReturn<ExtArgs extends runtime.T
   integrationType?: boolean
   enabled?: boolean
   provider?: boolean
+  providerModel?: boolean
   providerApiKeyEncrypted?: boolean
   providerApiKeyHash?: boolean
   channelId?: boolean
@@ -602,6 +649,7 @@ export type IntegrationConfigSelectCreateManyAndReturn<ExtArgs extends runtime.T
   aiSummarization?: boolean
   aiCategorization?: boolean
   translationPolicy?: boolean
+  editorialPrompt?: boolean
   retryLimit?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -612,6 +660,7 @@ export type IntegrationConfigSelectUpdateManyAndReturn<ExtArgs extends runtime.T
   integrationType?: boolean
   enabled?: boolean
   provider?: boolean
+  providerModel?: boolean
   providerApiKeyEncrypted?: boolean
   providerApiKeyHash?: boolean
   channelId?: boolean
@@ -620,6 +669,7 @@ export type IntegrationConfigSelectUpdateManyAndReturn<ExtArgs extends runtime.T
   aiSummarization?: boolean
   aiCategorization?: boolean
   translationPolicy?: boolean
+  editorialPrompt?: boolean
   retryLimit?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -630,6 +680,7 @@ export type IntegrationConfigSelectScalar = {
   integrationType?: boolean
   enabled?: boolean
   provider?: boolean
+  providerModel?: boolean
   providerApiKeyEncrypted?: boolean
   providerApiKeyHash?: boolean
   channelId?: boolean
@@ -638,12 +689,13 @@ export type IntegrationConfigSelectScalar = {
   aiSummarization?: boolean
   aiCategorization?: boolean
   translationPolicy?: boolean
+  editorialPrompt?: boolean
   retryLimit?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type IntegrationConfigOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "integrationType" | "enabled" | "provider" | "providerApiKeyEncrypted" | "providerApiKeyHash" | "channelId" | "webhookTokenEncrypted" | "sendOnPublish" | "aiSummarization" | "aiCategorization" | "translationPolicy" | "retryLimit" | "createdAt" | "updatedAt", ExtArgs["result"]["integrationConfig"]>
+export type IntegrationConfigOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "integrationType" | "enabled" | "provider" | "providerModel" | "providerApiKeyEncrypted" | "providerApiKeyHash" | "channelId" | "webhookTokenEncrypted" | "sendOnPublish" | "aiSummarization" | "aiCategorization" | "translationPolicy" | "editorialPrompt" | "retryLimit" | "createdAt" | "updatedAt", ExtArgs["result"]["integrationConfig"]>
 
 export type $IntegrationConfigPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "IntegrationConfig"
@@ -653,6 +705,7 @@ export type $IntegrationConfigPayload<ExtArgs extends runtime.Types.Extensions.I
     integrationType: string
     enabled: boolean
     provider: string | null
+    providerModel: string | null
     providerApiKeyEncrypted: string | null
     providerApiKeyHash: string | null
     channelId: string | null
@@ -661,6 +714,7 @@ export type $IntegrationConfigPayload<ExtArgs extends runtime.Types.Extensions.I
     aiSummarization: boolean
     aiCategorization: boolean
     translationPolicy: string
+    editorialPrompt: string | null
     retryLimit: number
     createdAt: Date
     updatedAt: Date
@@ -1091,6 +1145,7 @@ export interface IntegrationConfigFieldRefs {
   readonly integrationType: Prisma.FieldRef<"IntegrationConfig", 'String'>
   readonly enabled: Prisma.FieldRef<"IntegrationConfig", 'Boolean'>
   readonly provider: Prisma.FieldRef<"IntegrationConfig", 'String'>
+  readonly providerModel: Prisma.FieldRef<"IntegrationConfig", 'String'>
   readonly providerApiKeyEncrypted: Prisma.FieldRef<"IntegrationConfig", 'String'>
   readonly providerApiKeyHash: Prisma.FieldRef<"IntegrationConfig", 'String'>
   readonly channelId: Prisma.FieldRef<"IntegrationConfig", 'String'>
@@ -1099,6 +1154,7 @@ export interface IntegrationConfigFieldRefs {
   readonly aiSummarization: Prisma.FieldRef<"IntegrationConfig", 'Boolean'>
   readonly aiCategorization: Prisma.FieldRef<"IntegrationConfig", 'Boolean'>
   readonly translationPolicy: Prisma.FieldRef<"IntegrationConfig", 'String'>
+  readonly editorialPrompt: Prisma.FieldRef<"IntegrationConfig", 'String'>
   readonly retryLimit: Prisma.FieldRef<"IntegrationConfig", 'Int'>
   readonly createdAt: Prisma.FieldRef<"IntegrationConfig", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"IntegrationConfig", 'DateTime'>

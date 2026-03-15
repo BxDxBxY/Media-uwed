@@ -5,7 +5,7 @@ import { Play, TrendingUp, Clock, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { getMediaPreviewUrl, hasMediaCategory } from "@/lib/media-utils";
-import { useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 
 function getArticleCategories(article: Article): string[] {
   const relationNames = (article.categories || []).map((c) => c.name).filter(Boolean);
@@ -66,6 +66,12 @@ export default function Home() {
     return localStorage.getItem("newsletter-hidden") === "1" || localStorage.getItem("newsletter-signed") === "1";
   });
 
+  const [categoryArticles, setCategoryArticles] = useState<Record<string, Article[]>>({});
+  const [homeCategorySets, setHomeCategorySets] = useState<{ structured: string[]; columns: string[] }>({
+    structured: ["World", "University", "Analysis"],
+    columns: ["University", "World", "Economy", "Sports"],
+  });
+
   const sourceArticles = articles;
 
   const featuredArticle = sourceArticles[0];
@@ -74,22 +80,12 @@ export default function Home() {
   const breakingCharacters = breakingItems.reduce((sum, item) => sum + localizedText(item, language, "title").length, 0);
   const tickerDuration = Math.min(42, Math.max(24, Math.round(breakingCharacters * 0.36)));
 
-  const preferredStructured = ["World", "University", "Analysis"];
-  const preferredColumns = ["University", "World", "Economy", "Sports"];
-  const topCategories = getTopCategoryNames(sourceArticles, 8);
-
-  const structuredCategoryKeys = uniqueById(
-    preferredStructured
-      .map((key) => ({ id: key, key }))
-      .concat(topCategories.map((key) => ({ id: key, key }))),
-  )
-    .map((x) => x.key)
-    .slice(0, 3);
+  const structuredCategoryKeys = homeCategorySets.structured;
 
   const categoryPools = structuredCategoryKeys.map((key, index) => ({
     key,
     title: key,
-    source: byCategory(sourceArticles, key),
+    source: categoryArticles[key] || byCategory(sourceArticles, key),
     reverse: index % 2 === 1,
   }));
 
@@ -107,15 +103,9 @@ export default function Home() {
     })
     .filter((block) => block.items.length > 0);
 
-  const columnCategoryKeys = uniqueById(
-    preferredColumns
-      .map((key) => ({ id: key, key }))
-      .concat(topCategories.map((key) => ({ id: key, key }))),
-  )
-    .map((x) => x.key)
-    .slice(0, 4);
+  const columnCategoryKeys = homeCategorySets.columns;
 
-  const columnPools = columnCategoryKeys.map((key) => ({ key, title: key, source: byCategory(sourceArticles, key) }));
+  const columnPools = columnCategoryKeys.map((key) => ({ key, title: key, source: categoryArticles[key] || byCategory(sourceArticles, key) }));
   const columnUsed = new Set<string>(Array.from(used));
   const columnSections = columnPools
     .map((pool) => {
@@ -129,6 +119,46 @@ export default function Home() {
       return { key: pool.key, title: pool.title, items };
     })
     .filter((section) => section.items.length > 0);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    const fetchHomeCategoryFeeds = async () => {
+      try {
+        const categoriesRes = await fetch("/api/frontend/categories");
+        const categoriesData = categoriesRes.ok ? await categoriesRes.json() : { categories: [] };
+        const available = (categoriesData?.categories || []).map((c: { name: string }) => c.name).filter(Boolean);
+
+        const preferredStructured = ["World", "University", "Analysis"];
+        const preferredColumns = ["University", "World", "Economy", "Sports"];
+        const ranked = [...new Set([...getTopCategoryNames(sourceArticles, 8), ...available])];
+
+        const structured = uniqueById(preferredStructured.map((key) => ({ id: key, key })).concat(ranked.map((key) => ({ id: key, key })))).map((x) => x.key).slice(0, 3);
+        const columns = uniqueById(preferredColumns.map((key) => ({ id: key, key })).concat(ranked.map((key) => ({ id: key, key })))).map((x) => x.key).slice(0, 4);
+
+        const toFetch = [...new Set([...structured, ...columns])];
+        const responses = await Promise.all(
+          toFetch.map(async (category) => {
+            const res = await fetch(`/api/frontend/articles?page=1&limit=10&category=${encodeURIComponent(category)}`);
+            const data = res.ok ? await res.json() : { articles: [] };
+            return [category, (data?.articles || []) as Article[]] as const;
+          }),
+        );
+
+        if (!isCancelled) {
+          setHomeCategorySets({ structured, columns });
+          setCategoryArticles(Object.fromEntries(responses));
+        }
+      } catch {
+        // keep context fallback
+      }
+    };
+
+    fetchHomeCategoryFeeds();
+    return () => {
+      isCancelled = true;
+    };
+  }, [sourceArticles]);
 
   const homeVisibleMedia = useMemo(
     () => uniqueById(media.filter((m) => !HOME_HIDDEN_MEDIA_CATEGORIES.some((cat) => hasMediaCategory(m.category, cat)))),

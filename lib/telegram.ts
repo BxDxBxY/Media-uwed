@@ -105,6 +105,25 @@ export async function sendTelegramMessage(input: TelegramSendMessageInput): Prom
         data: error?.response?.data,
         message: error?.message || String(error),
       });
+
+      if (method === "sendPhoto") {
+        try {
+          const fallbackEndpoint = `https://api.telegram.org/bot${botToken}/sendMessage`;
+          const fallbackPayload = {
+            chat_id: chatId,
+            text: trimToLimit(input.text, TELEGRAM_TEXT_LIMIT),
+            parse_mode: parseMode,
+            disable_web_page_preview: input.disableWebPagePreview,
+            disable_notification: input.disableNotification,
+          };
+
+          const fallbackRes = await axios.post(fallbackEndpoint, fallbackPayload, { timeout: 10_000 });
+          if (fallbackRes.data?.ok) return;
+        } catch (fallbackError) {
+          console.error("Telegram fallback sendMessage failed", fallbackError);
+        }
+      }
+
       if (attempt >= retries) break;
       await wait(retryDelayMs * (attempt + 1));
     }

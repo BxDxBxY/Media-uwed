@@ -3,22 +3,8 @@
 import { useGlobalContext } from "@/lib/context";
 import { Play, Image as ImageIcon, Search, Loader2, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { getMediaPreviewUrl, getYouTubeIdFromUrl, splitMediaCategories } from "@/lib/media-utils";
+import { getMediaPreviewUrl, getVideoEmbedUrl, splitMediaCategories } from "@/lib/media-utils";
 
-function getEmbedUrl(url: string) {
-  if (url.includes("youtube.com") || url.includes("youtu.be")) {
-    const id = getYouTubeIdFromUrl(url) || "";
-    return `https://www.youtube.com/embed/${id}?rel=0`;
-  }
-  if (url.includes("yandex.ru/video")) {
-    return url.replace("/preview/", "/embed/");
-  }
-  return url;
-}
-
-function isEmbeddableVideo(url: string) {
-  return /youtube\.com|youtu\.be|yandex\.ru\/video/.test(url);
-}
 
 export default function MediaPage() {
   const { media, isLoading, language } = useGlobalContext();
@@ -209,8 +195,8 @@ export default function MediaPage() {
 
             <div className="aspect-video bg-black flex items-center justify-center">
               {selectedItem.type === "video" ? (
-                isEmbeddableVideo(selectedItem.url) ? (
-                  <iframe className="w-full h-full" src={getEmbedUrl(selectedItem.url)} title={localizedMediaTitle(selectedItem)} allowFullScreen />
+                getVideoEmbedUrl(selectedItem.url) ? (
+                  <iframe className="w-full h-full" src={getVideoEmbedUrl(selectedItem.url) || selectedItem.url} title={localizedMediaTitle(selectedItem)} allowFullScreen />
                 ) : (
                   <video ref={nativeVideoRef} className="w-full h-full" controls autoPlay src={selectedItem.url} />
                 )

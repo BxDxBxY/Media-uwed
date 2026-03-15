@@ -64,6 +64,7 @@ export const ModelName = {
   Source: 'Source',
   ArticleRaw: 'ArticleRaw',
   ArticleProcessed: 'ArticleProcessed',
+  AutomationConfig: 'AutomationConfig',
   AdminApiKey: 'AdminApiKey',
   AdminUser: 'AdminUser',
   IntegrationConfig: 'IntegrationConfig'
@@ -284,6 +285,21 @@ export const ArticleProcessedScalarFieldEnum = {
 export type ArticleProcessedScalarFieldEnum = (typeof ArticleProcessedScalarFieldEnum)[keyof typeof ArticleProcessedScalarFieldEnum]
 
 
+export const AutomationConfigScalarFieldEnum = {
+  id: 'id',
+  includeKeywords: 'includeKeywords',
+  excludeKeywords: 'excludeKeywords',
+  aiInstructions: 'aiInstructions',
+  aiStrictMode: 'aiStrictMode',
+  automatedPull: 'automatedPull',
+  processing: 'processing',
+  translation: 'translation',
+  updatedAt: 'updatedAt'
+} as const
+
+export type AutomationConfigScalarFieldEnum = (typeof AutomationConfigScalarFieldEnum)[keyof typeof AutomationConfigScalarFieldEnum]
+
+
 export const AdminApiKeyScalarFieldEnum = {
   id: 'id',
   name: 'name',
@@ -317,6 +333,7 @@ export const IntegrationConfigScalarFieldEnum = {
   integrationType: 'integrationType',
   enabled: 'enabled',
   provider: 'provider',
+  providerModel: 'providerModel',
   providerApiKeyEncrypted: 'providerApiKeyEncrypted',
   providerApiKeyHash: 'providerApiKeyHash',
   channelId: 'channelId',
@@ -325,6 +342,7 @@ export const IntegrationConfigScalarFieldEnum = {
   aiSummarization: 'aiSummarization',
   aiCategorization: 'aiCategorization',
   translationPolicy: 'translationPolicy',
+  editorialPrompt: 'editorialPrompt',
   retryLimit: 'retryLimit',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'

@@ -29,10 +29,17 @@ export async function POST(request: Request) {
       retranslate: false,
     }));
 
-    const include = normalizeKeywords(includeKeywords);
-    const exclude = normalizeKeywords(excludeKeywords);
-    const instructionTerms = deriveTermsFromInstructions(String(aiInstructions || ""));
-    const effectiveInclude = aiStrictMode ? [...new Set([...include, ...instructionTerms])] : include;
+    const automationSettings = await prisma.automationConfig.findUnique({ where: { id: "default" } });
+
+    const includeSource = includeKeywords ?? automationSettings?.includeKeywords ?? "";
+    const excludeSource = excludeKeywords ?? automationSettings?.excludeKeywords ?? "";
+    const instructionsSource = aiInstructions ?? automationSettings?.aiInstructions ?? "";
+    const strictSource = typeof aiStrictMode === "boolean" ? aiStrictMode : Boolean(automationSettings?.aiStrictMode);
+
+    const include = normalizeKeywords(includeSource);
+    const exclude = normalizeKeywords(excludeSource);
+    const instructionTerms = deriveTermsFromInstructions(String(instructionsSource || ""));
+    const effectiveInclude = strictSource ? [...new Set([...include, ...instructionTerms])] : include;
 
     const targetArticles = await prisma.articleRaw.findMany({
       where: {
@@ -74,7 +81,7 @@ export async function POST(request: Request) {
 
     const aiProviderApiKey = decryptSecret(aiIntegration?.providerApiKeyEncrypted);
     const aiProviderModel =
-      ((aiIntegration as any)?.providerModel as string | undefined)?.trim() ||
+      aiIntegration?.providerModel?.trim() ||
       process.env.OPENROUTER_TRANSLATE_MODEL ||
       "openai/gpt-4o-mini";
 
@@ -151,6 +158,7 @@ export async function POST(request: Request) {
                 : "full",
             providerApiKey: aiProviderApiKey || undefined,
             providerModel: aiProviderModel,
+            editorialPrompt: aiIntegration?.editorialPrompt || undefined,
           },
         );
 

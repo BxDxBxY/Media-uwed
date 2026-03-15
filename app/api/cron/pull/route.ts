@@ -25,10 +25,17 @@ export async function POST(request: Request) {
       aiStrictMode: false,
     }));
 
-    const include = normalizeKeywords(includeKeywords);
-    const exclude = normalizeKeywords(excludeKeywords);
-    const instructionTerms = deriveTermsFromInstructions(String(aiInstructions || ""));
-    const effectiveInclude = aiStrictMode ? [...new Set([...include, ...instructionTerms])] : include;
+    const automationSettings = await prisma.automationConfig.findUnique({ where: { id: "default" } });
+
+    const includeSource = includeKeywords ?? automationSettings?.includeKeywords ?? "";
+    const excludeSource = excludeKeywords ?? automationSettings?.excludeKeywords ?? "";
+    const instructionsSource = aiInstructions ?? automationSettings?.aiInstructions ?? "";
+    const strictSource = typeof aiStrictMode === "boolean" ? aiStrictMode : Boolean(automationSettings?.aiStrictMode);
+
+    const include = normalizeKeywords(includeSource);
+    const exclude = normalizeKeywords(excludeSource);
+    const instructionTerms = deriveTermsFromInstructions(String(instructionsSource || ""));
+    const effectiveInclude = strictSource ? [...new Set([...include, ...instructionTerms])] : include;
 
     const sources = await prisma.source.findMany({
       where: { enabled: true },

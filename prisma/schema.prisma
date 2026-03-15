@@ -214,6 +214,21 @@ model ArticleProcessed {
 
 
 
+
+model AutomationConfig {
+  id              String   @id @default("default")
+  includeKeywords String?
+  excludeKeywords String?
+  aiInstructions  String?
+  aiStrictMode    Boolean  @default(false)
+  automatedPull   Boolean  @default(true)
+  processing      Boolean  @default(true)
+  translation     Boolean  @default(true)
+  updatedAt       DateTime @updatedAt
+
+  @@map("automation_configs")
+}
+
 model AdminApiKey {
   id          String    @id @default(uuid())
   name        String
@@ -247,6 +262,7 @@ model IntegrationConfig {
   integrationType         String   @unique
   enabled                 Boolean  @default(false)
   provider                String?
+  providerModel           String?
   providerApiKeyEncrypted String?
   providerApiKeyHash      String?
   channelId               String?
@@ -255,6 +271,7 @@ model IntegrationConfig {
   aiSummarization         Boolean  @default(true)
   aiCategorization        Boolean  @default(true)
   translationPolicy       String   @default("full")
+  editorialPrompt         String?
   retryLimit              Int      @default(3)
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
