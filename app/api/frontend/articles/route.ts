@@ -43,6 +43,8 @@ function buildArticleSelect(includeContent: boolean) {
 function buildArticleWhere(searchParams: URLSearchParams): Prisma.ArticleWhereInput {
   const category = searchParams.get("category")?.trim();
   const query = searchParams.get("q")?.trim();
+  const dateFrom = searchParams.get("dateFrom")?.trim();
+  const dateTo = searchParams.get("dateTo")?.trim();
 
   const andConditions: Prisma.ArticleWhereInput[] = [];
 
@@ -67,6 +69,21 @@ function buildArticleWhere(searchParams: URLSearchParams): Prisma.ArticleWhereIn
         { summaryUz: { contains: query, mode: "insensitive" } },
       ],
     });
+  }
+
+  if (dateFrom || dateTo) {
+    const createdAt: Prisma.DateTimeFilter = {};
+    if (dateFrom) {
+      const from = new Date(`${dateFrom}T00:00:00.000Z`);
+      if (!Number.isNaN(from.getTime())) createdAt.gte = from;
+    }
+    if (dateTo) {
+      const to = new Date(`${dateTo}T23:59:59.999Z`);
+      if (!Number.isNaN(to.getTime())) createdAt.lte = to;
+    }
+    if (Object.keys(createdAt).length > 0) {
+      andConditions.push({ createdAt });
+    }
   }
 
   if (andConditions.length === 0) return {};

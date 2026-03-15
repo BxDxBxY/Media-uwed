@@ -3,6 +3,7 @@
 import { useGlobalContext, type Article } from "@/lib/context";
 import { ArrowRight, Play, TrendingUp, Clock, ChevronRight } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { getMediaPreviewUrl, hasMediaCategory } from "@/lib/media-utils";
 
 function getArticleCategories(article: Article): string[] {
@@ -162,8 +163,8 @@ export default function Home() {
           <div className="lg:col-span-8">
             {featuredArticle ? (
               <Link href={`/article/${featuredArticle.slug}`} className="group block relative overflow-hidden rounded-3xl border border-border/40 bg-card shadow-sm hover:shadow-xl transition-all duration-500">
-                <div className="aspect-[16/9] overflow-hidden">
-                  <img src={featuredArticle.image} alt={localizedText(featuredArticle, language, "title")} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                <div className="aspect-[16/9] overflow-hidden relative">
+                  <Image src={featuredArticle.image} alt={localizedText(featuredArticle, language, "title")} fill unoptimized sizes="(max-width: 1024px) 100vw, 66vw" className="object-cover transition-transform duration-700 group-hover:scale-105" />
                 </div>
                 <div className="p-6 md:p-10">
                   <span className="inline-block bg-primary/10 text-primary text-xs font-bold px-3 py-1 rounded-full mb-4 uppercase tracking-wider">{getPrimaryCategory(featuredArticle)}</span>
@@ -232,8 +233,8 @@ export default function Home() {
 
               <div className={`grid grid-cols-1 lg:grid-cols-12 gap-6 ${block.reverse ? "lg:[&>*:first-child]:order-2" : ""}`}>
                 <Link href={`/article/${lead.slug}`} className="lg:col-span-6 group rounded-2xl border border-border/40 overflow-hidden bg-card">
-                  <div className="aspect-[16/10] overflow-hidden">
-                    <img src={lead.image} alt={localizedText(lead, language, "title")} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  <div className="aspect-[16/10] overflow-hidden relative">
+                    <Image src={lead.image} alt={localizedText(lead, language, "title")} fill unoptimized sizes="(max-width: 1024px) 100vw, 50vw" className="object-cover group-hover:scale-105 transition-transform duration-500" />
                   </div>
                   <div className="p-4">
                     <h4 className="text-2xl font-bold leading-tight mb-3 group-hover:text-primary transition-colors">{localizedText(lead, language, "title")}</h4>
@@ -244,8 +245,8 @@ export default function Home() {
                 <div className="lg:col-span-6 grid grid-cols-1 md:grid-cols-2 gap-4">
                   {side.map((item) => (
                     <Link key={item.id} href={`/article/${item.slug}`} className="group rounded-xl border border-border/40 overflow-hidden bg-card/50">
-                      <div className="aspect-[16/10] overflow-hidden">
-                        <img src={item.image} alt={localizedText(item, language, "title")} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      <div className="aspect-[16/10] overflow-hidden relative">
+                        <Image src={item.image} alt={localizedText(item, language, "title")} fill unoptimized sizes="(max-width: 768px) 100vw, 25vw" className="object-cover group-hover:scale-105 transition-transform duration-500" />
                       </div>
                       <div className="p-3">
                         <span className="text-[10px] font-bold text-primary uppercase">{getPrimaryCategory(item)}</span>
@@ -271,7 +272,7 @@ export default function Home() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {cleanedFeaturedMedia.map((item) => (
             <Link key={item.id} href="/media" className="group relative aspect-[4/3] rounded-3xl overflow-hidden border border-border/40 bg-muted">
-              <img src={getMediaPreviewUrl(item)} alt={item.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+              <Image src={getMediaPreviewUrl(item)} alt={item.title} fill unoptimized sizes="(max-width: 768px) 100vw, 33vw" className="object-cover transition-transform duration-700 group-hover:scale-110" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity" />
               <div className="absolute bottom-0 left-0 p-6"><h4 className="text-white font-bold text-sm line-clamp-2">{item.title}</h4></div>
             </Link>
@@ -289,7 +290,7 @@ export default function Home() {
             {(universityVideos.length > 0 ? universityVideos : homeVisibleMedia.filter((m) => m.type === "video").slice(0, 3)).map((item) => (
               <Link key={item.id} href="/media" className="group rounded-xl overflow-hidden border border-slate-800 bg-slate-900/60">
                 <div className="aspect-video relative overflow-hidden">
-                  <img src={getMediaPreviewUrl(item)} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                  <Image src={getMediaPreviewUrl(item)} alt={item.title} fill unoptimized sizes="(max-width: 768px) 100vw, 33vw" className="object-cover group-hover:scale-105 transition-transform" />
                   <span className="absolute top-3 left-3 inline-flex items-center gap-1 bg-primary text-primary-foreground text-[10px] px-2 py-1 rounded uppercase font-bold"><Play className="h-3 w-3 fill-current" /> University</span>
                 </div>
                 <div className="p-4"><h4 className="text-white font-bold leading-tight line-clamp-2">{item.title}</h4></div>
@@ -301,7 +302,7 @@ export default function Home() {
 
       <section className="container mx-auto px-4 py-16">
         <div className="bg-slate-900 rounded-[2.5rem] overflow-hidden relative min-h-[500px] grid lg:grid-cols-12">
-          <img src={heroBackground ? getMediaPreviewUrl(heroBackground) : "https://images.unsplash.com/photo-1541339907198-e08756ebafe3?auto=format&fit=crop&w=1350&q=80"} alt="University Campus" className="absolute inset-0 w-full h-full object-cover opacity-40" />
+          <Image src={heroBackground ? getMediaPreviewUrl(heroBackground) : "https://images.unsplash.com/photo-1541339907198-e08756ebafe3?auto=format&fit=crop&w=1350&q=80"} alt="University Campus" fill unoptimized sizes="100vw" className="absolute inset-0 object-cover opacity-40" />
           <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-900/60 to-transparent" />
           <div className="relative z-10 p-8 md:p-16 max-w-2xl lg:col-span-8">
             <span className="inline-flex items-center gap-2 bg-primary text-primary-foreground text-[10px] font-black uppercase px-2 py-1 rounded mb-6"><Play className="h-3 w-3 fill-current" /> Inside University</span>
@@ -313,7 +314,7 @@ export default function Home() {
             <Link href="/media" className="w-full rounded-2xl border border-white/15 bg-white/10 backdrop-blur-sm overflow-hidden hover:bg-white/15 transition-colors">
               {heroSide ? (
                 <>
-                  <div className="aspect-video overflow-hidden"><img src={getMediaPreviewUrl(heroSide)} alt={heroSide.title} className="w-full h-full object-cover" /></div>
+                  <div className="aspect-video overflow-hidden relative"><Image src={getMediaPreviewUrl(heroSide)} alt={heroSide.title} fill unoptimized sizes="(max-width: 1024px) 100vw, 33vw" className="object-cover" /></div>
                   <div className="p-4"><p className="text-xs uppercase tracking-widest text-white/70 mb-1">Featured slot</p><h4 className="text-white font-bold line-clamp-2">{heroSide.title}</h4></div>
                 </>
               ) : (
@@ -338,8 +339,8 @@ export default function Home() {
 
                 {lead && (
                   <Link href={`/article/${lead.slug}`} className="block group">
-                    <div className="aspect-[16/10] overflow-hidden bg-muted">
-                      <img src={lead.image} alt={localizedText(lead, language, "title")} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                    <div className="aspect-[16/10] overflow-hidden bg-muted relative">
+                      <Image src={lead.image} alt={localizedText(lead, language, "title")} fill unoptimized sizes="(max-width: 768px) 100vw, 50vw" className="object-cover group-hover:scale-105 transition-transform" />
                     </div>
                     <h4 className="text-2xl font-serif font-bold mt-3 leading-tight group-hover:text-primary transition-colors">{localizedText(lead, language, "title")}</h4>
                     <p className="text-base text-muted-foreground mt-2 line-clamp-3">{localizedText(lead, language, "summary")}</p>

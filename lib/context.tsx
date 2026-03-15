@@ -172,7 +172,7 @@ export function GlobalProvider({ children }: { children: ReactNode }) {
         if (showLoader) setIsLoading(true);
         try {
             const [artRes, eveRes, medRes, abtRes] = await Promise.all([
-                fetch(`/api/frontend/articles?page=1&limit=100${includeAdminData ? '&full=1' : ''}`),
+                fetch(`/api/frontend/articles?page=1&limit=${includeAdminData ? 100 : 24}${includeAdminData ? '&full=1' : ''}`),
                 fetch('/api/frontend/events'),
                 fetch('/api/frontend/media'),
                 fetch('/api/frontend/about'),

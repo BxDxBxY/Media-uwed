@@ -1,75 +1,103 @@
 "use client";
 
-import { useGlobalContext } from "@/lib/context";
+import { type Article, useGlobalContext } from "@/lib/context";
 import { Loader2, ArrowRight, Grid, List as ListIcon, Filter } from "lucide-react";
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
+import Image from "next/image";
 
 const PAGE_SIZE = 12;
 
-function articleCategories(article: any): string[] {
-  const rel = Array.isArray(article.categories) ? article.categories.map((c: any) => c?.name).filter(Boolean) : [];
+function articleCategories(article: Article): string[] {
+  const rel = Array.isArray(article.categories) ? article.categories.map((c) => c?.name).filter(Boolean) : [];
   const single = article.category ? [article.category] : [];
   return [...new Set([...rel, ...single])];
 }
 
 export default function NewsPage() {
-  const { articles, isLoading, language, searchQuery } = useGlobalContext();
+  const { language, searchQuery } = useGlobalContext();
   const [activeCategory, setActiveCategory] = useState("All");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [showCategories, setShowCategories] = useState(false);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [articles, setArticles] = useState<Article[]>([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  const getLocalized = (article: Article, key: "title" | "summary") => {
+    if (language === "ru") {
+      const ruVal = article[key === "title" ? "titleRu" : "summaryRu"];
+      if (ruVal) return ruVal;
+    }
+    if (language === "uz") {
+      const uzVal = article[key === "title" ? "titleUz" : "summaryUz"];
+      if (uzVal) return uzVal;
+    }
+    return article[key];
+  };
 
   const categories = useMemo(() => {
     const all = articles.flatMap((a) => articleCategories(a));
     return ["All", ...Array.from(new Set(all))];
   }, [articles]);
 
-  const getLocalized = (article: any, key: string) => {
-    if (language === "ru") {
-      const ruVal = article[key + "Ru"];
-      if (ruVal) return ruVal;
-    }
-    if (language === "uz") {
-      const uzVal = article[key + "Uz"];
-      if (uzVal) return uzVal;
-    }
-    return article[key];
-  };
+  const loadArticles = useCallback(
+    async (nextPage: number, reset = false) => {
+      if (reset) setIsLoading(true);
+      else setIsLoadingMore(true);
 
-  const filteredArticles = useMemo(() => {
-    const query = (searchQuery || "").toLowerCase().trim();
-    return articles.filter((article) => {
-      const title = String(getLocalized(article, "title") || article.title || "").toLowerCase();
-      const summary = String(getLocalized(article, "summary") || article.summary || "").toLowerCase();
-      const matchesSearch = !query || title.includes(query) || summary.includes(query);
-      const matchesCategory = activeCategory === "All" || articleCategories(article).includes(activeCategory);
-      const articleTime = new Date(article.createdAt || article.date).getTime();
-      const fromTime = dateFrom ? new Date(`${dateFrom}T00:00:00`).getTime() : null;
-      const toTime = dateTo ? new Date(`${dateTo}T23:59:59`).getTime() : null;
-      const matchesDate = Number.isFinite(articleTime) && (fromTime === null || articleTime >= fromTime) && (toTime === null || articleTime <= toTime);
-      return matchesSearch && matchesCategory && matchesDate;
-    });
-  }, [articles, searchQuery, activeCategory, language, dateFrom, dateTo]);
+      try {
+        const params = new URLSearchParams({
+          page: String(nextPage),
+          limit: String(PAGE_SIZE),
+        });
 
-  const visibleArticles = filteredArticles.slice(0, visibleCount);
-  const hasMore = visibleCount < filteredArticles.length;
+        if (activeCategory !== "All") params.set("category", activeCategory);
+        if (searchQuery?.trim()) params.set("q", searchQuery.trim());
+        if (dateFrom) params.set("dateFrom", dateFrom);
+        if (dateTo) params.set("dateTo", dateTo);
+
+        const res = await fetch(`/api/frontend/articles?${params.toString()}`);
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data?.error || "Failed to fetch articles");
+
+        const incoming = (data?.articles || []) as Article[];
+        setArticles((prev) => (reset ? incoming : [...prev, ...incoming]));
+
+        const totalPages = data?.pagination?.totalPages || 1;
+        setPage(nextPage);
+        setHasMore(nextPage < totalPages);
+      } catch (error) {
+        console.error("Failed to load articles", error);
+        if (reset) {
+          setArticles([]);
+          setHasMore(false);
+        }
+      } finally {
+        setIsLoading(false);
+        setIsLoadingMore(false);
+      }
+    },
+    [activeCategory, searchQuery, dateFrom, dateTo],
+  );
 
   useEffect(() => {
-    setVisibleCount(PAGE_SIZE);
-  }, [activeCategory, searchQuery, dateFrom, dateTo]);
+    loadArticles(1, true);
+  }, [loadArticles]);
 
   useEffect(() => {
-    if (!sentinelRef.current || !hasMore) return;
+    if (!sentinelRef.current || !hasMore || isLoading || isLoadingMore) return;
     const el = sentinelRef.current;
 
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0]?.isIntersecting) {
-          setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, filteredArticles.length));
+          loadArticles(page + 1);
         }
       },
       { rootMargin: "200px" },
@@ -77,7 +105,7 @@ export default function NewsPage() {
 
     observer.observe(el);
     return () => observer.disconnect();
-  }, [filteredArticles.length, hasMore]);
+  }, [page, hasMore, isLoading, isLoadingMore, loadArticles]);
 
   if (isLoading) {
     return (
@@ -130,10 +158,10 @@ export default function NewsPage() {
 
       {viewMode === "grid" ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {visibleArticles.map((article) => (
+          {articles.map((article) => (
             <Link key={article.id} href={`/article/${article.slug}`} className="group flex flex-col h-full bg-card rounded-2xl border border-border/40 overflow-hidden hover:shadow-xl transition-all duration-300">
-              <div className="aspect-[16/10] overflow-hidden">
-                <img src={article.image} alt={article.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+              <div className="aspect-[16/10] overflow-hidden relative">
+                <Image src={article.image} alt={article.title} fill unoptimized sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" className="object-cover transition-transform duration-500 group-hover:scale-105" />
               </div>
               <div className="p-6 flex flex-col flex-1">
                 <div className="flex items-center gap-2 mb-3 flex-wrap">
@@ -154,10 +182,10 @@ export default function NewsPage() {
         </div>
       ) : (
         <div className="space-y-6">
-          {visibleArticles.map((article) => (
+          {articles.map((article) => (
             <Link key={article.id} href={`/article/${article.slug}`} className="group flex flex-col md:flex-row gap-6 bg-card p-4 rounded-2xl border border-border/40 hover:shadow-lg transition-all">
-              <div className="w-full md:w-64 aspect-[16/10] md:aspect-square shrink-0 rounded-xl overflow-hidden">
-                <img src={article.image} alt={article.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+              <div className="w-full md:w-64 aspect-[16/10] md:aspect-square shrink-0 rounded-xl overflow-hidden relative">
+                <Image src={article.image} alt={article.title} fill unoptimized sizes="(max-width: 768px) 100vw, 256px" className="object-cover group-hover:scale-105 transition-transform" />
               </div>
               <div className="flex flex-col justify-center flex-1">
                 <div className="flex items-center gap-2 mb-2 flex-wrap">
@@ -176,9 +204,9 @@ export default function NewsPage() {
       )}
 
       <div ref={sentinelRef} className="h-8" />
-      {hasMore && <p className="text-center text-xs text-muted-foreground">Loading more…</p>}
+      {isLoadingMore && <p className="text-center text-xs text-muted-foreground">Loading more…</p>}
 
-      {visibleArticles.length === 0 && (
+      {articles.length === 0 && (
         <div className="py-20 text-center border-2 border-dashed border-border/40 rounded-3xl">
           <p className="text-lg font-serif italic text-muted-foreground">We couldn't find any stories matching your criteria.</p>
         </div>
