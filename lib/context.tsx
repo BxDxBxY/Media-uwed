@@ -175,7 +175,7 @@ export function GlobalProvider({ children }: { children: ReactNode }) {
                 fetch(`/api/frontend/articles?page=1&limit=100${includeAdminData ? '&full=1' : ''}`),
                 fetch('/api/frontend/events'),
                 fetch('/api/frontend/media'),
-                fetch('/api/admin/about'),
+                fetch('/api/frontend/about'),
             ]);
 
             const artData = artRes.ok ? await artRes.json() : { articles: [] };

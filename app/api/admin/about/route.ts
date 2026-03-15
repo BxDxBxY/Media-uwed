@@ -3,8 +3,11 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin-auth";
 import { getAboutPageConfig, setAboutPageConfig } from "@/lib/about-page-config";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const unauthorized = requireAdmin(request);
+    if (unauthorized) return unauthorized;
+
     const [about, config] = await Promise.all([
       prisma.aboutContent.findFirst(),
       getAboutPageConfig(),
