@@ -5,7 +5,7 @@ import { Play, TrendingUp, Clock, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { getMediaPreviewUrl, hasMediaCategory } from "@/lib/media-utils";
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 
 function getArticleCategories(article: Article): string[] {
   const relationNames = (article.categories || []).map((c) => c.name).filter(Boolean);
@@ -34,6 +34,8 @@ function localizedText(article: Article, language: "en" | "ru" | "uz", field: "t
   return field === "title" ? article.title : article.summary;
 }
 
+const HOME_HIDDEN_MEDIA_CATEGORIES = ["hero-side", "hero-banner"];
+
 function uniqueById<T extends { id: string }>(arr: T[]) {
   const seen = new Set<string>();
   return arr.filter((item) => {
@@ -43,96 +45,129 @@ function uniqueById<T extends { id: string }>(arr: T[]) {
   });
 }
 
+function getTopCategoryNames(articles: Article[], limit: number) {
+  const map = new Map<string, number>();
+  for (const article of articles) {
+    for (const cat of getArticleCategories(article)) {
+      map.set(cat, (map.get(cat) || 0) + 1);
+    }
+  }
+  return [...map.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([name]) => name);
+}
+
 export default function Home() {
   const { articles, isLoading, media, language, addSubscriber } = useGlobalContext();
+  const [homeArticles, setHomeArticles] = useState<Article[]>([]);
   const [newsletterMessage, setNewsletterMessage] = useState<"" | "thanks">("");
-  const [newsletterDismissed, setNewsletterDismissed] = useState(false);
+  const [newsletterDismissed, setNewsletterDismissed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("newsletter-hidden") === "1" || localStorage.getItem("newsletter-signed") === "1";
+  });
 
-  const featuredArticle = articles[0];
-  const trendingNews = articles.slice(4, 14); // up to ten items
-  const breakingItems = articles.slice(0, 6);
+  useEffect(() => {
+    let cancelled = false;
+    const loadMoreArticles = async () => {
+      try {
+        const res = await fetch("/api/frontend/articles?page=1&limit=120");
+        const data = await res.json();
+        if (!cancelled && res.ok) {
+          setHomeArticles((data?.articles || []) as Article[]);
+        }
+      } catch {
+        // keep fallback to context articles
+      }
+    };
+
+    loadMoreArticles();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const sourceArticles = homeArticles.length > 0 ? homeArticles : articles;
+
+  const featuredArticle = sourceArticles[0];
+  const trendingNews = sourceArticles.slice(4, 14);
+  const breakingItems = sourceArticles.slice(0, 6);
   const breakingCharacters = breakingItems.reduce((sum, item) => sum + localizedText(item, language, "title").length, 0);
-  const tickerDuration = Math.min(46, Math.max(28, Math.round(breakingCharacters * 0.45)));
+  const tickerDuration = Math.min(42, Math.max(24, Math.round(breakingCharacters * 0.36)));
 
-  const categoryPools = [
-    { key: "World", title: language === "ru" ? "Мир и политика" : language === "uz" ? "Jahon va siyosat" : "World & Policy", source: byCategory(articles, "World"), reverse: false },
-    { key: "University", title: language === "ru" ? "Университет и кампус" : language === "uz" ? "Universitet va kampus" : "University & Campus", source: byCategory(articles, "University"), reverse: true },
-    { key: "Analysis", title: language === "ru" ? "Интервью и аналитика" : language === "uz" ? "Intervyu va tahlil" : "Interviews & Analysis", source: byCategory(articles, "Analysis"), reverse: false },
-  ];
+  const preferredStructured = ["World", "University", "Analysis"];
+  const preferredColumns = ["University", "World", "Economy", "Sports"];
+  const topCategories = getTopCategoryNames(sourceArticles, 8);
+
+  const structuredCategoryKeys = uniqueById(
+    preferredStructured
+      .map((key) => ({ id: key, key }))
+      .concat(topCategories.map((key) => ({ id: key, key }))),
+  )
+    .map((x) => x.key)
+    .slice(0, 3);
+
+  const categoryPools = structuredCategoryKeys.map((key, index) => ({
+    key,
+    title: key,
+    source: byCategory(sourceArticles, key),
+    reverse: index % 2 === 1,
+  }));
 
   const used = new Set<string>();
   const structuredBlocks = categoryPools
     .map((pool) => {
-    const candidates = pool.source;
-    const picked: Article[] = [];
-
-    for (const item of candidates) {
-      if (used.has(item.id)) continue;
-      used.add(item.id);
-      picked.push(item);
-      if (picked.length === 5) break;
-    }
-
-    return { key: pool.key, title: pool.title, items: picked, reverse: pool.reverse };
-  })
+      const picked: Article[] = [];
+      for (const item of pool.source) {
+        if (used.has(item.id)) continue;
+        used.add(item.id);
+        picked.push(item);
+        if (picked.length === 5) break;
+      }
+      return { key: pool.key, title: pool.title, items: picked, reverse: pool.reverse };
+    })
     .filter((block) => block.items.length > 0);
 
-  const hiddenHomeCategories = new Set(["hero-side", "hero-banner"]);
-  const homeVisibleMedia = media.filter((m) => ![...hiddenHomeCategories].some((cat) => hasMediaCategory(m.category, cat)));
+  const columnCategoryKeys = uniqueById(
+    preferredColumns
+      .map((key) => ({ id: key, key }))
+      .concat(topCategories.map((key) => ({ id: key, key }))),
+  )
+    .map((x) => x.key)
+    .slice(0, 4);
+
+  const columnPools = columnCategoryKeys.map((key) => ({ key, title: key, source: byCategory(sourceArticles, key) }));
+  const columnUsed = new Set<string>(Array.from(used));
+  const columnSections = columnPools
+    .map((pool) => {
+      const items: Article[] = [];
+      for (const item of pool.source) {
+        if (columnUsed.has(item.id)) continue;
+        columnUsed.add(item.id);
+        items.push(item);
+        if (items.length === 5) break;
+      }
+      return { key: pool.key, title: pool.title, items };
+    })
+    .filter((section) => section.items.length > 0);
+
+  const homeVisibleMedia = useMemo(
+    () => uniqueById(media.filter((m) => !HOME_HIDDEN_MEDIA_CATEGORIES.some((cat) => hasMediaCategory(m.category, cat)))),
+    [media],
+  );
 
   const universityVideos = homeVisibleMedia
     .filter((item) => item.type === "video" && hasMediaCategory(item.category, "university"))
     .slice(0, 3);
 
   const universityVideoIds = new Set(universityVideos.map((item) => item.id));
-  const cleanedFeaturedMedia = uniqueById(homeVisibleMedia.filter((item) => !universityVideoIds.has(item.id))).slice(0, 4);
+  const cleanedFeaturedMedia = homeVisibleMedia.filter((item) => !universityVideoIds.has(item.id)).slice(0, 4);
+  const featuredMediaIds = new Set(cleanedFeaturedMedia.map((item) => item.id));
+  const latestVideos = (universityVideos.length > 0 ? universityVideos : homeVisibleMedia.filter((m) => m.type === "video" && !featuredMediaIds.has(m.id))).slice(0, 3);
 
   const heroBackground = media.find((item) => hasMediaCategory(item.category, "hero-banner")) || null;
   const heroSide = media.find((item) => hasMediaCategory(item.category, "hero-side")) || null;
-
-  const columnPools = [
-    {
-      key: "University",
-      title: language === "ru" ? "Новости кампуса" : language === "uz" ? "Kampus yangiliklari" : "Campus News",
-      source: byCategory(articles, "University"),
-    },
-    {
-      key: "World",
-      title: language === "ru" ? "Мир" : language === "uz" ? "Jahon" : "World",
-      source: byCategory(articles, "World"),
-    },
-    {
-      key: "Economy",
-      title: language === "ru" ? "Бизнес" : language === "uz" ? "Biznes" : "Business",
-      source: byCategory(articles, "Economy"),
-    },
-    {
-      key: "Sports",
-      title: language === "ru" ? "Спорт" : language === "uz" ? "Sport" : "Sport",
-      source: byCategory(articles, "Sports"),
-    },
-  ];
-
-  const columnUsed = new Set<string>(Array.from(used));
-  const columnSections = columnPools.map((pool) => {
-    const items: Article[] = [];
-    for (const item of pool.source) {
-      if (columnUsed.has(item.id)) continue;
-      columnUsed.add(item.id);
-      items.push(item);
-      if (items.length === 5) break;
-    }
-
-    return { key: pool.key, title: pool.title, items };
-  }).filter((section) => section.items.length > 0);
-
   const heroText = media.find((item) => hasMediaCategory(item.category, "hero-text")) || null;
-
-  useEffect(() => {
-    const hidden = localStorage.getItem("newsletter-hidden") === "1";
-    const signed = localStorage.getItem("newsletter-signed") === "1";
-    setNewsletterDismissed(hidden || signed);
-  }, []);
 
   const t = {
     breaking: language === "ru" ? "Срочно" : language === "uz" ? "Shoshilinch" : "Breaking",
@@ -152,7 +187,7 @@ export default function Home() {
     latestVideos: language === "ru" ? "Последние университетские видео" : language === "uz" ? "So'nggi universitet videolari" : "Latest University Videos",
   };
 
-  if (isLoading) {
+  if (isLoading && sourceArticles.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -165,9 +200,9 @@ export default function Home() {
 
   return (
     <main className="min-h-screen">
-      <div className="bg-muted/60 text-foreground py-2 overflow-hidden border-y border-border/50 backdrop-blur-sm">
+      <div className="bg-muted/60 text-foreground py-2 overflow-hidden border-y border-border/50">
         <div className="container mx-auto px-4 flex items-center gap-3">
-          <span className="bg-primary/15 text-primary text-[10px] font-black uppercase px-2 py-0.5 rounded whitespace-nowrap animate-pulse">{t.breaking}</span>
+          <span className="bg-primary/15 text-primary text-[10px] font-black uppercase px-2 py-0.5 rounded whitespace-nowrap">{t.breaking}</span>
           <div className="flex-1 overflow-hidden">
             <div className="ticker-track text-sm font-medium whitespace-nowrap inline-flex gap-10" style={{ "--ticker-duration": `${tickerDuration}s` } as CSSProperties}>
               {[...breakingItems, ...breakingItems].map((item, index) => (
@@ -199,7 +234,7 @@ export default function Home() {
                   </div>
                 </div>
               </Link>
-            ) : <div className="aspect-[16/9] bg-muted rounded-3xl animate-pulse flex items-center justify-center text-muted-foreground italic">No featured article found</div>}
+            ) : null}
           </div>
 
           <div className="lg:col-span-4 space-y-6">
@@ -227,6 +262,7 @@ export default function Home() {
                 if (email) {
                   addSubscriber(email);
                   localStorage.setItem("newsletter-signed", "1");
+                  setNewsletterDismissed(true);
                   setNewsletterMessage("thanks");
                   (e.target as HTMLFormElement).reset();
                 }
@@ -254,11 +290,10 @@ export default function Home() {
         </div>
       </section>
 
-
       <section className="container mx-auto px-4 py-16 space-y-14">
         {structuredBlocks.map((block) => {
           const lead = block.items[0];
-          const side = block.items.slice(1, 5); // right side four
+          const side = block.items.slice(1, 5);
           if (!lead) return null;
 
           return (
@@ -323,7 +358,7 @@ export default function Home() {
                 <div className="space-y-0">
                   {rest.map((item) => (
                     <Link key={item.id} href={`/article/${item.slug}`} className="block py-4 border-t border-border/40 group">
-                      <h5 className="text-[1.9rem] leading-tight font-serif font-semibold group-hover:text-primary transition-colors line-clamp-2">{localizedText(item, language, "title")}</h5>
+                      <h5 className="text-2xl leading-tight font-serif font-semibold group-hover:text-primary transition-colors line-clamp-2">{localizedText(item, language, "title")}</h5>
                     </Link>
                   ))}
                 </div>
@@ -359,7 +394,7 @@ export default function Home() {
             <Link href="/media" className="text-muted-foreground hover:text-foreground text-sm">{t.viewAll}</Link>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {(universityVideos.length > 0 ? universityVideos : homeVisibleMedia.filter((m) => m.type === "video").slice(0, 3)).map((item) => (
+            {latestVideos.map((item) => (
               <Link key={item.id} href="/media" className="group rounded-xl overflow-hidden border border-border bg-muted/30">
                 <div className="aspect-video relative overflow-hidden">
                   <Image src={getMediaPreviewUrl(item)} alt={item.title} fill unoptimized sizes="(max-width: 768px) 100vw, 33vw" className="object-cover group-hover:scale-105 transition-transform" />
@@ -383,7 +418,7 @@ export default function Home() {
             <Link href="/media" className="bg-primary text-primary-foreground px-8 py-4 rounded-full font-bold hover:bg-primary/90 transition-colors inline-flex items-center gap-2">Start Watching <ChevronRight className="h-5 w-5" /></Link>
           </div>
           <div className="relative z-10 lg:col-span-4 p-6 md:p-10 flex items-end">
-            <Link href="/media" className="w-full rounded-2xl border border-border/70 bg-background/70 backdrop-blur-sm overflow-hidden hover:bg-background/80 transition-colors">
+            <Link href="/media" className="w-full rounded-2xl border border-border/70 bg-background/70 overflow-hidden hover:bg-background/80 transition-colors">
               {heroSide ? (
                 <>
                   <div className="aspect-video overflow-hidden relative"><Image src={getMediaPreviewUrl(heroSide)} alt={heroSide.title} fill unoptimized sizes="(max-width: 1024px) 100vw, 33vw" className="object-cover" /></div>
@@ -396,7 +431,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-
     </main>
   );
 }

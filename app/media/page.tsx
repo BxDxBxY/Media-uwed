@@ -2,7 +2,7 @@
 
 import { useGlobalContext } from "@/lib/context";
 import { Play, Image as ImageIcon, Search, Loader2, X, ChevronLeft, ChevronRight } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { getMediaPreviewUrl, getYouTubeIdFromUrl, splitMediaCategories } from "@/lib/media-utils";
 
 function getEmbedUrl(url: string) {
@@ -22,7 +22,7 @@ function isEmbeddableVideo(url: string) {
 
 export default function MediaPage() {
   const { media, isLoading, language } = useGlobalContext();
-  const [filter, setFilter] = useState("All");
+  const [filter, setFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [showCategories, setShowCategories] = useState(false);
   const [selectedItemIndex, setSelectedItemIndex] = useState<number>(-1);
@@ -39,45 +39,46 @@ export default function MediaPage() {
     keyboardHint: language === "ru" ? "Клавиши: ← → навигация • Esc закрыть • Enter/Пробел воспроизвести" : language === "uz" ? "Klaviatura: ← → navigatsiya • Esc yopish • Enter/Space ijro" : "Keyboard: ← → navigate • Esc close • Enter/Space play",
   };
 
-  const publicMedia = media;
-  const categories = [t.all, ...Array.from(new Set(publicMedia.flatMap((m) => splitMediaCategories(m.category).length ? splitMediaCategories(m.category) : ["General"])))].filter(Boolean);
+  const publicMedia = useMemo(() => {
+    const seen = new Set<string>();
+    return media.filter((item) => {
+      if (seen.has(item.id)) return false;
+      seen.add(item.id);
+      return true;
+    });
+  }, [media]);
+  const categoryOptions = ["all", ...Array.from(new Set(publicMedia.flatMap((m) => splitMediaCategories(m.category).length ? splitMediaCategories(m.category) : ["General"])))].filter(Boolean);
 
+  const categoryLabel = (cat: string) => (cat === "all" ? t.all : cat);
 
-
-  useEffect(() => {
-    if (filter === "All" || filter === "Все" || filter === "Barchasi") {
-      setFilter(t.all);
-    }
-  }, [language]);
-
-  const localizedMediaTitle = (item: any) => {
+  const localizedMediaTitle = useCallback((item: { title: string; titleRu?: string | null; titleUz?: string | null; }) => {
     if (language === "ru" && item.titleRu) return item.titleRu;
     if (language === "uz" && item.titleUz) return item.titleUz;
     return item.title;
-  };
+  }, [language]);
 
   const filteredMedia = useMemo(
     () =>
       publicMedia.filter((item) => {
         const mediaCategories = splitMediaCategories(item.category).length ? splitMediaCategories(item.category) : ["General"];
-        const matchesFilter = filter === t.all || mediaCategories.includes(filter);
+        const matchesFilter = filter === "all" || mediaCategories.includes(filter);
         const matchesSearch = localizedMediaTitle(item).toLowerCase().includes(searchQuery.toLowerCase());
         return matchesFilter && matchesSearch;
       }),
-    [publicMedia, filter, searchQuery, language],
+    [publicMedia, filter, searchQuery, localizedMediaTitle],
   );
 
   const selectedItem = selectedItemIndex >= 0 ? filteredMedia[selectedItemIndex] : null;
 
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     if (filteredMedia.length === 0) return;
     setSelectedItemIndex((prev) => (prev + 1) % filteredMedia.length);
-  };
+  }, [filteredMedia.length]);
 
-  const handlePrev = () => {
+  const handlePrev = useCallback(() => {
     if (filteredMedia.length === 0) return;
     setSelectedItemIndex((prev) => (prev - 1 + filteredMedia.length) % filteredMedia.length);
-  };
+  }, [filteredMedia.length]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -103,7 +104,7 @@ export default function MediaPage() {
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedItem]);
+  }, [selectedItem, handleNext, handlePrev]);
 
   if (isLoading) {
     return (
@@ -126,9 +127,9 @@ export default function MediaPage() {
             </button>
             {showCategories && (
               <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide max-w-full">
-                {categories.map((cat) => (
+                {categoryOptions.map((cat) => (
                   <button
-                    key={cat}
+                    key={categoryLabel(cat)}
                     onClick={() => {
                       setFilter(cat);
                       setSelectedItemIndex(-1);
@@ -137,7 +138,7 @@ export default function MediaPage() {
                       filter === cat ? "bg-primary text-primary-foreground shadow-md" : "bg-muted text-muted-foreground hover:bg-muted/80"
                     }`}
                   >
-                    {cat}
+                    {categoryLabel(cat)}
                   </button>
                 ))}
               </div>
