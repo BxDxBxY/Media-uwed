@@ -163,41 +163,50 @@ export function GlobalProvider({ children }: { children: ReactNode }) {
     const [language, setLanguage] = useState<Language>("en");
     const [searchQuery, setSearchQuery] = useState("");
     const [isLoading, setIsLoading] = useState(true);
+    const pathname = usePathname();
+    const isAdminRoute = pathname?.startsWith('/admin') ?? false;
 
     const [sources, setSources] = useState<Source[]>([]);
 
-    const refreshData = async (showLoader = false) => {
+    const refreshData = async (showLoader = false, includeAdminData = isAdminRoute) => {
         if (showLoader) setIsLoading(true);
         try {
-            const [artRes, eveRes, medRes, subRes, msgRes, abtRes, statsRes, srcRes] = await Promise.all([
-                fetch('/api/frontend/articles'),
+            const [artRes, eveRes, medRes, abtRes] = await Promise.all([
+                fetch(`/api/frontend/articles?page=1&limit=${includeAdminData ? 100 : 24}${includeAdminData ? '&full=1' : ''}`),
                 fetch('/api/frontend/events'),
                 fetch('/api/frontend/media'),
-                fetch('/api/admin/subscribers'),
-                fetch('/api/admin/messages'),
-                fetch('/api/admin/about'),
-                fetch('/api/admin/stats'),
-                fetch('/api/admin/sources')
+                fetch('/api/frontend/about'),
             ]);
 
             const artData = artRes.ok ? await artRes.json() : { articles: [] };
             const eveData = eveRes.ok ? await eveRes.json() : { events: [] };
             const medData = medRes.ok ? await medRes.json() : { media: [] };
-            const subData = subRes.ok ? await subRes.json() : { subscribers: [] };
-            const msgData = msgRes.ok ? await msgRes.json() : { messages: [] };
             const abtData = abtRes.ok ? await abtRes.json() : { about: null, config: null };
-            const statsData = statsRes.ok ? await statsRes.json() : { totalVisits: 0, totalArticleViews: 0, popularArticles: [] };
-            const srcData = srcRes.ok ? await srcRes.json() : { sources: [] };
 
             setArticles(artData.articles || []);
             setEvents(eveData.events || []);
             setMedia(medData.media || []);
-            setSubscribers(subData.subscribers || []);
-            setMessages(msgData.messages || []);
             setAboutContent(abtData.about || null);
             setAboutConfig(abtData.config || null);
-            setAnalytics(statsData || { totalVisits: 0, totalArticleViews: 0, popularArticles: [] });
-            setSources(srcData.sources || []);
+
+            if (includeAdminData) {
+                const [subRes, msgRes, statsRes, srcRes] = await Promise.all([
+                    fetch('/api/admin/subscribers'),
+                    fetch('/api/admin/messages'),
+                    fetch('/api/admin/stats'),
+                    fetch('/api/admin/sources'),
+                ]);
+
+                const subData = subRes.ok ? await subRes.json() : { subscribers: [] };
+                const msgData = msgRes.ok ? await msgRes.json() : { messages: [] };
+                const statsData = statsRes.ok ? await statsRes.json() : { totalVisits: 0, totalArticleViews: 0, popularArticles: [] };
+                const srcData = srcRes.ok ? await srcRes.json() : { sources: [] };
+
+                setSubscribers(subData.subscribers || []);
+                setMessages(msgData.messages || []);
+                setAnalytics(statsData || { totalVisits: 0, totalArticleViews: 0, popularArticles: [] });
+                setSources(srcData.sources || []);
+            }
         } catch (error) {
             console.error('Failed to fetch data:', error);
         } finally {
@@ -223,17 +232,21 @@ export function GlobalProvider({ children }: { children: ReactNode }) {
         }
     };
 
-    const pathname = usePathname();
-
     useEffect(() => {
-        refreshData(true);
+        refreshData(true, false);
         recordVisit();
 
         const storedLang = localStorage.getItem('language') as Language;
         if (storedLang && ["en", "uz", "ru"].includes(storedLang)) {
             setLanguage(storedLang);
         }
-    }, [pathname]);
+    }, []);
+
+    useEffect(() => {
+        if (isAdminRoute) {
+            refreshData(true, true);
+        }
+    }, [isAdminRoute]);
 
     useEffect(() => {
         localStorage.setItem('language', language);

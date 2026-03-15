@@ -7,6 +7,7 @@ import { notFound } from "next/navigation";
 import { use } from "react";
 import { toast } from "sonner";
 import { parseEventImages } from "@/lib/event-images";
+import { parseEventTimestamp } from "@/lib/event-datetime";
 
 export default function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { events, isLoading } = useGlobalContext();
@@ -28,6 +29,8 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
 
     const eventImages = parseEventImages(event.image);
     const coverImage = eventImages[0] || `https://picsum.photos/seed/${event.title}/1200/800`;
+    const eventTimestamp = parseEventTimestamp({ date: event.date, time: event.time });
+    const isPastEvent = eventTimestamp !== null && eventTimestamp < Date.parse(new Date().toISOString());
 
     const handleShare = () => {
         navigator.clipboard.writeText(window.location.href);
@@ -77,12 +80,18 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
                     )}
 
                     <div className="mt-12 flex gap-4">
-                        <button
-                            onClick={() => toast.success("You are successfully registered for this event!")}
-                            className="bg-primary text-primary-foreground px-8 py-3 rounded-full font-bold hover:opacity-90 transition-all flex-1 md:flex-none text-center"
-                        >
-                            Register Now
-                        </button>
+                        {!isPastEvent ? (
+                            <button
+                                onClick={() => toast.success("You are successfully registered for this event!")}
+                                className="bg-primary text-primary-foreground px-8 py-3 rounded-full font-bold hover:opacity-90 transition-all flex-1 md:flex-none text-center"
+                            >
+                                Register Now
+                            </button>
+                        ) : (
+                            <div className="px-6 py-3 rounded-full border border-border bg-muted/40 text-sm font-semibold text-muted-foreground">
+                                Registration closed (event finished)
+                            </div>
+                        )}
                         <button
                             onClick={handleShare}
                             className="p-3 rounded-full border border-border hover:bg-muted transition-colors"

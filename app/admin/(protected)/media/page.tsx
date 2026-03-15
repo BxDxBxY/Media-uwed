@@ -2,7 +2,7 @@
 
 import { useGlobalContext } from "@/lib/context";
 import { Plus, Trash2, Video, Image as ImageIcon, ExternalLink, Play, Eye, Edit2, X, ChevronLeft, ChevronRight, Table2, LayoutGrid } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getMediaPreviewUrl, getYouTubeIdFromUrl } from "@/lib/media-utils";
 import { toast } from "sonner";
 
@@ -71,6 +71,19 @@ export default function AdminMediaPage() {
   };
 
   if (isLoading) return <div className="p-8 text-center text-muted-foreground italic">Updating gallery...</div>;
+
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (selectedIndex < 0) return;
+      if (e.key === "Escape") setSelectedIndex(-1);
+      if (e.key === "ArrowRight") handleNext();
+      if (e.key === "ArrowLeft") handlePrev();
+    };
+
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedIndex, handleNext, handlePrev]);
 
   return (
     <div className="space-y-6">
@@ -141,13 +154,13 @@ export default function AdminMediaPage() {
               <div className="aspect-[4/3] rounded-2xl overflow-hidden bg-muted border-b border-border/40 relative">
                 <img src={getMediaPreviewUrl(item)} alt={item.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                 <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  {item.type === "video" ? <Play className="h-8 w-8 text-white" /> : <Eye className="h-8 w-8 text-white" />}
+                  {item.type === "video" ? <Play className="h-8 w-8 text-foreground" /> : <Eye className="h-8 w-8 text-foreground" />}
                 </div>
                 <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button onClick={(e) => { e.stopPropagation(); setEditingMedia(item); }} className="p-2 bg-white/90 text-primary rounded-lg"><Edit2 className="h-4 w-4" /></button>
-                  <button onClick={(e) => { e.stopPropagation(); confirm("Delete this media?") && deleteMedia(item.id); }} className="p-2 bg-red-500/90 text-white rounded-lg"><Trash2 className="h-4 w-4" /></button>
+                  <button onClick={(e) => { e.stopPropagation(); confirm("Delete this media?") && deleteMedia(item.id); }} className="p-2 bg-red-500/90 text-foreground rounded-lg"><Trash2 className="h-4 w-4" /></button>
                 </div>
-                <div className="absolute bottom-2 right-2">{item.type === "video" ? <Video className="h-5 w-5 text-white" /> : <ImageIcon className="h-5 w-5 text-white" />}</div>
+                <div className="absolute bottom-2 right-2">{item.type === "video" ? <Video className="h-5 w-5 text-foreground" /> : <ImageIcon className="h-5 w-5 text-foreground" />}</div>
               </div>
               <div className="p-4">
                 <h3 className="font-bold text-sm mb-1 truncate">{item.title}</h3>
@@ -194,11 +207,11 @@ export default function AdminMediaPage() {
       )}
 
       {selectedItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/95 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 p-4 animate-in fade-in duration-300">
           <div className="relative w-full max-w-5xl bg-card rounded-2xl overflow-hidden shadow-2xl border border-border/40 group/modal">
-            <button onClick={() => setSelectedIndex(-1)} className="absolute top-4 right-4 z-20 h-10 w-10 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center text-white"><X className="h-5 w-5" /></button>
-            <button onClick={handlePrev} className="absolute left-4 top-1/2 -translate-y-1/2 z-20 h-12 w-12 rounded-full bg-black/30 hover:bg-black/50 flex items-center justify-center text-white transition-all opacity-0 group-hover/modal:opacity-100"><ChevronLeft className="h-8 w-8" /></button>
-            <button onClick={handleNext} className="absolute right-4 top-1/2 -translate-y-1/2 z-20 h-12 w-12 rounded-full bg-black/30 hover:bg-black/50 flex items-center justify-center text-white transition-all opacity-0 group-hover/modal:opacity-100"><ChevronRight className="h-8 w-8" /></button>
+            <button onClick={() => setSelectedIndex(-1)} className="absolute top-4 right-4 z-20 h-10 w-10 rounded-full bg-background/70 hover:bg-background/90 border border-border/50 flex items-center justify-center text-foreground"><X className="h-5 w-5" /></button>
+            <button onClick={handlePrev} className="absolute left-4 top-1/2 -translate-y-1/2 z-20 h-12 w-12 rounded-full bg-black/30 hover:bg-black/50 flex items-center justify-center text-foreground transition-all opacity-0 group-hover/modal:opacity-100"><ChevronLeft className="h-8 w-8" /></button>
+            <button onClick={handleNext} className="absolute right-4 top-1/2 -translate-y-1/2 z-20 h-12 w-12 rounded-full bg-black/30 hover:bg-black/50 flex items-center justify-center text-foreground transition-all opacity-0 group-hover/modal:opacity-100"><ChevronRight className="h-8 w-8" /></button>
 
             <div className="aspect-video bg-black flex items-center justify-center">
               {selectedItem.type === "video" ? <iframe className="w-full h-full" src={getEmbedUrl(selectedItem.url)} title={selectedItem.title} allowFullScreen /> : <img src={selectedItem.url} alt={selectedItem.title} className="max-h-full max-w-full object-contain" />}

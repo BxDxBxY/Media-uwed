@@ -1,10 +1,11 @@
 "use client";
 
-import { useGlobalContext } from "@/lib/context";
+import { useGlobalContext, type Article } from "@/lib/context";
 import { polishText } from "@/lib/text-clean";
 import { useParams, useRouter } from "next/navigation";
 import { Clock, Share2, ArrowLeft, Bookmark, MessageSquare, Loader2 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { extractInlineImageUrls, splitReadableParagraphs } from "@/lib/article-format";
@@ -44,8 +45,45 @@ export default function ArticlePage() {
   const { articles, isLoading, language, recordArticleView } = useGlobalContext();
   const router = useRouter();
   const [fontScale, setFontScale] = useState<"md" | "lg">("lg");
+  const [fullArticle, setFullArticle] = useState<Article | null>(null);
+  const [isArticleLoading, setIsArticleLoading] = useState(false);
 
-  const article = articles.find((a) => a.slug === slug);
+  const article = fullArticle || articles.find((a) => a.slug === slug);
+
+  useEffect(() => {
+    let isCancelled = false;
+    setFullArticle(null);
+
+    const fetchArticleBySlug = async () => {
+      if (!slug) return;
+
+      const baseArticle = articles.find((a) => a.slug === slug);
+      if (baseArticle && (baseArticle as any).content) {
+        setFullArticle(baseArticle);
+        return;
+      }
+
+      setIsArticleLoading(true);
+      try {
+        const res = await fetch(`/api/frontend/articles?slug=${encodeURIComponent(slug)}&full=1`);
+        const data = await res.json();
+
+        if (!isCancelled && res.ok && data?.article) {
+          setFullArticle(data.article);
+        }
+      } catch (error) {
+        console.error("Failed to load full article", error);
+      } finally {
+        if (!isCancelled) setIsArticleLoading(false);
+      }
+    };
+
+    fetchArticleBySlug();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [slug, articles]);
 
   useEffect(() => {
     if (article?.id && recordArticleView) {
@@ -53,7 +91,7 @@ export default function ArticlePage() {
     }
   }, [article?.id, recordArticleView]);
 
-  if (isLoading) {
+  if (isLoading || isArticleLoading) {
     return (
       <div className="container mx-auto px-4 py-20 text-center">
         <Loader2 className="h-10 w-10 animate-spin mx-auto text-primary mb-4" />
@@ -151,8 +189,8 @@ export default function ArticlePage() {
         </div>
 
         <figure className="max-w-6xl mx-auto mb-12">
-          <div className="aspect-[21/9] rounded-3xl overflow-hidden border border-border/40 shadow-xl">
-            <img src={article.image} alt={title} className="w-full h-full object-cover" />
+          <div className="aspect-[21/9] rounded-3xl overflow-hidden border border-border/40 shadow-xl relative">
+            <Image src={article.image} alt={title} fill unoptimized sizes="100vw" className="object-cover" />
           </div>
           {imageCaption && <figcaption className="mt-4 text-center text-sm text-muted-foreground font-serif italic">{imageCaption}</figcaption>}
         </figure>
@@ -189,7 +227,7 @@ export default function ArticlePage() {
 
                   {injectImage && (
                     <figure className="rounded-2xl overflow-hidden border border-border/40">
-                      <img src={injectImage} alt={`${title} visual ${i}`} className="w-full h-auto object-cover" />
+                      <Image src={injectImage} alt={`${title} visual ${i}`} width={1200} height={700} unoptimized className="w-full h-auto object-cover" />
                     </figure>
                   )}
                 </div>
@@ -222,8 +260,8 @@ export default function ArticlePage() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                 {relatedArticles.map((rel) => (
                   <Link key={rel.id} href={`/article/${rel.slug}`} className="group">
-                    <div className="aspect-[16/10] overflow-hidden rounded-2xl mb-4 border border-border/40 shadow-sm">
-                      <img src={rel.image} alt={rel.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                    <div className="aspect-[16/10] overflow-hidden rounded-2xl mb-4 border border-border/40 shadow-sm relative">
+                      <Image src={rel.image} alt={rel.title} fill unoptimized sizes="(max-width: 768px) 100vw, 25vw" className="object-cover transition-transform group-hover:scale-105" />
                     </div>
                     <span className="text-[10px] font-bold text-primary uppercase tracking-widest mb-2 block">{rel.category}</span>
                     <h3 className="font-bold text-lg leading-tight group-hover:text-primary transition-colors line-clamp-2">

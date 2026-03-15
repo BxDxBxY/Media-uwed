@@ -13,6 +13,7 @@ import {
 import { AdminLogoutButton } from "@/components/admin-logout-button";
 import { getAdminSessionFromCookies } from "@/lib/admin-auth";
 import { AdminAssistantChat } from "@/components/admin-assistant-chat";
+import { ModeToggle } from "@/components/mode-toggle";
 
 export default async function AdminLayout({
   children,
@@ -71,9 +72,10 @@ export default async function AdminLayout({
       </aside>
 
       <div className="flex-1 flex flex-col">
-        <header className="h-16 border-b border-border/40 flex items-center justify-between px-6 bg-background/95 backdrop-blur">
+        <header className="h-16 border-b border-border/40 flex items-center justify-between px-6 bg-background">
           <h2 className="font-semibold">Dashboard</h2>
           <div className="flex items-center gap-4">
+            <ModeToggle />
             <span className="text-sm text-muted-foreground">Welcome, Admin</span>
             <div className="h-8 w-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold">
               A

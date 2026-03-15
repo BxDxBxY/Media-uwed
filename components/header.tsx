@@ -12,7 +12,7 @@ export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isLangOpen, setIsLangOpen] = useState(false);
-  const { language, setLanguage, setSearchQuery } = useGlobalContext();
+  const { language, setLanguage } = useGlobalContext();
   const router = useRouter();
   const pathname = usePathname();
   const t = translations[language];
@@ -34,15 +34,14 @@ export function Header() {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const query = formData.get("q") as string;
-    setSearchQuery(query);
-    router.push("/news");
+    router.push(query ? `/news?q=${encodeURIComponent(query)}` : "/news");
     setIsSearchOpen(false);
   };
 
   const isItemActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-slate-200/80 dark:border-slate-800/80 bg-white/95 text-slate-900 dark:bg-slate-950/90 dark:text-slate-100 supports-[backdrop-filter]:backdrop-blur-xl shadow-sm">
+    <header className="sticky top-0 z-50 w-full border-b border-border !bg-background text-foreground shadow-sm opacity-100">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <Link href="/" className="flex items-center space-x-2">
           <span className="font-serif text-xl font-bold tracking-tight text-foreground">University Media</span>

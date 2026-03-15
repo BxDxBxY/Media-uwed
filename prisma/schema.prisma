@@ -32,6 +32,7 @@ model Article {
   viewRecords    ArticleView[]
   categories     Category[]    @relation("ArticleToCategory")
 
+  @@index([createdAt])
   @@map("articles")
 }
 
@@ -62,6 +63,7 @@ model SiteVisit {
   timestamp         DateTime @default(now())
   visitorIdentifier String
 
+  @@index([timestamp])
   @@map("site_visits")
 }
 
@@ -72,6 +74,8 @@ model ArticleView {
   visitorIdentifier String
   article           Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
 
+  @@index([articleId])
+  @@index([timestamp])
   @@map("article_views")
 }
 
@@ -93,6 +97,7 @@ model Event {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  @@index([createdAt])
   @@map("events")
 }
 
@@ -109,6 +114,7 @@ model Media {
   category  String?
   createdAt DateTime @default(now())
 
+  @@index([createdAt])
   @@map("media")
 }
 
@@ -117,6 +123,7 @@ model Subscriber {
   email     String   @unique
   createdAt DateTime @default(now())
 
+  @@index([createdAt])
   @@map("subscribers")
 }
 
@@ -130,6 +137,8 @@ model ContactMessage {
   archivedAt DateTime?
   createdAt DateTime @default(now())
 
+  @@index([archivedAt, createdAt])
+  @@index([subject])
   @@map("contact_messages")
 }
 
@@ -160,6 +169,7 @@ model Source {
   createdAt     DateTime     @default(now())
   articles      ArticleRaw[]
 
+  @@index([enabled, createdAt])
   @@map("sources")
 }
 
