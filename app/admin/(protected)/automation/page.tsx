@@ -119,9 +119,9 @@ export default function AutomationPage() {
             secretFingerprint: null,
         },
     });
-    const [isSavingIntegration, setIsSavingIntegration] = useState(false);
+    const [isSavingIntegration, setIsSavingIntegration] = useState<Record<IntegrationType, boolean>>({ ai: false, telegram: false });
     const [isSendingTelegramTest, setIsSendingTelegramTest] = useState(false);
-    const [isSavingSecret, setIsSavingSecret] = useState(false);
+    const [isSavingSecret, setIsSavingSecret] = useState<Record<IntegrationType, boolean>>({ ai: false, telegram: false });
     const [showIntegrationsPanel, setShowIntegrationsPanel] = useState(false);
     const [pendingSecrets, setPendingSecrets] = useState<Record<IntegrationType, { providerApiKey: string; webhookToken: string }>>({
         ai: { providerApiKey: "", webhookToken: "" },
@@ -161,14 +161,7 @@ export default function AutomationPage() {
     const fetchRawItems = async () => {
         setIsLoadingRaw(true);
         try {
-            const params = new URLSearchParams({
-                includeKeywords,
-                excludeKeywords,
-                aiInstructions,
-                aiStrictMode: String(aiStrictMode),
-            });
-
-            const res = await fetch(`/api/admin/automation/raw?${params.toString()}`);
+            const res = await fetch(`/api/admin/automation/raw`);
             if (!res.ok) return;
             const data = await res.json();
             setRawItems(data.items || []);
@@ -227,10 +220,6 @@ export default function AutomationPage() {
             setSelectedReviewIds([]);
         }
     }, [activeTab]);
-
-    useEffect(() => {
-        fetchRawItems();
-    }, [includeKeywords, excludeKeywords, aiInstructions, aiStrictMode]);
 
     useEffect(() => {
         const timeout = setTimeout(() => {
@@ -675,7 +664,7 @@ export default function AutomationPage() {
     };
 
     const saveIntegration = async (type: IntegrationType) => {
-        setIsSavingIntegration(true);
+        setIsSavingIntegration((prev) => ({ ...prev, [type]: true }));
         try {
             const res = await fetch("/api/admin/integrations", {
                 method: "PUT",
@@ -689,7 +678,7 @@ export default function AutomationPage() {
         } catch (error) {
             toast.error(error instanceof Error ? error.message : "Failed to save integration");
         } finally {
-            setIsSavingIntegration(false);
+            setIsSavingIntegration((prev) => ({ ...prev, [type]: false }));
         }
     };
 
@@ -701,7 +690,7 @@ export default function AutomationPage() {
             return;
         }
 
-        setIsSavingSecret(true);
+        setIsSavingSecret((prev) => ({ ...prev, [type]: true }));
         try {
             const res = await fetch("/api/admin/integrations/secret", {
                 method: "POST",
@@ -716,7 +705,7 @@ export default function AutomationPage() {
         } catch (error) {
             toast.error(error instanceof Error ? error.message : "Failed to save secret");
         } finally {
-            setIsSavingSecret(false);
+            setIsSavingSecret((prev) => ({ ...prev, [type]: false }));
         }
     };
 
@@ -844,8 +833,9 @@ export default function AutomationPage() {
                         <input className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm" placeholder="Paste AI provider API key to rotate" value={pendingSecrets.ai.providerApiKey} onChange={(e) => setPendingSecrets((prev) => ({ ...prev, ai: { ...prev.ai, providerApiKey: e.target.value } }))} />
                         <p className="text-xs text-muted-foreground">Stored encrypted. Current key: {integrationConfigs.ai.hasProviderApiKey ? `configured (${integrationConfigs.ai.secretFingerprint || "fingerprint unavailable"})` : "not configured"}</p>
                         <div className="flex gap-2">
-                            <button type="button" onClick={() => saveSecret("ai")} disabled={isSavingSecret} className="px-3 py-2 rounded-md border border-border text-sm font-semibold disabled:opacity-60">{isSavingSecret ? "Saving..." : "Rotate AI key"}</button>
+                            <button type="button" onClick={() => saveSecret("ai")} disabled={isSavingSecret.ai} className="px-3 py-2 rounded-md border border-border text-sm font-semibold disabled:opacity-60">{isSavingSecret.ai ? "Saving..." : "Rotate AI key"}</button>
                         </div>
+                        <p className="text-[11px] text-muted-foreground">Rotate AI key = securely replaces stored provider API key only. It does not change Telegram settings.</p>
                         <label className="flex items-center justify-between text-sm"><span>Summarization</span><input type="checkbox" checked={integrationConfigs.ai.aiSummarization} onChange={(e) => updateIntegration("ai", { aiSummarization: e.target.checked })} /></label>
                         <label className="flex items-center justify-between text-sm"><span>Categorization</span><input type="checkbox" checked={integrationConfigs.ai.aiCategorization} onChange={(e) => updateIntegration("ai", { aiCategorization: e.target.checked })} /></label>
                         <textarea className="w-full min-h-24 px-3 py-2 rounded-md border border-input bg-background text-sm" placeholder="AI editorial prompt: translation/paraphrasing instructions" value={integrationConfigs.ai.editorialPrompt || ""} onChange={(e) => updateIntegration("ai", { editorialPrompt: e.target.value })} />
@@ -854,7 +844,7 @@ export default function AutomationPage() {
                             <option value="summary_only">Summary-only translation</option>
                             <option value="disabled">Translation disabled</option>
                         </select>
-                        <button type="button" onClick={() => saveIntegration("ai")} disabled={isSavingIntegration} className="px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-60">{isSavingIntegration ? "Saving..." : "Save AI config"}</button>
+                        <button type="button" onClick={() => saveIntegration("ai")} disabled={isSavingIntegration.ai} className="px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-60">{isSavingIntegration.ai ? "Saving..." : "Save AI config"}</button>
                     </div>
 
                     <div className="rounded-lg border border-border/40 p-4 space-y-3">
@@ -868,8 +858,8 @@ export default function AutomationPage() {
                         <input className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm" placeholder="Channel/chat ID" value={integrationConfigs.telegram.channelId} onChange={(e) => updateIntegration("telegram", { channelId: e.target.value })} />
                         <input className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm" placeholder="Webhook token (optional)" value={pendingSecrets.telegram.webhookToken} onChange={(e) => setPendingSecrets((prev) => ({ ...prev, telegram: { ...prev.telegram, webhookToken: e.target.value } }))} />
                         <label className="flex items-center justify-between text-sm"><span>Send selected/published news to Telegram</span><input type="checkbox" checked={integrationConfigs.telegram.sendOnPublish} onChange={(e) => updateIntegration("telegram", { sendOnPublish: e.target.checked })} /></label>
-                        <button type="button" onClick={() => saveSecret("telegram")} disabled={isSavingSecret} className="px-3 py-2 rounded-md border border-border text-sm font-semibold disabled:opacity-60">{isSavingSecret ? "Saving..." : "Rotate Telegram secrets"}</button>
-                        <button type="button" onClick={() => saveIntegration("telegram")} disabled={isSavingIntegration} className="px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-60">{isSavingIntegration ? "Saving..." : "Save Telegram config"}</button>
+                        <button type="button" onClick={() => saveSecret("telegram")} disabled={isSavingSecret.telegram} className="px-3 py-2 rounded-md border border-border text-sm font-semibold disabled:opacity-60">{isSavingSecret.telegram ? "Saving..." : "Rotate Telegram secrets"}</button>
+                        <button type="button" onClick={() => saveIntegration("telegram")} disabled={isSavingIntegration.telegram} className="px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-60">{isSavingIntegration.telegram ? "Saving..." : "Save Telegram config"}</button>
                         <button type="button" onClick={sendTelegramTest} disabled={isSendingTelegramTest} className="px-3 py-2 rounded-md border border-border text-sm font-semibold disabled:opacity-60">{isSendingTelegramTest ? "Sending..." : "Send test message"}</button>
                     </div>
                 </div>

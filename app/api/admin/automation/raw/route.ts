@@ -17,6 +17,7 @@ export async function GET(request: Request) {
     const excludeKeywords = searchParams.get("excludeKeywords") || "";
     const aiInstructions = searchParams.get("aiInstructions") || "";
     const aiStrictMode = searchParams.get("aiStrictMode") === "true";
+    const applyFilters = searchParams.get("applyFilters") === "1";
 
     const include = normalizeKeywords(includeKeywords);
     const exclude = normalizeKeywords(excludeKeywords);
@@ -36,9 +37,9 @@ export async function GET(request: Request) {
       take: 100,
     });
 
-    const filteredItems = items.filter((item) =>
-      matchesRequirements(item, effectiveInclude, exclude),
-    );
+    const filteredItems = applyFilters
+      ? items.filter((item) => matchesRequirements(item, effectiveInclude, exclude))
+      : items;
 
     return NextResponse.json({
       items: filteredItems,
