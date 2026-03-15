@@ -2,6 +2,7 @@
 
 import { Mail, Phone, MapPin } from "lucide-react";
 import { useGlobalContext } from "@/lib/context";
+import Image from "next/image";
 
 export default function AboutPage() {
   const { aboutContent, aboutConfig, language } = useGlobalContext();
@@ -50,10 +51,12 @@ export default function AboutPage() {
           </div>
         </div>
         <div className="aspect-square relative rounded-2xl overflow-hidden bg-muted">
-          <img
+          <Image
             src={aboutContent?.image || "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=2670&auto=format&fit=crop"}
             alt="Editorial Team working together"
-            className="object-cover w-full h-full"
+            fill
+            sizes="(max-width: 768px) 100vw, 50vw"
+            className="object-cover"
           />
         </div>
       </div>
@@ -64,10 +67,12 @@ export default function AboutPage() {
           {team.map((member, i) => (
             <div key={i} className="text-center group">
               <div className="aspect-square rounded-full overflow-hidden mx-auto mb-4 border-2 border-border/40 w-32 h-32 relative">
-                <img
+                <Image
                   src={member.image}
                   alt={member.name}
-                  className="object-cover w-full h-full group-hover:scale-110 transition-transform duration-500"
+                  fill
+                  sizes="128px"
+                  className="object-cover group-hover:scale-110 transition-transform duration-500"
                 />
               </div>
               <h3 className="font-bold text-lg">{member.name}</h3>

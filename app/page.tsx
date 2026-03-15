@@ -5,7 +5,7 @@ import { Play, TrendingUp, Clock, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { getMediaPreviewUrl, hasMediaCategory } from "@/lib/media-utils";
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 
 function getArticleCategories(article: Article): string[] {
   const relationNames = (article.categories || []).map((c) => c.name).filter(Boolean);
@@ -60,34 +60,13 @@ function getTopCategoryNames(articles: Article[], limit: number) {
 
 export default function Home() {
   const { articles, isLoading, media, language, addSubscriber } = useGlobalContext();
-  const [homeArticles, setHomeArticles] = useState<Article[]>([]);
   const [newsletterMessage, setNewsletterMessage] = useState<"" | "thanks" | "animating">("");
   const [newsletterDismissed, setNewsletterDismissed] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     return localStorage.getItem("newsletter-hidden") === "1" || localStorage.getItem("newsletter-signed") === "1";
   });
 
-  useEffect(() => {
-    let cancelled = false;
-    const loadMoreArticles = async () => {
-      try {
-        const res = await fetch("/api/frontend/articles?page=1&limit=120");
-        const data = await res.json();
-        if (!cancelled && res.ok) {
-          setHomeArticles((data?.articles || []) as Article[]);
-        }
-      } catch {
-        // keep fallback to context articles
-      }
-    };
-
-    loadMoreArticles();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const sourceArticles = homeArticles.length > 0 ? homeArticles : articles;
+  const sourceArticles = articles;
 
   const featuredArticle = sourceArticles[0];
   const trendingNews = sourceArticles.slice(4, 14);
