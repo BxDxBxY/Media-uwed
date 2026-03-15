@@ -12,24 +12,24 @@ type VisitsDetail = {
   windowDays: number;
 };
 
-const GEO_COORDS: Record<string, { x: number; y: number }> = {
-  US: { x: 20, y: 33 },
-  CA: { x: 20, y: 24 },
-  MX: { x: 19, y: 42 },
-  BR: { x: 30, y: 63 },
-  AR: { x: 29, y: 76 },
-  GB: { x: 48, y: 27 },
-  FR: { x: 50, y: 32 },
-  DE: { x: 52, y: 30 },
-  ES: { x: 48, y: 37 },
-  RU: { x: 65, y: 22 },
-  TR: { x: 57, y: 38 },
-  UZ: { x: 62, y: 36 },
-  KZ: { x: 63, y: 30 },
-  IN: { x: 68, y: 46 },
-  CN: { x: 74, y: 36 },
-  SG: { x: 76, y: 58 },
-  AU: { x: 82, y: 74 },
+const GEO_COORDS: Record<string, { x: number; y: number; w: number; h: number }> = {
+  US: { x: 10, y: 24, w: 8, h: 5 },
+  CA: { x: 10, y: 18, w: 8, h: 5 },
+  MX: { x: 12, y: 30, w: 6, h: 4 },
+  BR: { x: 24, y: 38, w: 8, h: 8 },
+  AR: { x: 26, y: 49, w: 6, h: 7 },
+  GB: { x: 46, y: 20, w: 4, h: 4 },
+  FR: { x: 48, y: 24, w: 5, h: 4 },
+  DE: { x: 53, y: 23, w: 5, h: 4 },
+  ES: { x: 46, y: 28, w: 5, h: 4 },
+  RU: { x: 60, y: 16, w: 20, h: 8 },
+  TR: { x: 56, y: 28, w: 6, h: 4 },
+  UZ: { x: 64, y: 26, w: 6, h: 4 },
+  KZ: { x: 66, y: 21, w: 10, h: 4 },
+  IN: { x: 66, y: 34, w: 7, h: 7 },
+  CN: { x: 74, y: 28, w: 10, h: 7 },
+  SG: { x: 76, y: 40, w: 4, h: 4 },
+  AU: { x: 82, y: 48, w: 10, h: 8 },
 };
 
 function countryName(code: string) {
@@ -45,7 +45,7 @@ function getMarkerPosition(code: string, index: number) {
   if (GEO_COORDS[code]) return GEO_COORDS[code];
   const row = Math.floor(index / 7);
   const col = index % 7;
-  return { x: 9 + col * 12.5, y: 83 + row * 7 };
+  return { x: 6 + col * 12.5, y: 52 + row * 6, w: 8, h: 4 };
 }
 
 export default function VisitsDetailPage() {
@@ -115,12 +115,22 @@ export default function VisitsDetailPage() {
 
               {(data?.countries || []).slice(0, 24).map((entry, index) => {
                 const pos = getMarkerPosition(entry.country, index);
-                const intensity = 0.25 + (entry.visits / maxCountry) * 0.75;
-                const radius = 1.2 + (entry.visits / maxCountry) * 2.5;
+                const intensity = 0.2 + (entry.visits / maxCountry) * 0.8;
                 return (
                   <g key={entry.country}>
-                    <circle cx={pos.x} cy={pos.y} r={radius + 1.2} fill={`hsl(var(--primary) / ${intensity * 0.15})`} />
-                    <circle cx={pos.x} cy={pos.y} r={radius} fill={`hsl(var(--primary) / ${intensity})`} stroke="hsl(var(--primary))" strokeWidth="0.35" />
+                    <rect
+                      x={pos.x}
+                      y={pos.y}
+                      width={pos.w}
+                      height={pos.h}
+                      rx="1"
+                      fill={`hsl(var(--primary) / ${intensity})`}
+                      stroke="hsl(var(--primary) / 0.95)"
+                      strokeWidth="0.35"
+                    />
+                    <text x={pos.x + pos.w / 2} y={pos.y + pos.h / 2 + 0.6} textAnchor="middle" fontSize="1.6" fill="hsl(var(--primary-foreground))" style={{ fontWeight: 700 }}>
+                      {entry.country}
+                    </text>
                   </g>
                 );
               })}

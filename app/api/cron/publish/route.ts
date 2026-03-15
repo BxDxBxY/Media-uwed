@@ -147,7 +147,7 @@ export async function POST(request: Request) {
             contentRu: contentRu,
             contentUz: contentUz,
             slug,
-            image: item.raw.imageUrl || `https://picsum.photos/seed/${item.id}/800/600`,
+            image: item.raw.imageUrl || "",
             author: item.raw.author || item.raw.source.name || "Global Media",
             url: item.raw.url,
             date: new Date().toLocaleDateString("en-US", {
@@ -178,12 +178,13 @@ export async function POST(request: Request) {
               summaryUz: item.summaryUz || item.summaryEn,
             });
 
+            logger.info("Publishing article to Telegram", { itemId: item.id, hasImage: Boolean(article.image), chatId: telegramIntegration.channelId.trim() });
             await sendTelegramMessage({
               botToken: telegramBotToken,
               chatId: telegramIntegration.channelId.trim(),
               text: telegramMessage,
               photoUrl: article.image,
-              parseMode: "HTML",
+              parseMode: undefined,
               disableWebPagePreview: false,
               retries: telegramIntegration.retryLimit,
               buttonText: "Read on website",
@@ -195,7 +196,7 @@ export async function POST(request: Request) {
               itemId: item.id,
               error: telegramError instanceof Error ? telegramError.message : String(telegramError),
             });
-            errors.push(`Item ${item.id}: published but Telegram delivery failed`);
+            errors.push(`Item ${item.id}: published but Telegram delivery failed (${telegramError instanceof Error ? telegramError.message : String(telegramError)})`);
           }
         }
 

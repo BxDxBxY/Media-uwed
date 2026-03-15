@@ -75,7 +75,7 @@ export default function AutomationPage() {
     });
     const [showRequirements, setShowRequirements] = useState(false);
     const [showFeedManagement, setShowFeedManagement] = useState(false);
-    const [showPipelineSettings, setShowPipelineSettings] = useState(false);
+    const [showPipelineSettings, setShowPipelineSettings] = useState(true);
     const [isRetranslating, setIsRetranslating] = useState(false);
     const [isPublishingSingle, setIsPublishingSingle] = useState(false);
 
@@ -773,7 +773,7 @@ export default function AutomationPage() {
                         <span className="font-semibold">{translationProgress}%</span>
                     </div>
                     <div className="h-2 rounded-full bg-muted overflow-hidden">
-                        <div className="h-full bg-primary transition-all duration-500" style={{ width: `${translationProgress}%` }} />
+                        <div className="h-full bg-gradient-to-r from-blue-500 to-blue-400 transition-all duration-500" style={{ width: `${translationProgress}%` }} />
                     </div>
                 </div>
             )}

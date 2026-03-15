@@ -151,6 +151,9 @@ function isRefusalLike(text: string): boolean {
     "unable to assist",
     "cannot comply",
     "i'm not able to",
+    "i cannot fulfill",
+    "policy",
+    "cannot provide",
   ].some((phrase) => normalized.includes(phrase));
 }
 
@@ -298,6 +301,24 @@ async function translateWithPivot(
   return cleanText(pivoted) || primary;
 }
 
+
+function summarizeToTwoParagraphs(text: string): string {
+  const cleaned = cleanText(text);
+  if (!cleaned) return "";
+
+  const sentences = cleaned.split(/(?<=[.!?])\s+/).filter(Boolean);
+  const selected = sentences.slice(0, 8).join(" " );
+  const capped = selected.length > 900 ? `${selected.slice(0, 897).trim()}...` : selected;
+
+  const midpoint = Math.ceil(capped.length / 2);
+  const splitAt = capped.indexOf(". ", midpoint);
+  if (splitAt > 0 && splitAt < capped.length - 3) {
+    return `${capped.slice(0, splitAt + 1).trim()}\n\n${capped.slice(splitAt + 2).trim()}`;
+  }
+
+  return capped;
+}
+
 function detectCategories(title: string, description: string): string[] {
   const t = `${title} ${description}`.toLowerCase();
   const cats: string[] = [];
@@ -343,7 +364,7 @@ function detectCategories(title: string, description: string): string[] {
   if (/\bworld|international|global|foreign\b/.test(t)) add("World");
 
   if (cats.length === 0) add("News");
-  return cats.slice(0, 5);
+  return cats.slice(0, 3);
 }
 
 export async function processNewsAI(
@@ -357,8 +378,8 @@ export async function processNewsAI(
     const src = sourceLanguage;
 
     const rewrittenTitle = paraphraseBasic(title);
-    const rewrittenSummary = paraphraseBasic(description || title);
-    const rewrittenContent = paraphraseBasic(detailedContent || description || title);
+    const rewrittenSummary = summarizeToTwoParagraphs(paraphraseBasic(description || title));
+    const rewrittenContent = summarizeToTwoParagraphs(paraphraseBasic(detailedContent || description || title));
 
     const translationPolicy = taskConfig.translationPolicy ?? "full";
 
@@ -393,9 +414,9 @@ export async function processNewsAI(
     const summarySource = taskConfig.summarizationEnabled === false ? title : description || title;
     const normalizedSummary = paraphraseBasic(summarySource);
 
-    const finalSummaryEn = taskConfig.summarizationEnabled === false ? polishText(title) : polishText(summaryEn || normalizedSummary);
-    const finalSummaryRu = taskConfig.summarizationEnabled === false ? polishText(headlineRu) : polishText(summaryRu || normalizedSummary);
-    const finalSummaryUz = taskConfig.summarizationEnabled === false ? polishText(headlineUz) : polishText(summaryUz || normalizedSummary);
+    const finalSummaryEn = taskConfig.summarizationEnabled === false ? polishText(title) : summarizeToTwoParagraphs(polishText(summaryEn || normalizedSummary));
+    const finalSummaryRu = taskConfig.summarizationEnabled === false ? polishText(headlineRu) : summarizeToTwoParagraphs(polishText(summaryRu || normalizedSummary));
+    const finalSummaryUz = taskConfig.summarizationEnabled === false ? polishText(headlineUz) : summarizeToTwoParagraphs(polishText(summaryUz || normalizedSummary));
 
     const categories = taskConfig.categorizationEnabled === false
       ? ["News"]
@@ -408,9 +429,9 @@ export async function processNewsAI(
       summaryEn: finalSummaryEn,
       summaryRu: finalSummaryRu,
       summaryUz: finalSummaryUz,
-      contentEn: polishText(contentEn),
-      contentRu: polishText(contentRu),
-      contentUz: polishText(contentUz),
+      contentEn: summarizeToTwoParagraphs(polishText(contentEn)),
+      contentRu: summarizeToTwoParagraphs(polishText(contentRu)),
+      contentUz: summarizeToTwoParagraphs(polishText(contentUz)),
       categories,
     };
   } catch (error) {

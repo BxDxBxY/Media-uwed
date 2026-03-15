@@ -1,11 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { fetchMultipleFeeds } from "@/lib/rss";
-import {
-  deriveTermsFromInstructions,
-  matchesRequirements,
-  normalizeKeywords,
-} from "@/lib/automation-filters";
+import { matchesRequirements, normalizeKeywords } from "@/lib/automation-filters";
 
 export const maxDuration = 60; // Allow up to 60 seconds for this endpoint
 
@@ -16,26 +12,18 @@ export async function POST(request: Request) {
     const {
       includeKeywords,
       excludeKeywords,
-      aiInstructions,
-      aiStrictMode,
     } = await request.json().catch(() => ({
       includeKeywords: [],
       excludeKeywords: [],
-      aiInstructions: "",
-      aiStrictMode: false,
     }));
 
     const automationSettings = await prisma.automationConfig.findUnique({ where: { id: "default" } });
 
     const includeSource = includeKeywords ?? automationSettings?.includeKeywords ?? "";
     const excludeSource = excludeKeywords ?? automationSettings?.excludeKeywords ?? "";
-    const instructionsSource = aiInstructions ?? automationSettings?.aiInstructions ?? "";
-    const strictSource = typeof aiStrictMode === "boolean" ? aiStrictMode : Boolean(automationSettings?.aiStrictMode);
-
     const include = normalizeKeywords(includeSource);
     const exclude = normalizeKeywords(excludeSource);
-    const instructionTerms = deriveTermsFromInstructions(String(instructionsSource || ""));
-    const effectiveInclude = strictSource ? [...new Set([...include, ...instructionTerms])] : include;
+    const effectiveInclude = include;
 
     const sources = await prisma.source.findMany({
       where: { enabled: true },

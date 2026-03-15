@@ -130,11 +130,7 @@ export default function ArticlePage() {
   const extracted = extractInlineImageUrls(content);
   const cleanDisplayContent = stripInlineImageUrls(content);
   const contentBlocks = splitReadableParagraphs(cleanDisplayContent).map((line) => polishText(line)).filter(Boolean);
-  const fallbackInline = [
-    `https://picsum.photos/seed/${article.id}-inline-1/1200/700`,
-    `https://picsum.photos/seed/${article.id}-inline-2/1200/700`,
-  ];
-  const inlineImages = Array.from(new Set([article.image, ...extracted, ...fallbackInline])).slice(0, 3);
+  const inlineImages = Array.from(new Set([article.image, ...extracted].filter(Boolean) as string[])).slice(0, 3);
 
   const relatedArticles = articles
     .filter((a) => a.id !== article.id)
@@ -190,7 +186,11 @@ export default function ArticlePage() {
 
         <figure className="max-w-6xl mx-auto mb-12">
           <div className="aspect-[21/9] rounded-3xl overflow-hidden border border-border/40 shadow-xl relative">
-            <Image src={article.image} alt={title} fill unoptimized sizes="100vw" className="object-cover" />
+            {article.image ? (
+              <Image src={article.image} alt={title} fill unoptimized sizes="100vw" className="object-cover" />
+            ) : (
+              <div className="h-full w-full bg-gradient-to-br from-muted to-muted/40" />
+            )}
           </div>
           {imageCaption && <figcaption className="mt-4 text-center text-sm text-muted-foreground font-serif italic">{imageCaption}</figcaption>}
         </figure>
