@@ -1,7 +1,7 @@
 "use client";
 
 import { type Article, useGlobalContext } from "@/lib/context";
-import { Loader2, ArrowRight, Grid, List as ListIcon, Filter, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { Loader2, ArrowRight, Grid, List as ListIcon, Filter, ChevronLeft, ChevronRight } from "lucide-react";
 import { useMemo, useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -124,6 +124,20 @@ export default function NewsPage() {
   }, [loadArticles]);
 
   useEffect(() => {
+    const urlCategory = searchParams.get("category") || "All";
+    const urlQuery = searchParams.get("q") || "";
+    const urlDateFrom = searchParams.get("dateFrom") || "";
+    const urlDateTo = searchParams.get("dateTo") || "";
+    const urlPage = Number(searchParams.get("page") || "1");
+
+    setActiveCategory((prev) => (prev === urlCategory ? prev : urlCategory));
+    setSearchText((prev) => (prev === urlQuery ? prev : urlQuery));
+    setDateFrom((prev) => (prev === urlDateFrom ? prev : urlDateFrom));
+    setDateTo((prev) => (prev === urlDateTo ? prev : urlDateTo));
+    setCurrentPage((prev) => (prev === urlPage ? prev : urlPage));
+  }, [searchParams]);
+
+  useEffect(() => {
     setCurrentPage(1);
   }, [activeCategory, searchText, dateFrom, dateTo]);
 
@@ -144,24 +158,13 @@ export default function NewsPage() {
         <h1 className="text-3xl md:text-6xl font-serif font-bold mb-6">News Archive</h1>
 
         <div className="flex flex-col gap-4 bg-card p-4 md:p-6 rounded-2xl border border-border/40 shadow-sm">
-          <div className="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
-            <div className="w-full md:max-w-md relative">
-              <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <input
-                value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
-                placeholder="Search news..."
-                className="w-full rounded-lg border border-input bg-background pl-9 pr-3 py-2 text-sm"
-              />
-            </div>
-            <div className="flex items-center gap-2 self-end md:self-auto">
-              <button onClick={() => setShowCategories((prev) => !prev)} className="inline-flex items-center gap-2 rounded-lg border border-border/60 px-3 py-1.5 text-sm font-semibold hover:bg-muted/60">
-                <Filter className="h-4 w-4" /> {showCategories ? "Hide filters" : "Show filters"}
-              </button>
-              <div className="flex bg-muted p-1 rounded-lg">
-                <button onClick={() => setViewMode("grid")} className={`p-1.5 rounded-md transition-all ${viewMode === "grid" ? "bg-background shadow-sm text-primary" : "text-muted-foreground"}`}><Grid className="h-4 w-4" /></button>
-                <button onClick={() => setViewMode("list")} className={`p-1.5 rounded-md transition-all ${viewMode === "list" ? "bg-background shadow-sm text-primary" : "text-muted-foreground"}`}><ListIcon className="h-4 w-4" /></button>
-              </div>
+          <div className="flex items-center gap-2 self-end md:self-auto justify-end">
+            <button onClick={() => setShowCategories((prev) => !prev)} className="inline-flex items-center gap-2 rounded-lg border border-border/60 px-3 py-1.5 text-sm font-semibold hover:bg-muted/60">
+              <Filter className="h-4 w-4" /> {showCategories ? "Hide filters" : "Show filters"}
+            </button>
+            <div className="flex bg-muted p-1 rounded-lg">
+              <button onClick={() => setViewMode("grid")} className={`p-1.5 rounded-md transition-all ${viewMode === "grid" ? "bg-background shadow-sm text-primary" : "text-muted-foreground"}`}><Grid className="h-4 w-4" /></button>
+              <button onClick={() => setViewMode("list")} className={`p-1.5 rounded-md transition-all ${viewMode === "list" ? "bg-background shadow-sm text-primary" : "text-muted-foreground"}`}><ListIcon className="h-4 w-4" /></button>
             </div>
           </div>
 

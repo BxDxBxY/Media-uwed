@@ -61,7 +61,7 @@ function getTopCategoryNames(articles: Article[], limit: number) {
 export default function Home() {
   const { articles, isLoading, media, language, addSubscriber } = useGlobalContext();
   const [homeArticles, setHomeArticles] = useState<Article[]>([]);
-  const [newsletterMessage, setNewsletterMessage] = useState<"" | "thanks">("");
+  const [newsletterMessage, setNewsletterMessage] = useState<"" | "thanks" | "animating">("");
   const [newsletterDismissed, setNewsletterDismissed] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     return localStorage.getItem("newsletter-hidden") === "1" || localStorage.getItem("newsletter-signed") === "1";
@@ -156,14 +156,12 @@ export default function Home() {
     [media],
   );
 
-  const universityVideos = homeVisibleMedia
-    .filter((item) => item.type === "video" && hasMediaCategory(item.category, "university"))
-    .slice(0, 3);
+  const featuredImages = homeVisibleMedia.filter((item) => item.type === "image").slice(0, 4);
+  const featuredImageIds = new Set(featuredImages.map((item) => item.id));
 
-  const universityVideoIds = new Set(universityVideos.map((item) => item.id));
-  const cleanedFeaturedMedia = homeVisibleMedia.filter((item) => !universityVideoIds.has(item.id)).slice(0, 4);
-  const featuredMediaIds = new Set(cleanedFeaturedMedia.map((item) => item.id));
-  const latestVideos = (universityVideos.length > 0 ? universityVideos : homeVisibleMedia.filter((m) => m.type === "video" && !featuredMediaIds.has(m.id))).slice(0, 3);
+  const latestVideos = homeVisibleMedia
+    .filter((item) => item.type === "video" && !featuredImageIds.has(item.id))
+    .slice(0, 3);
 
   const heroBackground = media.find((item) => hasMediaCategory(item.category, "hero-banner")) || null;
   const heroSide = media.find((item) => hasMediaCategory(item.category, "hero-side")) || null;
@@ -184,7 +182,7 @@ export default function Home() {
     subscribe: language === "ru" ? "Подписаться" : language === "uz" ? "Obuna bo'lish" : "Subscribe",
     mediaHighlights: language === "ru" ? "Мультимедиа" : language === "uz" ? "Media lavhalar" : "Multimedia Highlights",
     mediaDesc: language === "ru" ? "Жизнь университета в кадре." : language === "uz" ? "Universitet hayoti kadrda." : "University life in motion and pictures.",
-    latestVideos: language === "ru" ? "Последние университетские видео" : language === "uz" ? "So'nggi universitet videolari" : "Latest University Videos",
+    latestVideos: language === "ru" ? "Последние видео" : language === "uz" ? "So'nggi videolar" : "Latest Videos",
   };
 
   if (isLoading && sourceArticles.length === 0) {
@@ -262,12 +260,18 @@ export default function Home() {
                 if (email) {
                   addSubscriber(email);
                   localStorage.setItem("newsletter-signed", "1");
-                  setNewsletterDismissed(true);
-                  setNewsletterMessage("thanks");
+                  setNewsletterMessage("animating");
                   (e.target as HTMLFormElement).reset();
+                  window.setTimeout(() => {
+                    setNewsletterMessage("thanks");
+                  }, 180);
+                  window.setTimeout(() => {
+                    setNewsletterDismissed(true);
+                    setNewsletterMessage("");
+                  }, 2200);
                 }
               }}
-              className="rounded-2xl border border-border/50 bg-card p-5 space-y-4"
+              className="relative overflow-hidden rounded-2xl border border-border/50 bg-card p-5 space-y-4"
             >
               <div className="flex justify-end">
                 <button type="button" className="text-xs text-muted-foreground hover:text-foreground" onClick={() => { localStorage.setItem("newsletter-hidden", "1"); setNewsletterDismissed(true); }}>✕</button>
@@ -276,16 +280,13 @@ export default function Home() {
               <p className="text-muted-foreground">{t.joinDesc}</p>
               <input name="email" type="email" required placeholder={t.email} className="w-full rounded-lg border border-input bg-background px-3 py-2" />
               <button type="submit" className="w-full rounded-lg bg-primary text-primary-foreground py-2 font-bold">{t.subscribe}</button>
-            </form> : null}
 
-            {newsletterMessage === "thanks" && (
-              <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">Thank you for subscribing! 🎉</p>
-                  <button className="text-xs text-emerald-700 dark:text-emerald-300" onClick={() => setNewsletterMessage("")}>✕</button>
+              {(newsletterMessage === "animating" || newsletterMessage === "thanks") && (
+                <div className="absolute inset-0 bg-background dark:bg-card/95 flex items-center justify-center transition-opacity duration-500 animate-in fade-in">
+                  <p className="text-base font-semibold text-foreground">Submitted. Thank you!</p>
                 </div>
-              </div>
-            )}
+              )}
+            </form> : null}
           </div>
         </div>
       </section>
@@ -377,7 +378,7 @@ export default function Home() {
           <Link href="/media" className="bg-primary/10 text-primary px-5 py-2 rounded-full font-bold text-sm hover:bg-primary/20 transition-colors">{t.viewAll}</Link>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {cleanedFeaturedMedia.map((item) => (
+          {featuredImages.map((item) => (
             <Link key={item.id} href="/media" className="group relative aspect-[4/3] rounded-3xl overflow-hidden border border-border/40 bg-muted">
               <Image src={getMediaPreviewUrl(item)} alt={item.title} fill unoptimized sizes="(max-width: 768px) 100vw, 33vw" className="object-cover transition-transform duration-700 group-hover:scale-110" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity" />
