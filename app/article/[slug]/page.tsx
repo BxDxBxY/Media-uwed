@@ -1,6 +1,6 @@
 "use client";
 
-import { useGlobalContext } from "@/lib/context";
+import { useGlobalContext, type Article } from "@/lib/context";
 import { polishText } from "@/lib/text-clean";
 import { useParams, useRouter } from "next/navigation";
 import { Clock, Share2, ArrowLeft, Bookmark, MessageSquare, Loader2 } from "lucide-react";
@@ -44,8 +44,45 @@ export default function ArticlePage() {
   const { articles, isLoading, language, recordArticleView } = useGlobalContext();
   const router = useRouter();
   const [fontScale, setFontScale] = useState<"md" | "lg">("lg");
+  const [fullArticle, setFullArticle] = useState<Article | null>(null);
+  const [isArticleLoading, setIsArticleLoading] = useState(false);
 
-  const article = articles.find((a) => a.slug === slug);
+  const article = fullArticle || articles.find((a) => a.slug === slug);
+
+  useEffect(() => {
+    let isCancelled = false;
+    setFullArticle(null);
+
+    const fetchArticleBySlug = async () => {
+      if (!slug) return;
+
+      const baseArticle = articles.find((a) => a.slug === slug);
+      if (baseArticle && (baseArticle as any).content) {
+        setFullArticle(baseArticle);
+        return;
+      }
+
+      setIsArticleLoading(true);
+      try {
+        const res = await fetch(`/api/frontend/articles?slug=${encodeURIComponent(slug)}&full=1`);
+        const data = await res.json();
+
+        if (!isCancelled && res.ok && data?.article) {
+          setFullArticle(data.article);
+        }
+      } catch (error) {
+        console.error("Failed to load full article", error);
+      } finally {
+        if (!isCancelled) setIsArticleLoading(false);
+      }
+    };
+
+    fetchArticleBySlug();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [slug, articles]);
 
   useEffect(() => {
     if (article?.id && recordArticleView) {
@@ -53,7 +90,7 @@ export default function ArticlePage() {
     }
   }, [article?.id, recordArticleView]);
 
-  if (isLoading) {
+  if (isLoading || isArticleLoading) {
     return (
       <div className="container mx-auto px-4 py-20 text-center">
         <Loader2 className="h-10 w-10 animate-spin mx-auto text-primary mb-4" />
