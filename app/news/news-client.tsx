@@ -201,21 +201,21 @@ export default function NewsPage() {
       </header>
 
       {viewMode === "grid" ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {articles.map((article) => (
-            <Link key={article.id} href={`/article/${article.slug}`} className="group flex flex-col h-full bg-card rounded-2xl border border-border/40 overflow-hidden hover:shadow-xl transition-all duration-300">
-              <div className="aspect-[16/10] overflow-hidden relative">
+            <Link key={article.id} href={`/article/${article.slug}`} className="group flex flex-col h-full bg-card rounded-xl border border-border/40 overflow-hidden hover:shadow-lg transition-all duration-300">
+              <div className="aspect-[16/11] overflow-hidden relative">
                 <Image src={article.image} alt={article.title} fill unoptimized sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" className="object-cover transition-transform duration-500 group-hover:scale-105" />
               </div>
-              <div className="p-6 flex flex-col flex-1">
+              <div className="p-4 flex flex-col flex-1">
                 <div className="flex items-center gap-2 mb-3 flex-wrap">
                   {articleCategories(article).slice(0, 2).map((cat) => (
                     <span key={`${article.id}-${cat}`} className="text-[10px] font-black uppercase tracking-widest text-primary">{cat}</span>
                   ))}
                   <span className="text-[10px] text-muted-foreground font-bold">• {article.date}</span>
                 </div>
-                <h3 className="text-xl font-bold mb-3 group-hover:text-primary transition-colors line-clamp-2 leading-tight">{getLocalized(article, "title")}</h3>
-                <p className="text-muted-foreground text-sm line-clamp-3 mb-6 flex-1">{getLocalized(article, "summary")}</p>
+                <h3 className="text-lg font-bold mb-2 group-hover:text-primary transition-colors line-clamp-2 leading-tight">{getLocalized(article, "title")}</h3>
+                <p className="text-muted-foreground text-sm line-clamp-2 mb-4 flex-1">{getLocalized(article, "summary")}</p>
                 <div className="flex items-center justify-between pt-4 border-t border-border/40 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                   <span>By {article.author}</span>
                   <span className="flex items-center gap-1 group-hover:text-primary transition-colors">Read More <ArrowRight className="h-3 w-3" /></span>
@@ -225,10 +225,10 @@ export default function NewsPage() {
           ))}
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-4">
           {articles.map((article) => (
-            <Link key={article.id} href={`/article/${article.slug}`} className="group flex flex-col md:flex-row gap-6 bg-card p-4 rounded-2xl border border-border/40 hover:shadow-lg transition-all">
-              <div className="w-full md:w-64 aspect-[16/10] md:aspect-square shrink-0 rounded-xl overflow-hidden relative">
+            <Link key={article.id} href={`/article/${article.slug}`} className="group flex flex-col md:flex-row gap-4 bg-card p-3 rounded-xl border border-border/40 hover:shadow-md transition-all">
+              <div className="w-full md:w-52 aspect-[16/11] md:aspect-[4/3] shrink-0 rounded-lg overflow-hidden relative">
                 <Image src={article.image} alt={article.title} fill unoptimized sizes="(max-width: 768px) 100vw, 256px" className="object-cover group-hover:scale-105 transition-transform" />
               </div>
               <div className="flex flex-col justify-center flex-1">
@@ -238,7 +238,7 @@ export default function NewsPage() {
                   ))}
                   <span className="text-[10px] text-muted-foreground font-bold">• {article.date}</span>
                 </div>
-                <h3 className="text-2xl font-bold mb-3 group-hover:text-primary transition-colors">{getLocalized(article, "title")}</h3>
+                <h3 className="text-xl font-bold mb-2 group-hover:text-primary transition-colors">{getLocalized(article, "title")}</h3>
                 <p className="text-muted-foreground mb-4 line-clamp-2">{getLocalized(article, "summary")}</p>
                 <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">By {article.author}</span>
               </div>

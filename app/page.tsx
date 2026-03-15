@@ -5,6 +5,7 @@ import { Play, TrendingUp, Clock, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { getMediaPreviewUrl, hasMediaCategory } from "@/lib/media-utils";
+import { useEffect, useState, type CSSProperties } from "react";
 
 function getArticleCategories(article: Article): string[] {
   const relationNames = (article.categories || []).map((c) => c.name).filter(Boolean);
@@ -44,12 +45,14 @@ function uniqueById<T extends { id: string }>(arr: T[]) {
 
 export default function Home() {
   const { articles, isLoading, media, language, addSubscriber } = useGlobalContext();
+  const [newsletterMessage, setNewsletterMessage] = useState<"" | "thanks">("");
+  const [newsletterDismissed, setNewsletterDismissed] = useState(false);
 
   const featuredArticle = articles[0];
   const trendingNews = articles.slice(4, 14); // up to ten items
   const breakingItems = articles.slice(0, 6);
   const breakingCharacters = breakingItems.reduce((sum, item) => sum + localizedText(item, language, "title").length, 0);
-  const tickerDuration = Math.max(48, Math.round(breakingCharacters * 0.9));
+  const tickerDuration = Math.min(46, Math.max(28, Math.round(breakingCharacters * 0.45)));
 
   const categoryPools = [
     { key: "World", title: language === "ru" ? "Мир и политика" : language === "uz" ? "Jahon va siyosat" : "World & Policy", source: byCategory(articles, "World"), reverse: false },
@@ -58,8 +61,9 @@ export default function Home() {
   ];
 
   const used = new Set<string>();
-  const structuredBlocks = categoryPools.map((pool, idx) => {
-    const candidates = pool.source.length > 0 ? pool.source : articles.slice(idx * 6, idx * 6 + 10);
+  const structuredBlocks = categoryPools
+    .map((pool) => {
+    const candidates = pool.source;
     const picked: Article[] = [];
 
     for (const item of candidates) {
@@ -70,7 +74,8 @@ export default function Home() {
     }
 
     return { key: pool.key, title: pool.title, items: picked, reverse: pool.reverse };
-  });
+  })
+    .filter((block) => block.items.length > 0);
 
   const hiddenHomeCategories = new Set(["hero-side", "hero-banner"]);
   const homeVisibleMedia = media.filter((m) => ![...hiddenHomeCategories].some((cat) => hasMediaCategory(m.category, cat)));
@@ -89,22 +94,22 @@ export default function Home() {
     {
       key: "University",
       title: language === "ru" ? "Новости кампуса" : language === "uz" ? "Kampus yangiliklari" : "Campus News",
-      source: byCategory(articles, "University").length ? byCategory(articles, "University") : articles,
+      source: byCategory(articles, "University"),
     },
     {
       key: "World",
       title: language === "ru" ? "Мир" : language === "uz" ? "Jahon" : "World",
-      source: byCategory(articles, "World").length ? byCategory(articles, "World") : articles.slice(3),
+      source: byCategory(articles, "World"),
     },
     {
       key: "Economy",
       title: language === "ru" ? "Бизнес" : language === "uz" ? "Biznes" : "Business",
-      source: byCategory(articles, "Economy").length ? byCategory(articles, "Economy") : articles.slice(6),
+      source: byCategory(articles, "Economy"),
     },
     {
       key: "Sports",
       title: language === "ru" ? "Спорт" : language === "uz" ? "Sport" : "Sport",
-      source: byCategory(articles, "Sports").length ? byCategory(articles, "Sports") : articles.slice(9),
+      source: byCategory(articles, "Sports"),
     },
   ];
 
@@ -119,7 +124,15 @@ export default function Home() {
     }
 
     return { key: pool.key, title: pool.title, items };
-  });
+  }).filter((section) => section.items.length > 0);
+
+  const heroText = media.find((item) => hasMediaCategory(item.category, "hero-text")) || null;
+
+  useEffect(() => {
+    const hidden = localStorage.getItem("newsletter-hidden") === "1";
+    const signed = localStorage.getItem("newsletter-signed") === "1";
+    setNewsletterDismissed(hidden || signed);
+  }, []);
 
   const t = {
     breaking: language === "ru" ? "Срочно" : language === "uz" ? "Shoshilinch" : "Breaking",
@@ -156,7 +169,7 @@ export default function Home() {
         <div className="container mx-auto px-4 flex items-center gap-3">
           <span className="bg-primary/15 text-primary text-[10px] font-black uppercase px-2 py-0.5 rounded whitespace-nowrap animate-pulse">{t.breaking}</span>
           <div className="flex-1 overflow-hidden">
-            <div className="ticker-track text-sm font-medium whitespace-nowrap inline-flex gap-10" style={{ ["--ticker-duration" as any]: `${tickerDuration}s` }}>
+            <div className="ticker-track text-sm font-medium whitespace-nowrap inline-flex gap-10" style={{ "--ticker-duration": `${tickerDuration}s` } as CSSProperties}>
               {[...breakingItems, ...breakingItems].map((item, index) => (
                 <Link key={`${item.id}-${index}`} href={`/article/${item.slug}`} className="hover:text-primary transition-colors">
                   {localizedText(item, language, "title")}
@@ -206,22 +219,37 @@ export default function Home() {
               ))}
             </div>
 
-            <form
+            {!newsletterDismissed ? <form
               onSubmit={(e) => {
                 e.preventDefault();
-                const email = (e.currentTarget.elements as any).email.value;
+                const emailInput = e.currentTarget.querySelector('input[name="email"]') as HTMLInputElement | null;
+                const email = emailInput?.value || "";
                 if (email) {
                   addSubscriber(email);
+                  localStorage.setItem("newsletter-signed", "1");
+                  setNewsletterMessage("thanks");
                   (e.target as HTMLFormElement).reset();
                 }
               }}
               className="rounded-2xl border border-border/50 bg-card p-5 space-y-4"
             >
+              <div className="flex justify-end">
+                <button type="button" className="text-xs text-muted-foreground hover:text-foreground" onClick={() => { localStorage.setItem("newsletter-hidden", "1"); setNewsletterDismissed(true); }}>✕</button>
+              </div>
               <h4 className="font-serif text-3xl font-bold">{t.joinNews}</h4>
               <p className="text-muted-foreground">{t.joinDesc}</p>
               <input name="email" type="email" required placeholder={t.email} className="w-full rounded-lg border border-input bg-background px-3 py-2" />
               <button type="submit" className="w-full rounded-lg bg-primary text-primary-foreground py-2 font-bold">{t.subscribe}</button>
-            </form>
+            </form> : null}
+
+            {newsletterMessage === "thanks" && (
+              <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">Thank you for subscribing! 🎉</p>
+                  <button className="text-xs text-emerald-700 dark:text-emerald-300" onClick={() => setNewsletterMessage("")}>✕</button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -350,8 +378,8 @@ export default function Home() {
           <div className="absolute inset-0 bg-gradient-to-r from-background via-background/70 to-transparent" />
           <div className="relative z-10 p-8 md:p-16 max-w-2xl lg:col-span-8">
             <span className="inline-flex items-center gap-2 bg-primary text-primary-foreground text-[10px] font-black uppercase px-2 py-1 rounded mb-6"><Play className="h-3 w-3 fill-current" /> Inside University</span>
-            <h2 className="text-4xl md:text-6xl font-serif font-bold text-foreground mb-6 leading-tight">Watch the 2026 Academic Year Opening</h2>
-            <p className="text-muted-foreground text-lg mb-8 leading-relaxed">Experience the vibrant energy of our campus. Hear from our faculty, students, and alumni about why our university is a place of discovery.</p>
+            <h2 className="text-4xl md:text-6xl font-serif font-bold text-foreground mb-6 leading-tight">{heroBackground?.title || "What’s Happening"}</h2>
+            <p className="text-muted-foreground text-lg mb-8 leading-relaxed">{heroText?.title || "Latest campus highlights, interviews, and developments in one place."}</p>
             <Link href="/media" className="bg-primary text-primary-foreground px-8 py-4 rounded-full font-bold hover:bg-primary/90 transition-colors inline-flex items-center gap-2">Start Watching <ChevronRight className="h-5 w-5" /></Link>
           </div>
           <div className="relative z-10 lg:col-span-4 p-6 md:p-10 flex items-end">

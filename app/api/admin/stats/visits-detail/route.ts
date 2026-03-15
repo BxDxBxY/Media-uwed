@@ -6,38 +6,59 @@ function dayKey(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
+function parseCountry(visitorIdentifier: string): string {
+  const [first] = visitorIdentifier.split("|");
+  if (first && /^[A-Z]{2}$/.test(first)) return first;
+  return "ZZ";
+}
+
 export async function GET(request: Request) {
   try {
     const unauthorized = requireAdmin(request);
     if (unauthorized) return unauthorized;
 
-    const [totalVisits, recentVisits] = await Promise.all([
-      prisma.siteVisit.count(),
-      prisma.siteVisit.findMany({
-        orderBy: { timestamp: "desc" },
-        take: 1000,
-        select: { timestamp: true, visitorIdentifier: true },
-      }),
-    ]);
+    const now = new Date();
+    const monthAgo = new Date(now);
+    monthAgo.setDate(now.getDate() - 30);
+
+    const recentVisits = await prisma.siteVisit.findMany({
+      where: { timestamp: { gte: monthAgo } },
+      orderBy: { timestamp: "desc" },
+      select: { timestamp: true, visitorIdentifier: true },
+    });
 
     const byDay = new Map<string, number>();
+    const byCountry = new Map<string, number>();
+
     for (const visit of recentVisits) {
       const key = dayKey(visit.timestamp);
       byDay.set(key, (byDay.get(key) || 0) + 1);
+
+      const country = parseCountry(visit.visitorIdentifier);
+      byCountry.set(country, (byCountry.get(country) || 0) + 1);
     }
 
-    const daily = [...byDay.entries()]
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .slice(-14)
-      .map(([date, count]) => ({ date, count }));
+    const daily: { date: string; count: number }[] = [];
+    for (let i = 29; i >= 0; i -= 1) {
+      const d = new Date(now);
+      d.setDate(now.getDate() - i);
+      const key = dayKey(d);
+      daily.push({ date: key, count: byDay.get(key) || 0 });
+    }
+
+    const countries = [...byCountry.entries()]
+      .map(([country, visits]) => ({ country, visits }))
+      .sort((a, b) => b.visits - a.visits);
 
     const uniqueVisitors = new Set(recentVisits.map((x) => x.visitorIdentifier)).size;
 
     return NextResponse.json({
-      totalVisits,
+      totalVisits: recentVisits.length,
       uniqueVisitors,
       daily,
+      countries,
       latestRecordedAt: recentVisits[0]?.timestamp || null,
+      windowDays: 30,
     });
   } catch {
     return NextResponse.json({ error: "Failed to fetch visits detail" }, { status: 500 });
