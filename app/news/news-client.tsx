@@ -1,13 +1,20 @@
 "use client";
 
 import { type Article, useGlobalContext } from "@/lib/context";
-import { Loader2, ArrowRight, Grid, List as ListIcon, Filter } from "lucide-react";
-import { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import { Loader2, ArrowRight, Grid, List as ListIcon, Filter, ChevronLeft, ChevronRight } from "lucide-react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 
 const PAGE_SIZE = 12;
+
+type PaginationMeta = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+};
 
 function articleCategories(article: Article): string[] {
   const rel = Array.isArray(article.categories) ? article.categories.map((c) => c?.name).filter(Boolean) : [];
@@ -15,23 +22,35 @@ function articleCategories(article: Article): string[] {
   return [...new Set([...rel, ...single])];
 }
 
+function buildPageList(current: number, total: number): (number | "...")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+
+  const pages: (number | "...")[] = [1];
+  const start = Math.max(2, current - 1);
+  const end = Math.min(total - 1, current + 1);
+
+  if (start > 2) pages.push("...");
+  for (let p = start; p <= end; p++) pages.push(p);
+  if (end < total - 1) pages.push("...");
+
+  pages.push(total);
+  return pages;
+}
+
 export default function NewsPage() {
   const { language, searchQuery, setSearchQuery } = useGlobalContext();
   const searchParams = useSearchParams();
-  const router = useRouter();
-  const pathname = usePathname();
 
   const [activeCategory, setActiveCategory] = useState(searchParams.get("category") || "All");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [showCategories, setShowCategories] = useState(false);
   const [dateFrom, setDateFrom] = useState(searchParams.get("dateFrom") || "");
   const [dateTo, setDateTo] = useState(searchParams.get("dateTo") || "");
+  const [currentPage, setCurrentPage] = useState(Number(searchParams.get("page") || "1"));
   const [articles, setArticles] = useState<Article[]>([]);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
+  const [pagination, setPagination] = useState<PaginationMeta>({ page: 1, limit: PAGE_SIZE, total: 0, totalPages: 1 });
   const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const [availableCategories, setAvailableCategories] = useState<string[]>([]);
 
   const getLocalized = (article: Article, key: "title" | "summary") => {
     if (language === "ru") {
@@ -46,50 +65,58 @@ export default function NewsPage() {
   };
 
   const categories = useMemo(() => {
-    const all = articles.flatMap((a) => articleCategories(a));
-    return ["All", ...Array.from(new Set(all))];
-  }, [articles]);
+    return ["All", ...availableCategories];
+  }, [availableCategories]);
 
-  const loadArticles = useCallback(
-    async (nextPage: number, reset = false) => {
-      if (reset) setIsLoading(true);
-      else setIsLoadingMore(true);
+  useEffect(() => {
+    let cancelled = false;
 
+    const loadCategories = async () => {
       try {
-        const params = new URLSearchParams({
-          page: String(nextPage),
-          limit: String(PAGE_SIZE),
-        });
-
-        if (activeCategory !== "All") params.set("category", activeCategory);
-        if (searchQuery?.trim()) params.set("q", searchQuery.trim());
-        if (dateFrom) params.set("dateFrom", dateFrom);
-        if (dateTo) params.set("dateTo", dateTo);
-
-        const res = await fetch(`/api/frontend/articles?${params.toString()}`);
+        const res = await fetch("/api/frontend/categories");
         const data = await res.json();
-
-        if (!res.ok) throw new Error(data?.error || "Failed to fetch articles");
-
-        const incoming = (data?.articles || []) as Article[];
-        setArticles((prev) => (reset ? incoming : [...prev, ...incoming]));
-
-        const totalPages = data?.pagination?.totalPages || 1;
-        setPage(nextPage);
-        setHasMore(nextPage < totalPages);
-      } catch (error) {
-        console.error("Failed to load articles", error);
-        if (reset) {
-          setArticles([]);
-          setHasMore(false);
+        if (!cancelled && res.ok) {
+          setAvailableCategories((data?.categories || []).map((c: { id: string; name: string }) => c.name));
         }
-      } finally {
-        setIsLoading(false);
-        setIsLoadingMore(false);
+      } catch (error) {
+        console.error("Failed to load categories", error);
       }
-    },
-    [activeCategory, searchQuery, dateFrom, dateTo],
-  );
+    };
+
+    loadCategories();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const loadArticles = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams({
+        page: String(currentPage),
+        limit: String(PAGE_SIZE),
+      });
+
+      if (activeCategory !== "All") params.set("category", activeCategory);
+      if (searchQuery?.trim()) params.set("q", searchQuery.trim());
+      if (dateFrom) params.set("dateFrom", dateFrom);
+      if (dateTo) params.set("dateTo", dateTo);
+
+      const res = await fetch(`/api/frontend/articles?${params.toString()}`);
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data?.error || "Failed to fetch articles");
+
+      setArticles((data?.articles || []) as Article[]);
+      setPagination(data?.pagination || { page: 1, limit: PAGE_SIZE, total: 0, totalPages: 1 });
+    } catch (error) {
+      console.error("Failed to load articles", error);
+      setArticles([]);
+      setPagination({ page: 1, limit: PAGE_SIZE, total: 0, totalPages: 1 });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [activeCategory, searchQuery, dateFrom, dateTo, currentPage]);
 
   useEffect(() => {
     const queryFromUrl = searchParams.get("q") || "";
@@ -104,33 +131,18 @@ export default function NewsPage() {
     if (searchQuery?.trim()) params.set("q", searchQuery.trim());
     if (dateFrom) params.set("dateFrom", dateFrom);
     if (dateTo) params.set("dateTo", dateTo);
-    const next = params.toString();
-    const current = searchParams.toString();
-    if (next !== current) {
-      router.replace(next ? `${pathname}?${next}` : pathname);
-    }
-  }, [activeCategory, searchQuery, dateFrom, dateTo, pathname, router, searchParams]);
+    if (currentPage > 1) params.set("page", String(currentPage));
+    const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}`;
+    window.history.replaceState(null, "", next);
+  }, [activeCategory, searchQuery, dateFrom, dateTo, currentPage]);
 
   useEffect(() => {
-    loadArticles(1, true);
+    loadArticles();
   }, [loadArticles]);
 
   useEffect(() => {
-    if (!sentinelRef.current || !hasMore || isLoading || isLoadingMore) return;
-    const el = sentinelRef.current;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) {
-          loadArticles(page + 1);
-        }
-      },
-      { rootMargin: "200px" },
-    );
-
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [page, hasMore, isLoading, isLoadingMore, loadArticles]);
+    setCurrentPage(1);
+  }, [activeCategory, searchQuery, dateFrom, dateTo]);
 
   if (isLoading) {
     return (
@@ -140,6 +152,8 @@ export default function NewsPage() {
       </div>
     );
   }
+
+  const pages = buildPageList(pagination.page, pagination.totalPages);
 
   return (
     <div className="container mx-auto px-4 py-12">
@@ -151,6 +165,11 @@ export default function NewsPage() {
             <button onClick={() => setShowCategories((prev) => !prev)} className="inline-flex items-center gap-2 rounded-lg border border-border/60 px-3 py-1.5 text-sm font-semibold hover:bg-muted/60">
               <Filter className="h-4 w-4" /> {showCategories ? "Hide categories" : "Show categories"}
             </button>
+
+            {activeCategory !== "All" && (
+              <div className="text-xs font-semibold text-primary">Selected category: {activeCategory}</div>
+            )}
+
             {showCategories && (
               <div className="space-y-3">
                 <div className="flex flex-wrap gap-2">
@@ -228,8 +247,37 @@ export default function NewsPage() {
         </div>
       )}
 
-      <div ref={sentinelRef} className="h-8" />
-      {isLoadingMore && <p className="text-center text-xs text-muted-foreground">Loading more…</p>}
+      {pagination.totalPages > 1 && (
+        <div className="mt-10 flex items-center justify-center gap-2 flex-wrap">
+          <button
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            disabled={pagination.page <= 1}
+            className="h-10 px-3 rounded-md border border-border bg-card disabled:opacity-40"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          {pages.map((entry, idx) => (
+            entry === "..." ? (
+              <span key={`ellipsis-${idx}`} className="px-2 text-muted-foreground">...</span>
+            ) : (
+              <button
+                key={entry}
+                onClick={() => setCurrentPage(entry)}
+                className={`h-10 min-w-10 px-3 rounded-md border ${entry === pagination.page ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border"}`}
+              >
+                {entry}
+              </button>
+            )
+          ))}
+          <button
+            onClick={() => setCurrentPage((p) => Math.min(pagination.totalPages, p + 1))}
+            disabled={pagination.page >= pagination.totalPages}
+            className="h-10 px-3 rounded-md border border-border bg-card disabled:opacity-40"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {articles.length === 0 && (
         <div className="py-20 text-center border-2 border-dashed border-border/40 rounded-3xl">

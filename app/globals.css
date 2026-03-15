@@ -149,7 +149,7 @@
 }
 
 .ticker-track {
-  animation: ticker-slide 28s linear infinite;
+  animation: ticker-slide var(--ticker-duration, 56s) linear infinite;
   width: max-content;
 }
 

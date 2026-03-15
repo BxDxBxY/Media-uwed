@@ -1,7 +1,7 @@
 "use client";
 
 import { useGlobalContext, type Article } from "@/lib/context";
-import { ArrowRight, Play, TrendingUp, Clock, ChevronRight } from "lucide-react";
+import { Play, TrendingUp, Clock, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { getMediaPreviewUrl, hasMediaCategory } from "@/lib/media-utils";
@@ -48,6 +48,8 @@ export default function Home() {
   const featuredArticle = articles[0];
   const trendingNews = articles.slice(4, 14); // up to ten items
   const breakingItems = articles.slice(0, 6);
+  const breakingCharacters = breakingItems.reduce((sum, item) => sum + localizedText(item, language, "title").length, 0);
+  const tickerDuration = Math.max(48, Math.round(breakingCharacters * 0.9));
 
   const categoryPools = [
     { key: "World", title: language === "ru" ? "Мир и политика" : language === "uz" ? "Jahon va siyosat" : "World & Policy", source: byCategory(articles, "World"), reverse: false },
@@ -65,15 +67,6 @@ export default function Home() {
       used.add(item.id);
       picked.push(item);
       if (picked.length === 5) break;
-    }
-
-    if (picked.length < 5) {
-      for (const fallback of articles) {
-        if (used.has(fallback.id)) continue;
-        used.add(fallback.id);
-        picked.push(fallback);
-        if (picked.length === 5) break;
-      }
     }
 
     return { key: pool.key, title: pool.title, items: picked, reverse: pool.reverse };
@@ -115,7 +108,7 @@ export default function Home() {
     },
   ];
 
-  const columnUsed = new Set<string>();
+  const columnUsed = new Set<string>(Array.from(used));
   const columnSections = columnPools.map((pool) => {
     const items: Article[] = [];
     for (const item of pool.source) {
@@ -123,15 +116,6 @@ export default function Home() {
       columnUsed.add(item.id);
       items.push(item);
       if (items.length === 5) break;
-    }
-
-    if (items.length < 5) {
-      for (const fallback of articles) {
-        if (columnUsed.has(fallback.id)) continue;
-        columnUsed.add(fallback.id);
-        items.push(fallback);
-        if (items.length === 5) break;
-      }
     }
 
     return { key: pool.key, title: pool.title, items };
@@ -172,7 +156,7 @@ export default function Home() {
         <div className="container mx-auto px-4 flex items-center gap-3">
           <span className="bg-primary/15 text-primary text-[10px] font-black uppercase px-2 py-0.5 rounded whitespace-nowrap animate-pulse">{t.breaking}</span>
           <div className="flex-1 overflow-hidden">
-            <div className="ticker-track text-sm font-medium whitespace-nowrap inline-flex gap-10">
+            <div className="ticker-track text-sm font-medium whitespace-nowrap inline-flex gap-10" style={{ ["--ticker-duration" as any]: `${tickerDuration}s` }}>
               {[...breakingItems, ...breakingItems].map((item, index) => (
                 <Link key={`${item.id}-${index}`} href={`/article/${item.slug}`} className="hover:text-primary transition-colors">
                   {localizedText(item, language, "title")}
@@ -274,7 +258,7 @@ export default function Home() {
                         <Image src={item.image} alt={localizedText(item, language, "title")} fill unoptimized sizes="(max-width: 768px) 100vw, 25vw" className="object-cover group-hover:scale-105 transition-transform duration-500" />
                       </div>
                       <div className="p-3">
-                        <Link href={`/news?category=${encodeURIComponent(getPrimaryCategory(item))}`} className="text-[10px] font-bold text-primary uppercase hover:underline">{getPrimaryCategory(item)}</Link>
+                        <span className="text-[10px] font-bold text-primary uppercase">{getPrimaryCategory(item)}</span>
                         <h5 className="font-bold mt-1 leading-tight line-clamp-2 group-hover:text-primary transition-colors">{localizedText(item, language, "title")}</h5>
                       </div>
                     </Link>
@@ -341,19 +325,19 @@ export default function Home() {
       </section>
 
       <section className="container mx-auto px-4 pb-16">
-        <div className="rounded-[2rem] bg-slate-950 border border-slate-800 p-8 md:p-12">
+        <div className="rounded-[2rem] bg-card border border-border p-8 md:p-12">
           <div className="flex items-center justify-between mb-8">
-            <h2 className="text-white text-3xl font-serif font-bold">{t.latestVideos}</h2>
-            <Link href="/media" className="text-slate-300 hover:text-white text-sm">{t.viewAll}</Link>
+            <h2 className="text-foreground text-3xl font-serif font-bold">{t.latestVideos}</h2>
+            <Link href="/media" className="text-muted-foreground hover:text-foreground text-sm">{t.viewAll}</Link>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             {(universityVideos.length > 0 ? universityVideos : homeVisibleMedia.filter((m) => m.type === "video").slice(0, 3)).map((item) => (
-              <Link key={item.id} href="/media" className="group rounded-xl overflow-hidden border border-slate-800 bg-slate-900/60">
+              <Link key={item.id} href="/media" className="group rounded-xl overflow-hidden border border-border bg-muted/30">
                 <div className="aspect-video relative overflow-hidden">
                   <Image src={getMediaPreviewUrl(item)} alt={item.title} fill unoptimized sizes="(max-width: 768px) 100vw, 33vw" className="object-cover group-hover:scale-105 transition-transform" />
                   <span className="absolute top-3 left-3 inline-flex items-center gap-1 bg-primary text-primary-foreground text-[10px] px-2 py-1 rounded uppercase font-bold"><Play className="h-3 w-3 fill-current" /> University</span>
                 </div>
-                <div className="p-4"><h4 className="text-white font-bold leading-tight line-clamp-2">{item.title}</h4></div>
+                <div className="p-4"><h4 className="text-foreground font-bold leading-tight line-clamp-2">{item.title}</h4></div>
               </Link>
             ))}
           </div>
@@ -361,24 +345,24 @@ export default function Home() {
       </section>
 
       <section className="container mx-auto px-4 py-16">
-        <div className="bg-slate-900 rounded-[2.5rem] overflow-hidden relative min-h-[500px] grid lg:grid-cols-12">
+        <div className="bg-card rounded-[2.5rem] overflow-hidden relative min-h-[500px] grid lg:grid-cols-12 border border-border">
           <Image src={heroBackground ? getMediaPreviewUrl(heroBackground) : "https://images.unsplash.com/photo-1541339907198-e08756ebafe3?auto=format&fit=crop&w=1350&q=80"} alt="University Campus" fill unoptimized sizes="100vw" className="absolute inset-0 object-cover opacity-40" />
-          <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-900/60 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-background via-background/70 to-transparent" />
           <div className="relative z-10 p-8 md:p-16 max-w-2xl lg:col-span-8">
             <span className="inline-flex items-center gap-2 bg-primary text-primary-foreground text-[10px] font-black uppercase px-2 py-1 rounded mb-6"><Play className="h-3 w-3 fill-current" /> Inside University</span>
-            <h2 className="text-4xl md:text-6xl font-serif font-bold text-white mb-6 leading-tight">Watch the 2026 Academic Year Opening</h2>
-            <p className="text-slate-300 text-lg mb-8 leading-relaxed">Experience the vibrant energy of our campus. Hear from our faculty, students, and alumni about why our university is a place of discovery.</p>
-            <Link href="/media" className="bg-white text-slate-900 px-8 py-4 rounded-full font-bold hover:bg-slate-100 transition-colors inline-flex items-center gap-2">Start Watching <ChevronRight className="h-5 w-5" /></Link>
+            <h2 className="text-4xl md:text-6xl font-serif font-bold text-foreground mb-6 leading-tight">Watch the 2026 Academic Year Opening</h2>
+            <p className="text-muted-foreground text-lg mb-8 leading-relaxed">Experience the vibrant energy of our campus. Hear from our faculty, students, and alumni about why our university is a place of discovery.</p>
+            <Link href="/media" className="bg-primary text-primary-foreground px-8 py-4 rounded-full font-bold hover:bg-primary/90 transition-colors inline-flex items-center gap-2">Start Watching <ChevronRight className="h-5 w-5" /></Link>
           </div>
           <div className="relative z-10 lg:col-span-4 p-6 md:p-10 flex items-end">
-            <Link href="/media" className="w-full rounded-2xl border border-white/15 bg-white/10 backdrop-blur-sm overflow-hidden hover:bg-white/15 transition-colors">
+            <Link href="/media" className="w-full rounded-2xl border border-border/70 bg-background/70 backdrop-blur-sm overflow-hidden hover:bg-background/80 transition-colors">
               {heroSide ? (
                 <>
                   <div className="aspect-video overflow-hidden relative"><Image src={getMediaPreviewUrl(heroSide)} alt={heroSide.title} fill unoptimized sizes="(max-width: 1024px) 100vw, 33vw" className="object-cover" /></div>
-                  <div className="p-4"><p className="text-xs uppercase tracking-widest text-white/70 mb-1">Featured slot</p><h4 className="text-white font-bold line-clamp-2">{heroSide.title}</h4></div>
+                  <div className="p-4"><p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Featured slot</p><h4 className="text-foreground font-bold line-clamp-2">{heroSide.title}</h4></div>
                 </>
               ) : (
-                <div className="p-6"><p className="text-xs uppercase tracking-widest text-white/70 mb-2">Featured slot</p><h4 className="text-white font-bold">Set media category to "hero-side" from Admin Media to show content here.</h4></div>
+                <div className="p-6"><p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Featured slot</p><h4 className="text-foreground font-bold">Set media category to &quot;hero-side&quot; from Admin Media to show content here.</h4></div>
               )}
             </Link>
           </div>
