@@ -363,7 +363,7 @@ function detectCategories(title: string, description: string): string[] {
   if (/\buniversity|student|education|school|campus|academic|faculty\b/.test(t)) add("University");
   if (/\bworld|international|global|foreign\b/.test(t)) add("World");
 
-  if (cats.length === 0) add("News");
+  if (cats.length === 0) add("World");
   return cats.slice(0, 3);
 }
 

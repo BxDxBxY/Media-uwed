@@ -85,6 +85,7 @@ export default function AutomationPage() {
     const itemsPerPage = 5;
 
     const [lang, setLang] = useState<Lang>("en");
+    const [reviewLang, setReviewLang] = useState<Lang>("en");
 
     const [integrationConfigs, setIntegrationConfigs] = useState<Record<IntegrationType, IntegrationConfig>>({
         ai: {
@@ -1403,8 +1404,8 @@ export default function AutomationPage() {
                         </div>
 
                         <div className="p-8 space-y-8 max-h-[70vh] overflow-y-auto">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <div className="space-y-4 md:col-span-3">
+                            <div className="space-y-6">
+                                <div className="space-y-4">
                                     <label className="text-[10px] uppercase font-bold tracking-widest text-primary">
                                         Categories (comma separated)
                                     </label>
@@ -1416,7 +1417,7 @@ export default function AutomationPage() {
                                     />
                                 </div>
 
-                                <div className="md:col-span-3 space-y-3">
+                                <div className="space-y-3">
                                     <label className="text-[10px] uppercase font-bold tracking-widest text-primary inline-flex items-center gap-2">
                                         <ImageIcon className="h-3 w-3" /> Preview image URL
                                     </label>
@@ -1429,84 +1430,63 @@ export default function AutomationPage() {
                                     />
                                     {(selectedReviewItem.rawImageUrl || selectedReviewItem?.raw?.imageUrl) && (
                                         <div className="rounded-xl overflow-hidden border border-border/40">
-                                            <img src={selectedReviewItem.rawImageUrl || selectedReviewItem?.raw?.imageUrl} alt="Article" className="w-full max-h-64 object-cover" />
+                                            <img src={selectedReviewItem.rawImageUrl || selectedReviewItem?.raw?.imageUrl} alt="Article" className="w-full max-h-72 object-cover" />
                                         </div>
                                     )}
                                 </div>
 
-                                <div className="space-y-4">
-                                    <label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground flex items-center gap-2">
-                                        <div className="h-2 w-2 rounded-full bg-blue-500" /> English
-                                    </label>
-                                    <input
-                                        type="text"
-                                        className="w-full bg-muted/30 p-3 rounded-lg border-none text-sm font-bold"
-                                        value={selectedReviewItem.headlineEn || ""}
-                                        onChange={(e) => setSelectedReviewItem({ ...selectedReviewItem, headlineEn: e.target.value })}
-                                    />
-                                    <textarea
-                                        rows={6}
-                                        className="w-full bg-muted/30 p-3 rounded-lg border-none text-xs leading-relaxed"
-                                        value={selectedReviewItem.summaryEn || ""}
-                                        onChange={(e) => setSelectedReviewItem({ ...selectedReviewItem, summaryEn: e.target.value })}
-                                    />
-                                    <textarea
-                                        rows={8}
-                                        className="w-full bg-muted/20 p-3 rounded-lg border-none text-xs leading-relaxed"
-                                        value={selectedReviewItem.contentEn || ""}
-                                        onChange={(e) => setSelectedReviewItem({ ...selectedReviewItem, contentEn: e.target.value })}
-                                        placeholder="Detailed content (EN)"
-                                    />
+                                <div className="flex items-center justify-between gap-4">
+                                    <div className="flex items-center gap-2">
+                                        {(["en", "ru", "uz"] as Lang[]).map((l) => (
+                                            <button
+                                                key={`review-${l}`}
+                                                type="button"
+                                                onClick={() => setReviewLang(l)}
+                                                className={`px-3 py-1.5 rounded-md text-xs font-bold ${reviewLang === l ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80"}`}
+                                            >
+                                                {l.toUpperCase()}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <span className="text-xs text-muted-foreground">Public preview mode</span>
                                 </div>
 
-                                <div className="space-y-4">
-                                    <label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground flex items-center gap-2">
-                                        <div className="h-2 w-2 rounded-full bg-red-500" /> Russian
-                                    </label>
-                                    <input
-                                        type="text"
-                                        className="w-full bg-muted/30 p-3 rounded-lg border-none text-sm font-bold"
-                                        value={selectedReviewItem.headlineRu || ""}
-                                        onChange={(e) => setSelectedReviewItem({ ...selectedReviewItem, headlineRu: e.target.value })}
-                                    />
-                                    <textarea
-                                        rows={6}
-                                        className="w-full bg-muted/30 p-3 rounded-lg border-none text-xs leading-relaxed"
-                                        value={selectedReviewItem.summaryRu || ""}
-                                        onChange={(e) => setSelectedReviewItem({ ...selectedReviewItem, summaryRu: e.target.value })}
-                                    />
-                                    <textarea
-                                        rows={8}
-                                        className="w-full bg-muted/20 p-3 rounded-lg border-none text-xs leading-relaxed"
-                                        value={selectedReviewItem.contentRu || ""}
-                                        onChange={(e) => setSelectedReviewItem({ ...selectedReviewItem, contentRu: e.target.value })}
-                                        placeholder="Detailed content (RU)"
-                                    />
-                                </div>
+                                <div className="rounded-xl border border-border/40 bg-background overflow-hidden">
+                                    <div className="p-5 border-b border-border/40 space-y-3">
+                                        <p className="text-[10px] uppercase tracking-widest text-primary font-bold">{reviewLang.toUpperCase()} headline</p>
+                                        <input
+                                            type="text"
+                                            className="w-full bg-muted/40 p-3 rounded-lg border-none text-base font-bold"
+                                            value={reviewLang === "en" ? (selectedReviewItem.headlineEn || "") : reviewLang === "ru" ? (selectedReviewItem.headlineRu || "") : (selectedReviewItem.headlineUz || "")}
+                                            onChange={(e) => setSelectedReviewItem({
+                                                ...selectedReviewItem,
+                                                ...(reviewLang === "en" ? { headlineEn: e.target.value } : reviewLang === "ru" ? { headlineRu: e.target.value } : { headlineUz: e.target.value }),
+                                            })}
+                                        />
+                                        <textarea
+                                            rows={5}
+                                            className="w-full bg-muted/30 p-3 rounded-lg border-none text-sm leading-relaxed"
+                                            value={reviewLang === "en" ? (selectedReviewItem.summaryEn || "") : reviewLang === "ru" ? (selectedReviewItem.summaryRu || "") : (selectedReviewItem.summaryUz || "")}
+                                            onChange={(e) => setSelectedReviewItem({
+                                                ...selectedReviewItem,
+                                                ...(reviewLang === "en" ? { summaryEn: e.target.value } : reviewLang === "ru" ? { summaryRu: e.target.value } : { summaryUz: e.target.value }),
+                                            })}
+                                        />
+                                    </div>
 
-                                <div className="space-y-4">
-                                    <label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground flex items-center gap-2">
-                                        <div className="h-2 w-2 rounded-full bg-green-500" /> Uzbek
-                                    </label>
-                                    <input
-                                        type="text"
-                                        className="w-full bg-muted/30 p-3 rounded-lg border-none text-sm font-bold"
-                                        value={selectedReviewItem.headlineUz || ""}
-                                        onChange={(e) => setSelectedReviewItem({ ...selectedReviewItem, headlineUz: e.target.value })}
-                                    />
-                                    <textarea
-                                        rows={6}
-                                        className="w-full bg-muted/30 p-3 rounded-lg border-none text-xs leading-relaxed"
-                                        value={selectedReviewItem.summaryUz || ""}
-                                        onChange={(e) => setSelectedReviewItem({ ...selectedReviewItem, summaryUz: e.target.value })}
-                                    />
-                                    <textarea
-                                        rows={8}
-                                        className="w-full bg-muted/20 p-3 rounded-lg border-none text-xs leading-relaxed"
-                                        value={selectedReviewItem.contentUz || ""}
-                                        onChange={(e) => setSelectedReviewItem({ ...selectedReviewItem, contentUz: e.target.value })}
-                                        placeholder="Detailed content (UZ)"
-                                    />
+                                    <div className="p-5 space-y-4">
+                                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">Public article preview</p>
+                                        <textarea
+                                            rows={12}
+                                            className="w-full bg-muted/20 p-4 rounded-lg border-none text-sm leading-7"
+                                            value={reviewLang === "en" ? (selectedReviewItem.contentEn || "") : reviewLang === "ru" ? (selectedReviewItem.contentRu || "") : (selectedReviewItem.contentUz || "")}
+                                            onChange={(e) => setSelectedReviewItem({
+                                                ...selectedReviewItem,
+                                                ...(reviewLang === "en" ? { contentEn: e.target.value } : reviewLang === "ru" ? { contentRu: e.target.value } : { contentUz: e.target.value }),
+                                            })}
+                                            placeholder={`Detailed content (${reviewLang.toUpperCase()})`}
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </div>

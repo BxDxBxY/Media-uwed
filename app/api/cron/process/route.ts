@@ -136,6 +136,8 @@ export async function POST(request: Request) {
             console.warn(`Scrape failed for article ${raw.id}, continuing with RSS summary only`, scrapeError);
           }
 
+          const uniqueDetailImages = Array.from(new Set(detailImages.filter(Boolean))).filter((img) => img !== finalImageUrl);
+
           await prisma.articleRaw.update({
             where: { id: raw.id },
             data: {
@@ -144,7 +146,7 @@ export async function POST(request: Request) {
                 ...parsedRawJson,
                 fullContent: detailedContent || null,
                 detailFetchedAt: new Date().toISOString(),
-                detailImages: detailImages.length > 0 ? detailImages : null,
+                detailImages: uniqueDetailImages.length > 0 ? uniqueDetailImages : null,
               }),
             },
           });
@@ -178,6 +180,14 @@ export async function POST(request: Request) {
           continue;
         }
 
+        const sourceCategory = (raw.source?.category || "").trim();
+        const cleanedCategories = Array.from(new Set((aiResult.categories || []).map((c) => String(c || "").trim()).filter(Boolean)))
+          .filter((c) => c.toLowerCase() !== "news")
+          .slice(0, 3);
+        const normalizedCategories = cleanedCategories.length > 0
+          ? cleanedCategories
+          : [sourceCategory || "World"];
+
         if (retranslate) {
           previews.push({
             rawId: raw.id,
@@ -191,7 +201,7 @@ export async function POST(request: Request) {
             contentEn: aiResult.contentEn,
             contentRu: aiResult.contentRu,
             contentUz: aiResult.contentUz,
-            categories: aiResult.categories.join(", "),
+            categories: normalizedCategories.join(", "),
             rawImageUrl: finalImageUrl || null,
           });
         } else if (raw.processed) {
@@ -207,7 +217,7 @@ export async function POST(request: Request) {
               contentEn: aiResult.contentEn,
               contentRu: aiResult.contentRu,
               contentUz: aiResult.contentUz,
-              categories: aiResult.categories.join(", "),
+              categories: normalizedCategories.join(", "),
               status: "pending_review",
             },
           });
@@ -224,7 +234,7 @@ export async function POST(request: Request) {
               contentEn: aiResult.contentEn,
               contentRu: aiResult.contentRu,
               contentUz: aiResult.contentUz,
-              categories: aiResult.categories.join(", "),
+              categories: normalizedCategories.join(", "),
               status: "pending_review",
             },
           });

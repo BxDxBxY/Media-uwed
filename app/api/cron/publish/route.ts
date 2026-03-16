@@ -21,8 +21,6 @@ function escapeTelegramHtml(value: string) {
     .replace(/>/g, "&gt;");
 }
 
-
-
 function sanitizeSourceUrl(rawUrl: string) {
   try {
     const parsed = new URL(rawUrl);
@@ -32,28 +30,69 @@ function sanitizeSourceUrl(rawUrl: string) {
   }
 }
 
+function sanitizeCategoryTag(input: string) {
+  const normalized = String(input || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s_-]+/gu, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+  if (!normalized || normalized === "news") return "#world";
+  return `#${normalized}`;
+}
+
+function clampTelegramSummary(text: string): string {
+  const cleaned = String(text || "").replace(/\r\n/g, "\n").trim();
+  if (!cleaned) return "";
+
+  const paragraphs = cleaned
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .slice(0, 2);
+
+  const merged = (paragraphs.length > 0 ? paragraphs : [cleaned]).join("\n\n");
+  return merged.length > 800 ? `${merged.slice(0, 797).trim()}...` : merged;
+}
+
+const TELEGRAM_FOOTER = [
+  "🌐UWED.UZ | https://uwed.uz/",
+  "🕊Telegram | https://t.me/uwed_official",
+  "📱Instagram | https://instagram.com/uwed_official?igshid=YzA2ZDJiZGQ=",
+  "🕊X | https://x.com/uwedofficial",
+  "📱Facebook | http://www.facebook.com/uwed.uzb",
+  "📺YouTube | https://www.youtube.com/channel/UC5T0U7o_epCcdM4ERGCzciQ",
+].join("\n");
+
 function buildTelegramNewsMessage(input: {
+  category: string;
+  titleUz: string;
+  summaryUz: string;
   titleRu: string;
   summaryRu: string;
   titleEn: string;
   summaryEn: string;
-  titleUz: string;
-  summaryUz: string;
 }) {
   return [
-    "📰 <b>New article published</b>",
-    "",
-    `🇷🇺 <b>${escapeTelegramHtml(input.titleRu)}</b>`,
-    escapeTelegramHtml(input.summaryRu),
-    "",
-    `🇬🇧 <b>${escapeTelegramHtml(input.titleEn)}</b>`,
-    escapeTelegramHtml(input.summaryEn),
+    sanitizeCategoryTag(input.category),
     "",
     `🇺🇿 <b>${escapeTelegramHtml(input.titleUz)}</b>`,
-    escapeTelegramHtml(input.summaryUz),
+    escapeTelegramHtml(clampTelegramSummary(input.summaryUz)),
+    "",
+    `🇷🇺 <b>${escapeTelegramHtml(input.titleRu)}</b>`,
+    escapeTelegramHtml(clampTelegramSummary(input.summaryRu)),
+    "",
+    `🇬🇧 <b>${escapeTelegramHtml(input.titleEn)}</b>`,
+    escapeTelegramHtml(clampTelegramSummary(input.summaryEn)),
+    "",
+    TELEGRAM_FOOTER,
   ].join("\n");
 }
 
+function stripHtmlTags(value: string) {
+  return String(value || "").replace(/<[^>]+>/g, "");
+}
 
 function getPublicSiteBaseUrl() {
   const candidate = (process.env.APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "").trim();
@@ -127,13 +166,6 @@ export async function POST(request: Request) {
         const randomSuffix = Math.random().toString(36).substring(2, 7);
         const slug = `${baseSlug || "article"}-${randomSuffix}`;
 
-        let rawJson: Record<string, unknown> = {};
-        try {
-          rawJson = item.raw.rawJson ? JSON.parse(item.raw.rawJson) : {};
-        } catch {
-          rawJson = {};
-        }
-
         const sourceUrl = sanitizeSourceUrl(item.raw.url);
         const sourceLinkText = `\n\nOriginal source: [${item.raw.source.name}](${sourceUrl})`;
 
@@ -141,15 +173,19 @@ export async function POST(request: Request) {
         const contentRu = item.contentRu ? item.contentRu + sourceLinkText : null;
         const contentUz = item.contentUz ? item.contentUz + sourceLinkText : null;
 
-        const categoryNames = item.categories
+        const baseCategories = item.categories
           ? item.categories
               .split(",")
               .map((c) => c.trim())
               .filter(Boolean)
-          : ["News"];
+              .filter((c) => c.toLowerCase() !== "news")
+          : [];
+
+        const normalizedCategoryNames = (baseCategories.length > 0 ? baseCategories : [item.raw.source.category || "World"])
+          .slice(0, 3);
 
         const categoryConnect = await Promise.all(
-          categoryNames.map(async (name) => {
+          normalizedCategoryNames.map(async (name) => {
             const cat = await prisma.category.upsert({
               where: { name },
               update: {},
@@ -168,8 +204,8 @@ export async function POST(request: Request) {
             summaryRu: item.summaryRu,
             summaryUz: item.summaryUz,
             content: contentEn,
-            contentRu: contentRu,
-            contentUz: contentUz,
+            contentRu,
+            contentUz,
             slug,
             image: item.raw.imageUrl || "",
             author: item.raw.author || item.raw.source.name || "Global Media",
@@ -194,30 +230,60 @@ export async function POST(request: Request) {
           try {
             const articleUrl = publicSiteBaseUrl ? `${publicSiteBaseUrl}/article/${article.slug}` : null;
             const telegramMessage = buildTelegramNewsMessage({
+              category: normalizedCategoryNames[0] || item.raw.source.category || "World",
+              titleUz: item.headlineUz || item.headlineEn,
+              summaryUz: item.summaryUz || item.summaryEn,
               titleRu: item.headlineRu || item.headlineEn,
               summaryRu: item.summaryRu || item.summaryEn,
               titleEn: item.headlineEn,
               summaryEn: item.summaryEn,
-              titleUz: item.headlineUz || item.headlineEn,
-              summaryUz: item.summaryUz || item.summaryEn,
             });
 
             if (!articleUrl) {
               logger.error("Skipping Telegram send due to invalid public site URL", { itemId: item.id });
               errors.push(`Item ${item.id}: Telegram skipped (invalid APP_URL/NEXT_PUBLIC_SITE_URL)`);
             } else {
-              logger.info("Publishing article to Telegram", { itemId: item.id, hasImage: Boolean(article.image), chatId: telegramIntegration.channelId.trim(), articleUrl });
-              await sendTelegramMessage({
-              botToken: telegramBotToken,
-              chatId: telegramIntegration.channelId.trim(),
-              text: telegramMessage,
-              photoUrl: article.image,
-              parseMode: undefined,
-              disableWebPagePreview: false,
-              retries: telegramIntegration.retryLimit,
-              buttonText: "Read on website",
-              buttonUrl: articleUrl,
-            });
+              logger.info("Publishing article to Telegram", {
+                itemId: item.id,
+                hasImage: Boolean(article.image),
+                chatId: telegramIntegration.channelId.trim(),
+                articleUrl,
+              });
+
+              try {
+                await sendTelegramMessage({
+                  botToken: telegramBotToken,
+                  chatId: telegramIntegration.channelId.trim(),
+                  text: telegramMessage,
+                  photoUrl: article.image,
+                  parseMode: "HTML",
+                  disableWebPagePreview: false,
+                  retries: telegramIntegration.retryLimit,
+                  buttonText: "Read on website",
+                  buttonUrl: articleUrl,
+                });
+              } catch (parseError) {
+                const maybeParseIssue = parseError instanceof Error && /parse|entities|can't parse/i.test(parseError.message);
+                if (!maybeParseIssue) throw parseError;
+
+                logger.warn("Telegram HTML parse failed; retrying with plain text", {
+                  itemId: item.id,
+                  error: parseError.message,
+                });
+
+                await sendTelegramMessage({
+                  botToken: telegramBotToken,
+                  chatId: telegramIntegration.channelId.trim(),
+                  text: stripHtmlTags(telegramMessage),
+                  photoUrl: article.image,
+                  parseMode: undefined,
+                  disableWebPagePreview: false,
+                  retries: telegramIntegration.retryLimit,
+                  buttonText: "Read on website",
+                  buttonUrl: articleUrl,
+                });
+              }
+
               telegramSentCount++;
             }
           } catch (telegramError) {
