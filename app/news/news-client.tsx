@@ -141,15 +141,6 @@ export default function NewsPage() {
     setCurrentPage(1);
   }, [activeCategory, searchText, dateFrom, dateTo]);
 
-  if (isLoading) {
-    return (
-      <div className="container mx-auto px-4 py-20 text-center">
-        <Loader2 className="h-10 w-10 animate-spin mx-auto text-primary mb-4" />
-        <p className="text-muted-foreground font-serif italic">Fetching latest stories...</p>
-      </div>
-    );
-  }
-
   const pages = buildPageList(pagination.page, pagination.totalPages);
 
   return (
@@ -167,8 +158,6 @@ export default function NewsPage() {
               <button onClick={() => setViewMode("list")} className={`p-1.5 rounded-md transition-all ${viewMode === "list" ? "bg-background shadow-sm text-primary" : "text-muted-foreground"}`}><ListIcon className="h-4 w-4" /></button>
             </div>
           </div>
-
-          {activeCategory !== "All" && <div className="text-xs font-semibold text-primary">Selected category: {activeCategory}</div>}
 
           {showCategories && (
             <div className="space-y-3">
@@ -195,6 +184,15 @@ export default function NewsPage() {
         </div>
       </header>
 
+      <div className="relative min-h-[240px]">
+      {isLoading && (
+        <div className="absolute inset-0 z-10 grid place-items-center rounded-xl border border-border/40 bg-background/70 backdrop-blur-sm">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary mb-2" />
+            <p className="text-xs text-muted-foreground">Updating news panel…</p>
+          </div>
+        </div>
+      )}
       {viewMode === "grid" ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {articles.map((article) => (
@@ -208,8 +206,8 @@ export default function NewsPage() {
               </div>
               <div className="p-3 md:p-4 flex flex-col flex-1">
                 <div className="flex items-center gap-2 mb-2 flex-wrap">
-                  {articleCategories(article).slice(0, 2).map((cat) => (
-                    <span key={`${article.id}-${cat}`} className="text-[10px] font-black uppercase tracking-widest text-primary">{cat}</span>
+                  {articleCategories(article).slice(0, 3).map((cat) => (
+                    <span key={`${article.id}-${cat}`} className="text-[11px] font-semibold rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-primary">{cat}</span>
                   ))}
                   <span className="text-[10px] text-muted-foreground font-bold">• {article.date}</span>
                 </div>
@@ -236,8 +234,8 @@ export default function NewsPage() {
               </div>
               <div className="flex flex-col justify-center flex-1">
                 <div className="flex items-center gap-2 mb-2 flex-wrap">
-                  {articleCategories(article).slice(0, 2).map((cat) => (
-                    <span key={`${article.id}-list-${cat}`} className="text-[10px] font-black uppercase tracking-widest text-primary">{cat}</span>
+                  {articleCategories(article).slice(0, 3).map((cat) => (
+                    <span key={`${article.id}-list-${cat}`} className="text-[11px] font-semibold rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-primary">{cat}</span>
                   ))}
                   <span className="text-[10px] text-muted-foreground font-bold">• {article.date}</span>
                 </div>
@@ -249,6 +247,7 @@ export default function NewsPage() {
           ))}
         </div>
       )}
+      </div>
 
       {pagination.totalPages > 1 && (
         <div className="mt-8 md:mt-10 flex items-center justify-center gap-2 flex-wrap">

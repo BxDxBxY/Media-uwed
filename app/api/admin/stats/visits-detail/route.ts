@@ -29,6 +29,7 @@ export async function GET(request: Request) {
 
     const byDay = new Map<string, number>();
     const byCountry = new Map<string, number>();
+    const byCountryByDay = new Map<string, Map<string, number>>();
 
     for (const visit of recentVisits) {
       const key = dayKey(visit.timestamp);
@@ -36,6 +37,9 @@ export async function GET(request: Request) {
 
       const country = parseCountry(visit.visitorIdentifier);
       byCountry.set(country, (byCountry.get(country) || 0) + 1);
+      const countryDay = byCountryByDay.get(country) || new Map<string, number>();
+      countryDay.set(key, (countryDay.get(key) || 0) + 1);
+      byCountryByDay.set(country, countryDay);
     }
 
     const daily: { date: string; count: number }[] = [];
@@ -50,6 +54,14 @@ export async function GET(request: Request) {
       .map(([country, visits]) => ({ country, visits }))
       .sort((a, b) => b.visits - a.visits);
 
+    const countryDaily = countries.map(({ country }) => ({
+      country,
+      daily: daily.map((entry) => ({
+        date: entry.date,
+        count: byCountryByDay.get(country)?.get(entry.date) || 0,
+      })),
+    }));
+
     const uniqueVisitors = new Set(recentVisits.map((x) => x.visitorIdentifier)).size;
 
     return NextResponse.json({
@@ -57,6 +69,7 @@ export async function GET(request: Request) {
       uniqueVisitors,
       daily,
       countries,
+      countryDaily,
       latestRecordedAt: recentVisits[0]?.timestamp || null,
       windowDays: 30,
     });

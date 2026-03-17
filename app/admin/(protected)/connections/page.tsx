@@ -6,10 +6,27 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 type PrefMap = Record<string, boolean>;
+type MessageStatus = "new" | "contacted" | "closed" | "spam";
+
+const STATUS_ORDER: Array<{ key: "all" | MessageStatus; label: string }> = [
+  { key: "all", label: "All" },
+  { key: "new", label: "new" },
+  { key: "contacted", label: "contacted" },
+  { key: "closed", label: "closed" },
+  { key: "spam", label: "spam" },
+];
+
+function resolveStatus(message: { subject: string; readAt?: string | null; archivedAt?: string | null }): MessageStatus {
+  if (/^\s*\[SPAM\]/i.test(message.subject || "")) return "spam";
+  if (message.archivedAt) return "closed";
+  if (message.readAt) return "contacted";
+  return "new";
+}
 
 export default function AdminConnectionsPage() {
   const { subscribers, messages, isLoading, deleteSubscriber } = useGlobalContext();
   const [activeView, setActiveView] = useState<"messages" | "subscribers">("messages");
+  const [messageFilter, setMessageFilter] = useState<"all" | MessageStatus>("new");
   const [removingSubscriberId, setRemovingSubscriberId] = useState<string | null>(null);
   const [pendingActionByMessageId, setPendingActionByMessageId] = useState<Record<string, string>>({});
   const [hiddenSubscriberIds, setHiddenSubscriberIds] = useState<Set<string>>(new Set());
@@ -41,6 +58,19 @@ export default function AdminConnectionsPage() {
 
   const visibleSubscribers = useMemo(() => subscribers.filter((sub) => !hiddenSubscriberIds.has(sub.id)), [subscribers, hiddenSubscriberIds]);
   const messageEmails = useMemo(() => [...new Set(localMessages.map((m) => m.email).filter(Boolean))], [localMessages]);
+
+  const statusCounts = useMemo(() => {
+    const initial: Record<string, number> = { all: localMessages.length, new: 0, contacted: 0, closed: 0, spam: 0 };
+    localMessages.forEach((message) => {
+      initial[resolveStatus(message)] += 1;
+    });
+    return initial;
+  }, [localMessages]);
+
+  const filteredMessages = useMemo(() => {
+    if (messageFilter === "all") return localMessages;
+    return localMessages.filter((m) => resolveStatus(m) === messageFilter);
+  }, [localMessages, messageFilter]);
 
   const isSubscriberActive = (email: string) => subscriberPrefs[email.toLowerCase()] !== false;
 
@@ -79,25 +109,29 @@ export default function AdminConnectionsPage() {
     }
   };
 
-  const handleMessageAction = async (messageId: string, action: "delete" | "archive" | "mark-read") => {
+  const handleSetMessageStatus = async (messageId: string, status: MessageStatus) => {
     const previousMessages = localMessages;
-    setPendingActionByMessageId((prev) => ({ ...prev, [messageId]: action }));
+    setPendingActionByMessageId((prev) => ({ ...prev, [messageId]: status }));
 
-    if (action === "delete" || action === "archive") {
-      setLocalMessages((prev) => prev.filter((message) => message.id !== messageId));
-    } else {
-      setLocalMessages((prev) => prev.map((message) => (message.id === messageId ? { ...message, readAt: message.readAt || new Date().toISOString() } : message)));
-    }
+    setLocalMessages((prev) => prev.map((m) => {
+      if (m.id !== messageId) return m;
+      if (status === "new") return { ...m, readAt: null, archivedAt: null, subject: (m.subject || "").replace(/^\s*\[SPAM\]\s*/i, "") };
+      if (status === "contacted") return { ...m, readAt: m.readAt || new Date().toISOString(), archivedAt: null, subject: (m.subject || "").replace(/^\s*\[SPAM\]\s*/i, "") };
+      if (status === "closed") return { ...m, readAt: m.readAt || new Date().toISOString(), archivedAt: new Date().toISOString(), subject: (m.subject || "").replace(/^\s*\[SPAM\]\s*/i, "") };
+      return { ...m, readAt: m.readAt || new Date().toISOString(), archivedAt: new Date().toISOString(), subject: /^\s*\[SPAM\]/i.test(m.subject || "") ? m.subject : `[SPAM] ${m.subject}` };
+    }));
 
     try {
-      const endpoint = action === "delete" ? `/api/admin/messages/${messageId}` : action === "archive" ? `/api/admin/messages/${messageId}/archive` : `/api/admin/messages/${messageId}/read`;
-      const method = action === "delete" ? "DELETE" : "PATCH";
-      const response = await fetch(endpoint, { method });
+      const response = await fetch(`/api/admin/messages/${messageId}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
       if (!response.ok) throw new Error("Request failed");
-      toast.success(action === "delete" ? "Message deleted" : action === "archive" ? "Message archived" : "Message marked as read");
+      toast.success(`Message moved to ${status}`);
     } catch {
       setLocalMessages(previousMessages);
-      toast.error("Failed to update message");
+      toast.error("Failed to update message status");
     } finally {
       setPendingActionByMessageId((prev) => {
         const next = { ...prev };
@@ -193,40 +227,56 @@ export default function AdminConnectionsPage() {
       </div>
 
       {activeView === "messages" ? (
-        <div className="space-y-4">
-          {localMessages.map((msg) => {
-            const isPending = Boolean(pendingActionByMessageId[msg.id]);
-            return (
-              <div key={msg.id} className="overflow-hidden rounded-xl border border-border/40 bg-card shadow-sm">
-                <div className="p-6">
-                  <div className="mb-4 flex items-start justify-between">
-                    <div className="flex gap-4">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary"><Inbox className="h-6 w-6" /></div>
-                      <div>
-                        <h3 className="text-lg font-bold">{msg.subject}</h3>
-                        <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground flex-wrap">
-                          <span className="font-medium text-foreground">{msg.name}</span><span>•</span><span className="flex items-center gap-1"><Mail className="h-3 w-3" /> {msg.email}</span><span>•</span><span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{new Date(msg.createdAt!).toLocaleDateString()}</span>
-                          {msg.readAt && <><span>•</span><span className="text-emerald-600">Read</span></>}
+        <>
+          <div className="flex flex-wrap gap-3">
+            {STATUS_ORDER.map((status) => (
+              <button
+                key={status.key}
+                onClick={() => setMessageFilter(status.key)}
+                className={`rounded-full border px-5 py-2 text-sm ${messageFilter === status.key ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background"}`}
+              >
+                {status.label} <span className="ml-1 text-xs opacity-80">{statusCounts[status.key] ?? 0}</span>
+              </button>
+            ))}
+          </div>
+          <div className="space-y-4">
+            {filteredMessages.map((msg) => {
+              const isPending = Boolean(pendingActionByMessageId[msg.id]);
+              const status = resolveStatus(msg);
+              return (
+                <div key={msg.id} className="overflow-hidden rounded-xl border border-border/40 bg-card shadow-sm">
+                  <div className="p-6">
+                    <div className="mb-4 flex items-start justify-between">
+                      <div className="flex gap-4">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary"><Inbox className="h-6 w-6" /></div>
+                        <div>
+                          <h3 className="text-lg font-bold">{msg.subject.replace(/^\s*\[SPAM\]\s*/i, "")}</h3>
+                          <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground flex-wrap">
+                            <span className="font-medium text-foreground">{msg.name}</span><span>•</span><span className="flex items-center gap-1"><Mail className="h-3 w-3" /> {msg.email}</span><span>•</span><span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{new Date(msg.createdAt!).toLocaleDateString()}</span>
+                            <span className="rounded-full px-2 py-0.5 text-xs border border-border bg-muted text-foreground">{status}</span>
+                          </div>
                         </div>
                       </div>
+                      <div className="relative">
+                        <details>
+                          <summary className="list-none"><button className="rounded-md border border-border p-2 hover:bg-muted" disabled={isPending}>{isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}</button></summary>
+                          <div className="absolute right-0 z-10 mt-2 w-44 rounded-md border border-border bg-background p-1 shadow-lg">
+                            <button className="w-full rounded-sm px-3 py-2 text-left text-sm hover:bg-muted" onClick={() => handleSetMessageStatus(msg.id, "new")} disabled={isPending}>Set as new</button>
+                            <button className="w-full rounded-sm px-3 py-2 text-left text-sm hover:bg-muted" onClick={() => handleSetMessageStatus(msg.id, "contacted")} disabled={isPending}>Set as contacted</button>
+                            <button className="w-full rounded-sm px-3 py-2 text-left text-sm hover:bg-muted" onClick={() => handleSetMessageStatus(msg.id, "closed")} disabled={isPending}>Set as closed</button>
+                            <button className="w-full rounded-sm px-3 py-2 text-left text-sm text-destructive hover:bg-muted" onClick={() => handleSetMessageStatus(msg.id, "spam")} disabled={isPending}>Set as spam</button>
+                          </div>
+                        </details>
+                      </div>
                     </div>
-                    <div className="relative">
-                      <details>
-                        <summary className="list-none"><button className="rounded-md border border-border p-2 hover:bg-muted" disabled={isPending}>{isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}</button></summary>
-                        <div className="absolute right-0 z-10 mt-2 w-36 rounded-md border border-border bg-background p-1 shadow-lg">
-                          <button className="w-full rounded-sm px-3 py-2 text-left text-sm hover:bg-muted" onClick={() => handleMessageAction(msg.id, "mark-read")} disabled={isPending || Boolean(msg.readAt)}>Mark as read</button>
-                          <button className="w-full rounded-sm px-3 py-2 text-left text-sm hover:bg-muted" onClick={() => handleMessageAction(msg.id, "archive")} disabled={isPending}>Archive</button>
-                          <button className="w-full rounded-sm px-3 py-2 text-left text-sm text-destructive hover:bg-muted" onClick={() => handleMessageAction(msg.id, "delete")} disabled={isPending}>Delete</button>
-                        </div>
-                      </details>
-                    </div>
+                    <div className="pl-16"><p className="whitespace-pre-wrap leading-relaxed text-muted-foreground">{msg.message}</p></div>
                   </div>
-                  <div className="pl-16"><p className="whitespace-pre-wrap leading-relaxed text-muted-foreground">{msg.message}</p></div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+            {filteredMessages.length === 0 && <div className="rounded-xl border border-dashed border-border p-8 text-center text-muted-foreground">No messages in this status.</div>}
+          </div>
+        </>
       ) : (
         <div className="overflow-hidden rounded-xl border border-border/40 bg-card shadow-sm">
           <table className="w-full text-left">
