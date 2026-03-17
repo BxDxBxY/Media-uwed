@@ -1,11 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { fetchMultipleFeeds } from "@/lib/rss";
-import {
-  deriveTermsFromInstructions,
-  matchesRequirements,
-  normalizeKeywords,
-} from "@/lib/automation-filters";
+import { matchesRequirements, normalizeKeywords } from "@/lib/automation-filters";
 
 export const maxDuration = 60; // Allow up to 60 seconds for this endpoint
 
@@ -16,19 +12,30 @@ export async function POST(request: Request) {
     const {
       includeKeywords,
       excludeKeywords,
-      aiInstructions,
-      aiStrictMode,
+      force,
     } = await request.json().catch(() => ({
       includeKeywords: [],
       excludeKeywords: [],
-      aiInstructions: "",
-      aiStrictMode: false,
+      force: false,
     }));
 
-    const include = normalizeKeywords(includeKeywords);
-    const exclude = normalizeKeywords(excludeKeywords);
-    const instructionTerms = deriveTermsFromInstructions(String(aiInstructions || ""));
-    const effectiveInclude = aiStrictMode ? [...new Set([...include, ...instructionTerms])] : include;
+    const automationSettings = await prisma.automationConfig.findUnique({ where: { id: "default" } });
+
+
+    if (!automationSettings?.automatedPull && !force) {
+      return NextResponse.json({
+        sourcesChecked: 0,
+        itemsFetched: 0,
+        newInserted: 0,
+        message: "Automated pull pipeline is disabled in admin settings.",
+        pipelineEnabled: false,
+      });
+    }
+    const includeSource = includeKeywords ?? automationSettings?.includeKeywords ?? "";
+    const excludeSource = excludeKeywords ?? automationSettings?.excludeKeywords ?? "";
+    const include = normalizeKeywords(includeSource);
+    const exclude = normalizeKeywords(excludeSource);
+    const effectiveInclude = include;
 
     const sources = await prisma.source.findMany({
       where: { enabled: true },

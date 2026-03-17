@@ -20,6 +20,7 @@ export async function POST(request: Request) {
       aiInstructions,
       aiStrictMode,
       retranslate,
+      force,
     } = await request.json().catch(() => ({
       ids: null,
       includeKeywords: [],
@@ -27,12 +28,29 @@ export async function POST(request: Request) {
       aiInstructions: "",
       aiStrictMode: false,
       retranslate: false,
+      force: false,
     }));
 
-    const include = normalizeKeywords(includeKeywords);
-    const exclude = normalizeKeywords(excludeKeywords);
-    const instructionTerms = deriveTermsFromInstructions(String(aiInstructions || ""));
-    const effectiveInclude = aiStrictMode ? [...new Set([...include, ...instructionTerms])] : include;
+    const automationSettings = await prisma.automationConfig.findUnique({ where: { id: "default" } });
+
+
+    if (!automationSettings?.processing && !force) {
+      return NextResponse.json({
+        processedCount: 0,
+        failedCount: 0,
+        message: "Processing pipeline is disabled in admin settings.",
+        pipelineEnabled: false,
+      });
+    }
+    const includeSource = includeKeywords ?? automationSettings?.includeKeywords ?? "";
+    const excludeSource = excludeKeywords ?? automationSettings?.excludeKeywords ?? "";
+    const instructionsSource = aiInstructions ?? automationSettings?.aiInstructions ?? "";
+    const strictSource = typeof aiStrictMode === "boolean" ? aiStrictMode : Boolean(automationSettings?.aiStrictMode);
+
+    const include = normalizeKeywords(includeSource);
+    const exclude = normalizeKeywords(excludeSource);
+    const instructionTerms = deriveTermsFromInstructions(String(instructionsSource || ""));
+    const effectiveInclude = strictSource ? [...new Set([...include, ...instructionTerms])] : include;
 
     const targetArticles = await prisma.articleRaw.findMany({
       where: {
@@ -74,7 +92,7 @@ export async function POST(request: Request) {
 
     const aiProviderApiKey = decryptSecret(aiIntegration?.providerApiKeyEncrypted);
     const aiProviderModel =
-      ((aiIntegration as any)?.providerModel as string | undefined)?.trim() ||
+      aiIntegration?.providerModel?.trim() ||
       process.env.OPENROUTER_TRANSLATE_MODEL ||
       "openai/gpt-4o-mini";
 
@@ -118,6 +136,8 @@ export async function POST(request: Request) {
             console.warn(`Scrape failed for article ${raw.id}, continuing with RSS summary only`, scrapeError);
           }
 
+          const uniqueDetailImages = Array.from(new Set(detailImages.filter(Boolean))).filter((img) => img !== finalImageUrl);
+
           await prisma.articleRaw.update({
             where: { id: raw.id },
             data: {
@@ -126,7 +146,7 @@ export async function POST(request: Request) {
                 ...parsedRawJson,
                 fullContent: detailedContent || null,
                 detailFetchedAt: new Date().toISOString(),
-                detailImages: detailImages.length > 0 ? detailImages : null,
+                detailImages: uniqueDetailImages.length > 0 ? uniqueDetailImages : null,
               }),
             },
           });
@@ -151,6 +171,7 @@ export async function POST(request: Request) {
                 : "full",
             providerApiKey: aiProviderApiKey || undefined,
             providerModel: aiProviderModel,
+            editorialPrompt: aiIntegration?.editorialPrompt || undefined,
           },
         );
 
@@ -158,6 +179,14 @@ export async function POST(request: Request) {
           failedCount++;
           continue;
         }
+
+        const sourceCategory = (raw.source?.category || "").trim();
+        const cleanedCategories = Array.from(new Set((aiResult.categories || []).map((c) => String(c || "").trim()).filter(Boolean)))
+          .filter((c) => c.toLowerCase() !== "news")
+          .slice(0, 3);
+        const normalizedCategories = cleanedCategories.length > 0
+          ? cleanedCategories
+          : [sourceCategory || "World"];
 
         if (retranslate) {
           previews.push({
@@ -172,7 +201,7 @@ export async function POST(request: Request) {
             contentEn: aiResult.contentEn,
             contentRu: aiResult.contentRu,
             contentUz: aiResult.contentUz,
-            categories: aiResult.categories.join(", "),
+            categories: normalizedCategories.join(", "),
             rawImageUrl: finalImageUrl || null,
           });
         } else if (raw.processed) {
@@ -188,7 +217,7 @@ export async function POST(request: Request) {
               contentEn: aiResult.contentEn,
               contentRu: aiResult.contentRu,
               contentUz: aiResult.contentUz,
-              categories: aiResult.categories.join(", "),
+              categories: normalizedCategories.join(", "),
               status: "pending_review",
             },
           });
@@ -205,7 +234,7 @@ export async function POST(request: Request) {
               contentEn: aiResult.contentEn,
               contentRu: aiResult.contentRu,
               contentUz: aiResult.contentUz,
-              categories: aiResult.categories.join(", "),
+              categories: normalizedCategories.join(", "),
               status: "pending_review",
             },
           });

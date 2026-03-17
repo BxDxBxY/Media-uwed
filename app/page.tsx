@@ -60,34 +60,19 @@ function getTopCategoryNames(articles: Article[], limit: number) {
 
 export default function Home() {
   const { articles, isLoading, media, language, addSubscriber } = useGlobalContext();
-  const [homeArticles, setHomeArticles] = useState<Article[]>([]);
   const [newsletterMessage, setNewsletterMessage] = useState<"" | "thanks" | "animating">("");
   const [newsletterDismissed, setNewsletterDismissed] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     return localStorage.getItem("newsletter-hidden") === "1" || localStorage.getItem("newsletter-signed") === "1";
   });
 
-  useEffect(() => {
-    let cancelled = false;
-    const loadMoreArticles = async () => {
-      try {
-        const res = await fetch("/api/frontend/articles?page=1&limit=120");
-        const data = await res.json();
-        if (!cancelled && res.ok) {
-          setHomeArticles((data?.articles || []) as Article[]);
-        }
-      } catch {
-        // keep fallback to context articles
-      }
-    };
+  const [categoryArticles, setCategoryArticles] = useState<Record<string, Article[]>>({});
+  const [homeCategorySets, setHomeCategorySets] = useState<{ structured: string[]; columns: string[] }>({
+    structured: ["World", "University", "Analysis"],
+    columns: ["University", "World", "Economy", "Sports"],
+  });
 
-    loadMoreArticles();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const sourceArticles = homeArticles.length > 0 ? homeArticles : articles;
+  const sourceArticles = articles;
 
   const featuredArticle = sourceArticles[0];
   const trendingNews = sourceArticles.slice(4, 14);
@@ -95,22 +80,12 @@ export default function Home() {
   const breakingCharacters = breakingItems.reduce((sum, item) => sum + localizedText(item, language, "title").length, 0);
   const tickerDuration = Math.min(42, Math.max(24, Math.round(breakingCharacters * 0.36)));
 
-  const preferredStructured = ["World", "University", "Analysis"];
-  const preferredColumns = ["University", "World", "Economy", "Sports"];
-  const topCategories = getTopCategoryNames(sourceArticles, 8);
-
-  const structuredCategoryKeys = uniqueById(
-    preferredStructured
-      .map((key) => ({ id: key, key }))
-      .concat(topCategories.map((key) => ({ id: key, key }))),
-  )
-    .map((x) => x.key)
-    .slice(0, 3);
+  const structuredCategoryKeys = homeCategorySets.structured;
 
   const categoryPools = structuredCategoryKeys.map((key, index) => ({
     key,
     title: key,
-    source: byCategory(sourceArticles, key),
+    source: categoryArticles[key] || byCategory(sourceArticles, key),
     reverse: index % 2 === 1,
   }));
 
@@ -128,15 +103,9 @@ export default function Home() {
     })
     .filter((block) => block.items.length > 0);
 
-  const columnCategoryKeys = uniqueById(
-    preferredColumns
-      .map((key) => ({ id: key, key }))
-      .concat(topCategories.map((key) => ({ id: key, key }))),
-  )
-    .map((x) => x.key)
-    .slice(0, 4);
+  const columnCategoryKeys = homeCategorySets.columns;
 
-  const columnPools = columnCategoryKeys.map((key) => ({ key, title: key, source: byCategory(sourceArticles, key) }));
+  const columnPools = columnCategoryKeys.map((key) => ({ key, title: key, source: categoryArticles[key] || byCategory(sourceArticles, key) }));
   const columnUsed = new Set<string>(Array.from(used));
   const columnSections = columnPools
     .map((pool) => {
@@ -150,6 +119,46 @@ export default function Home() {
       return { key: pool.key, title: pool.title, items };
     })
     .filter((section) => section.items.length > 0);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    const fetchHomeCategoryFeeds = async () => {
+      try {
+        const categoriesRes = await fetch("/api/frontend/categories");
+        const categoriesData = categoriesRes.ok ? await categoriesRes.json() : { categories: [] };
+        const available = (categoriesData?.categories || []).map((c: { name: string }) => c.name).filter(Boolean);
+
+        const preferredStructured = ["World", "University", "Analysis"];
+        const preferredColumns = ["University", "World", "Economy", "Sports"];
+        const ranked = [...new Set([...getTopCategoryNames(sourceArticles, 8), ...available])];
+
+        const structured = uniqueById(preferredStructured.map((key) => ({ id: key, key })).concat(ranked.map((key) => ({ id: key, key })))).map((x) => x.key).slice(0, 3);
+        const columns = uniqueById(preferredColumns.map((key) => ({ id: key, key })).concat(ranked.map((key) => ({ id: key, key })))).map((x) => x.key).slice(0, 4);
+
+        const toFetch = [...new Set([...structured, ...columns])];
+        const responses = await Promise.all(
+          toFetch.map(async (category) => {
+            const res = await fetch(`/api/frontend/articles?page=1&limit=10&category=${encodeURIComponent(category)}`);
+            const data = res.ok ? await res.json() : { articles: [] };
+            return [category, (data?.articles || []) as Article[]] as const;
+          }),
+        );
+
+        if (!isCancelled) {
+          setHomeCategorySets({ structured, columns });
+          setCategoryArticles(Object.fromEntries(responses));
+        }
+      } catch {
+        // keep context fallback
+      }
+    };
+
+    fetchHomeCategoryFeeds();
+    return () => {
+      isCancelled = true;
+    };
+  }, [sourceArticles]);
 
   const homeVisibleMedia = useMemo(
     () => uniqueById(media.filter((m) => !HOME_HIDDEN_MEDIA_CATEGORIES.some((cat) => hasMediaCategory(m.category, cat)))),
@@ -282,8 +291,11 @@ export default function Home() {
               <button type="submit" className="w-full rounded-lg bg-primary text-primary-foreground py-2 font-bold">{t.subscribe}</button>
 
               {(newsletterMessage === "animating" || newsletterMessage === "thanks") && (
-                <div className="absolute inset-0 bg-background dark:bg-card/95 flex items-center justify-center transition-opacity duration-500 animate-in fade-in">
-                  <p className="text-base font-semibold text-foreground">Submitted. Thank you!</p>
+                <div className="absolute inset-0 bg-background/95 dark:bg-card/95 backdrop-blur-sm flex items-center justify-center transition-all duration-500 animate-in fade-in zoom-in-95">
+                  <div className="text-center">
+                    <p className="text-base md:text-lg font-semibold text-foreground animate-pulse">Submitted. Thank you!</p>
+                    <p className="text-xs text-muted-foreground mt-1">You’re on the list ✨</p>
+                  </div>
                 </div>
               )}
             </form> : null}

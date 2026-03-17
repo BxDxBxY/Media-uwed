@@ -22,6 +22,7 @@ export type AiTaskConfig = {
   translationPolicy?: "full" | "summary_only" | "disabled";
   providerApiKey?: string;
   providerModel?: string;
+  editorialPrompt?: string;
 };
 // Free/no-auth translation endpoints (may rate-limit sometimes)
 const LIBRETRANSLATE_URL = "https://libretranslate.de/translate"; // public instance
@@ -78,6 +79,7 @@ async function translateWithOpenRouterChunk(
   target: "en" | "ru" | "uz",
   apiKey: string | null,
   model: string,
+  editorialPrompt?: string,
 ): Promise<string | null> {
   const safeKey = (apiKey || "").trim();
   if (!safeKey) {
@@ -87,13 +89,14 @@ async function translateWithOpenRouterChunk(
 
   try {
     const prompt = [
-      "You are a professional news translator.",
+      "You are a professional news translator and editor.",
       `Translate the text from ${source} to ${target}.`,
       "Return only translated text with no markdown, no explanations, no extra labels.",
       "Keep names, numbers, and factual meaning accurate.",
+      editorialPrompt ? `Editorial instructions from admin: ${editorialPrompt}` : null,
       "Input:",
       chunk,
-    ].join("\n");
+    ].filter(Boolean).join("\n");
 
     console.log({
       hasKey: Boolean(safeKey),
@@ -121,8 +124,9 @@ async function translateWithOpenRouterChunk(
     );
 
     const out = res.data?.choices?.[0]?.message?.content?.trim() || "";
+    if (!out || isRefusalLike(out)) return null;
 
-    return out ? cleanText(out) : null;
+    return cleanText(out);
   } catch (error: any) {
     console.error("OpenRouter error status:", error?.response?.status);
     console.error("OpenRouter error data:", error?.response?.data);
@@ -134,6 +138,25 @@ async function translateWithOpenRouterChunk(
 function cleanText(s: string) {
   return polishText((s || "").replace(/\s+/g, " "));
 }
+
+function isRefusalLike(text: string): boolean {
+  const normalized = cleanText(text).toLowerCase();
+  if (!normalized) return false;
+  return [
+    "sorry",
+    "i can't help",
+    "i cannot help",
+    "i can't assist",
+    "i cannot assist",
+    "unable to assist",
+    "cannot comply",
+    "i'm not able to",
+    "i cannot fulfill",
+    "policy",
+    "cannot provide",
+  ].some((phrase) => normalized.includes(phrase));
+}
+
 
 export function detectSourceLanguage(input: string): "en" | "ru" | "uz" {
   const text = cleanText(input).toLowerCase();
@@ -196,7 +219,7 @@ async function translate(
   text: string,
   source: "en" | "ru" | "uz",
   target: "en" | "ru" | "uz",
-  options?: { providerApiKey?: string; providerModel?: string },
+  options?: { providerApiKey?: string; providerModel?: string; editorialPrompt?: string },
 ) {
   const q = cleanText(text);
   if (!q) return "";
@@ -215,6 +238,7 @@ async function translate(
         target,
         options?.providerApiKey || OPENROUTER_API_KEY || null,
         options?.providerModel || OPENROUTER_MODEL,
+        options?.editorialPrompt,
       )) || "";
 
     // 2) LibreTranslate
@@ -260,7 +284,7 @@ async function translateWithPivot(
   text: string,
   source: "en" | "ru" | "uz",
   target: "en" | "ru" | "uz",
-  options?: { providerApiKey?: string; providerModel?: string },
+  options?: { providerApiKey?: string; providerModel?: string; editorialPrompt?: string },
 ): Promise<string> {
   const primary = await translate(text, source, target, options);
   const normalizedSource = cleanText(text);
@@ -275,6 +299,24 @@ async function translateWithPivot(
 
   const pivoted = await translate(pivot, "en", target, options);
   return cleanText(pivoted) || primary;
+}
+
+
+function summarizeToTwoParagraphs(text: string): string {
+  const cleaned = cleanText(text);
+  if (!cleaned) return "";
+
+  const sentences = cleaned.split(/(?<=[.!?])\s+/).filter(Boolean);
+  const selected = sentences.slice(0, 8).join(" " );
+  const capped = selected.length > 900 ? `${selected.slice(0, 897).trim()}...` : selected;
+
+  const midpoint = Math.ceil(capped.length / 2);
+  const splitAt = capped.indexOf(". ", midpoint);
+  if (splitAt > 0 && splitAt < capped.length - 3) {
+    return `${capped.slice(0, splitAt + 1).trim()}\n\n${capped.slice(splitAt + 2).trim()}`;
+  }
+
+  return capped;
 }
 
 function detectCategories(title: string, description: string): string[] {
@@ -321,8 +363,8 @@ function detectCategories(title: string, description: string): string[] {
   if (/\buniversity|student|education|school|campus|academic|faculty\b/.test(t)) add("University");
   if (/\bworld|international|global|foreign\b/.test(t)) add("World");
 
-  if (cats.length === 0) add("News");
-  return cats.slice(0, 5);
+  if (cats.length === 0) add("World");
+  return cats.slice(0, 3);
 }
 
 export async function processNewsAI(
@@ -336,8 +378,8 @@ export async function processNewsAI(
     const src = sourceLanguage;
 
     const rewrittenTitle = paraphraseBasic(title);
-    const rewrittenSummary = paraphraseBasic(description || title);
-    const rewrittenContent = paraphraseBasic(detailedContent || description || title);
+    const rewrittenSummary = summarizeToTwoParagraphs(paraphraseBasic(description || title));
+    const rewrittenContent = summarizeToTwoParagraphs(paraphraseBasic(detailedContent || description || title));
 
     const translationPolicy = taskConfig.translationPolicy ?? "full";
 
@@ -372,9 +414,9 @@ export async function processNewsAI(
     const summarySource = taskConfig.summarizationEnabled === false ? title : description || title;
     const normalizedSummary = paraphraseBasic(summarySource);
 
-    const finalSummaryEn = taskConfig.summarizationEnabled === false ? polishText(title) : polishText(summaryEn || normalizedSummary);
-    const finalSummaryRu = taskConfig.summarizationEnabled === false ? polishText(headlineRu) : polishText(summaryRu || normalizedSummary);
-    const finalSummaryUz = taskConfig.summarizationEnabled === false ? polishText(headlineUz) : polishText(summaryUz || normalizedSummary);
+    const finalSummaryEn = taskConfig.summarizationEnabled === false ? polishText(title) : summarizeToTwoParagraphs(polishText(summaryEn || normalizedSummary));
+    const finalSummaryRu = taskConfig.summarizationEnabled === false ? polishText(headlineRu) : summarizeToTwoParagraphs(polishText(summaryRu || normalizedSummary));
+    const finalSummaryUz = taskConfig.summarizationEnabled === false ? polishText(headlineUz) : summarizeToTwoParagraphs(polishText(summaryUz || normalizedSummary));
 
     const categories = taskConfig.categorizationEnabled === false
       ? ["News"]
@@ -387,9 +429,9 @@ export async function processNewsAI(
       summaryEn: finalSummaryEn,
       summaryRu: finalSummaryRu,
       summaryUz: finalSummaryUz,
-      contentEn: polishText(contentEn),
-      contentRu: polishText(contentRu),
-      contentUz: polishText(contentUz),
+      contentEn: summarizeToTwoParagraphs(polishText(contentEn)),
+      contentRu: summarizeToTwoParagraphs(polishText(contentRu)),
+      contentUz: summarizeToTwoParagraphs(polishText(contentUz)),
       categories,
     };
   } catch (error) {

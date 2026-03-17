@@ -3,16 +3,9 @@
 import { useGlobalContext } from "@/lib/context";
 import { Plus, Trash2, Video, Image as ImageIcon, ExternalLink, Play, Eye, Edit2, X, ChevronLeft, ChevronRight, Table2, LayoutGrid } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { getMediaPreviewUrl, getYouTubeIdFromUrl } from "@/lib/media-utils";
+import { getMediaPreviewUrl, getVideoEmbedUrl } from "@/lib/media-utils";
 import { toast } from "sonner";
 
-function getEmbedUrl(url: string) {
-  if (url.includes("youtube.com") || url.includes("youtu.be")) {
-    const id = getYouTubeIdFromUrl(url) || "";
-    return `https://www.youtube.com/embed/${id}?rel=0`;
-  }
-  return url;
-}
 
 export default function AdminMediaPage() {
   const { media, addMedia, deleteMedia, isLoading, updateMedia } = useGlobalContext();
@@ -70,9 +63,6 @@ export default function AdminMediaPage() {
     setSelectedIndex((prev) => (prev - 1 + sortedMedia.length) % sortedMedia.length);
   };
 
-  if (isLoading) return <div className="p-8 text-center text-muted-foreground italic">Updating gallery...</div>;
-
-
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (selectedIndex < 0) return;
@@ -84,6 +74,8 @@ export default function AdminMediaPage() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [selectedIndex, handleNext, handlePrev]);
+
+  if (isLoading) return <div className="p-8 text-center text-muted-foreground italic">Updating gallery...</div>;
 
   return (
     <div className="space-y-6">
@@ -214,7 +206,7 @@ export default function AdminMediaPage() {
             <button onClick={handleNext} className="absolute right-4 top-1/2 -translate-y-1/2 z-20 h-12 w-12 rounded-full bg-black/30 hover:bg-black/50 flex items-center justify-center text-foreground transition-all opacity-0 group-hover/modal:opacity-100"><ChevronRight className="h-8 w-8" /></button>
 
             <div className="aspect-video bg-black flex items-center justify-center">
-              {selectedItem.type === "video" ? <iframe className="w-full h-full" src={getEmbedUrl(selectedItem.url)} title={selectedItem.title} allowFullScreen /> : <img src={selectedItem.url} alt={selectedItem.title} className="max-h-full max-w-full object-contain" />}
+              {selectedItem.type === "video" ? <iframe className="w-full h-full" src={getVideoEmbedUrl(selectedItem.url) || selectedItem.url} title={selectedItem.title} allowFullScreen /> : <img src={selectedItem.url} alt={selectedItem.title} className="max-h-full max-w-full object-contain" />}
             </div>
             <div className="p-6 md:p-8">
               <span className="text-xs font-bold text-primary uppercase tracking-widest mb-2 block">{selectedItem.category}</span>

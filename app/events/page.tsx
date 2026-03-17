@@ -1,18 +1,19 @@
 "use client";
 
-import { useGlobalContext } from "@/lib/context";
+import { useGlobalContext, type Event } from "@/lib/context";
 import { parseEventTimestamp } from "@/lib/event-datetime";
 import { getEventCoverImage } from "@/lib/event-images";
 import { Calendar, MapPin, ArrowRight, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
+import { useMemo, useState } from "react";
 
 export default function EventsPage() {
   const { events, isLoading, language } = useGlobalContext();
   const [activeTab, setActiveTab] = useState<"upcoming" | "past">("upcoming");
+  const [nowTs] = useState(() => Date.now());
 
   const { upcomingEvents, pastEvents } = useMemo(() => {
-    const now = Date.now();
     const parsedEvents = events.map((event) => ({
       event,
       eventTimestamp: parseEventTimestamp({
@@ -22,7 +23,7 @@ export default function EventsPage() {
     }));
 
     const upcoming = parsedEvents
-      .filter(({ eventTimestamp }) => eventTimestamp === null || eventTimestamp >= now)
+      .filter(({ eventTimestamp }) => eventTimestamp === null || eventTimestamp >= nowTs)
       .sort((a, b) => {
         if (a.eventTimestamp === null && b.eventTimestamp === null) return 0;
         if (a.eventTimestamp === null) return 1;
@@ -32,31 +33,30 @@ export default function EventsPage() {
       .map(({ event }) => event);
 
     const past = parsedEvents
-      .filter(({ eventTimestamp }) => eventTimestamp !== null && eventTimestamp < now)
+      .filter(({ eventTimestamp }) => eventTimestamp !== null && eventTimestamp < nowTs)
       .sort((a, b) => (b.eventTimestamp as number) - (a.eventTimestamp as number))
       .map(({ event }) => event);
 
     return { upcomingEvents: upcoming, pastEvents: past };
-  }, [events]);
+  }, [events, nowTs]);
 
-  useEffect(() => {
-    if (upcomingEvents.length === 0 && pastEvents.length > 0) {
-      setActiveTab("past");
-    }
-  }, [pastEvents.length, upcomingEvents.length]);
+  const effectiveActiveTab =
+    activeTab === "upcoming" && upcomingEvents.length === 0 && pastEvents.length > 0
+      ? "past"
+      : activeTab;
 
-  const visibleEvents = activeTab === "upcoming" ? upcomingEvents : pastEvents;
+  const visibleEvents = effectiveActiveTab === "upcoming" ? upcomingEvents : pastEvents;
 
-  const getLocalized = (event: any, key: string) => {
-    if (language === "ru") {
-      const ruVal = event[key + "Ru"];
-      if (ruVal) return ruVal;
+  const getLocalized = (event: Event, key: "title" | "location") => {
+    if (key === "title") {
+      if (language === "ru" && event.titleRu) return event.titleRu;
+      if (language === "uz" && event.titleUz) return event.titleUz;
+      return event.title;
     }
-    if (language === "uz") {
-      const uzVal = event[key + "Uz"];
-      if (uzVal) return uzVal;
-    }
-    return event[key];
+
+    if (language === "ru" && event.locationRu) return event.locationRu;
+    if (language === "uz" && event.locationUz) return event.locationUz;
+    return event.location;
   };
 
   if (isLoading) {
@@ -80,17 +80,17 @@ export default function EventsPage() {
       <div className="flex border-b border-border/40 mb-10">
         <button
           onClick={() => setActiveTab("upcoming")}
-          className={`px-8 py-4 text-sm font-bold uppercase tracking-widest transition-all relative ${activeTab === "upcoming" ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
+          className={`px-8 py-4 text-sm font-bold uppercase tracking-widest transition-all relative ${effectiveActiveTab === "upcoming" ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
         >
           Upcoming
-          {activeTab === "upcoming" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary" />}
+          {effectiveActiveTab === "upcoming" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary" />}
         </button>
         <button
           onClick={() => setActiveTab("past")}
-          className={`px-8 py-4 text-sm font-bold uppercase tracking-widest transition-all relative ${activeTab === "past" ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
+          className={`px-8 py-4 text-sm font-bold uppercase tracking-widest transition-all relative ${effectiveActiveTab === "past" ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
         >
           Past Events
-          {activeTab === "past" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary" />}
+          {effectiveActiveTab === "past" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary" />}
         </button>
       </div>
 
@@ -102,10 +102,12 @@ export default function EventsPage() {
             className="group block bg-card rounded-[2rem] border border-border/40 overflow-hidden hover:shadow-2xl transition-all duration-500 hover:-translate-y-1"
           >
             <div className="aspect-[16/9] overflow-hidden relative">
-              <img
+              <Image
                 src={getEventCoverImage(event.image, event.title)}
                 alt={event.title}
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                fill
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                className="object-cover transition-transform duration-700 group-hover:scale-110"
               />
               <div className="absolute top-4 left-4 bg-card/90 text-foreground backdrop-blur-md px-3 py-1.5 rounded-xl border border-border/60 shadow-sm flex flex-col items-center min-w-[50px]">
                 <span className="text-[10px] font-black uppercase text-primary leading-none">{event.date.split(" ")[0]}</span>

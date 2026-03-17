@@ -1,5 +1,4 @@
 "use client";
-
 import {
     Rss,
     RefreshCw,
@@ -22,11 +21,9 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useGlobalContext } from "@/lib/context";
-
 type Tab = "review" | "raw";
 type Lang = "en" | "ru" | "uz";
 type IntegrationType = "ai" | "telegram";
-
 type IntegrationConfig = {
     integrationType: IntegrationType;
     enabled: boolean;
@@ -37,30 +34,26 @@ type IntegrationConfig = {
     aiCategorization: boolean;
     translationPolicy: "full" | "summary_only" | "disabled";
     retryLimit: number;
+    providerModel?: string;
+    editorialPrompt?: string;
     hasProviderApiKey?: boolean;
     hasWebhookToken?: boolean;
     secretFingerprint?: string | null;
 };
-
 export default function AutomationPage() {
     const { sources, refreshData } = useGlobalContext();
-
     const [newSource, setNewSource] = useState({ name: "", url: "" });
-
     const [isProcessing, setIsProcessing] = useState(false);
     const [isTranslating, setIsTranslating] = useState(false);
-
+    const [translationProgress, setTranslationProgress] = useState(0);
     const [processedItems, setProcessedItems] = useState<any[]>([]);
     const [rawItems, setRawItems] = useState<any[]>([]);
     const [isLoadingReview, setIsLoadingReview] = useState(false);
     const [isLoadingRaw, setIsLoadingRaw] = useState(false);
-
     const [activeTab, setActiveTab] = useState<Tab>("review");
     const [selectedRawIds, setSelectedRawIds] = useState<string[]>([]);
     const [selectedReviewIds, setSelectedReviewIds] = useState<string[]>([]);
-
     const [selectedReviewItem, setSelectedReviewItem] = useState<any>(null);
-
     const [includeKeywords, setIncludeKeywords] = useState("");
     const [excludeKeywords, setExcludeKeywords] = useState("");
     const [aiInstructions, setAiInstructions] = useState("");
@@ -69,24 +62,25 @@ export default function AutomationPage() {
         automatedPull: true,
         processing: true,
         translation: true,
+        fetchPeriodMinutes: 30,
     });
     const [showRequirements, setShowRequirements] = useState(false);
     const [showFeedManagement, setShowFeedManagement] = useState(false);
-    const [showPipelineSettings, setShowPipelineSettings] = useState(false);
+    const [showPipelineSettings, setShowPipelineSettings] = useState(true);
     const [isRetranslating, setIsRetranslating] = useState(false);
     const [isPublishingSingle, setIsPublishingSingle] = useState(false);
-
     const [page, setPage] = useState(1);
     const [sortBy, setSortBy] = useState<"newest" | "oldest">("newest");
     const itemsPerPage = 5;
-
     const [lang, setLang] = useState<Lang>("en");
-
+    const [reviewLang, setReviewLang] = useState<Lang>("en");
     const [integrationConfigs, setIntegrationConfigs] = useState<Record<IntegrationType, IntegrationConfig>>({
         ai: {
             integrationType: "ai",
             enabled: true,
             provider: "openrouter",
+            providerModel: "openai/gpt-4o-mini",
+            editorialPrompt: "",
             channelId: "",
             sendOnPublish: false,
             aiSummarization: true,
@@ -101,6 +95,8 @@ export default function AutomationPage() {
             integrationType: "telegram",
             enabled: false,
             provider: "telegram-bot-api",
+            providerModel: "",
+            editorialPrompt: "",
             channelId: "",
             sendOnPublish: false,
             aiSummarization: true,
@@ -112,14 +108,29 @@ export default function AutomationPage() {
             secretFingerprint: null,
         },
     });
-    const [isSavingIntegration, setIsSavingIntegration] = useState(false);
+    const [isSavingIntegration, setIsSavingIntegration] = useState<Record<IntegrationType, boolean>>({ ai: false, telegram: false });
     const [isSendingTelegramTest, setIsSendingTelegramTest] = useState(false);
-    const [isSavingSecret, setIsSavingSecret] = useState(false);
+    const [isSavingSecret, setIsSavingSecret] = useState<Record<IntegrationType, boolean>>({ ai: false, telegram: false });
     const [showIntegrationsPanel, setShowIntegrationsPanel] = useState(false);
     const [pendingSecrets, setPendingSecrets] = useState<Record<IntegrationType, { providerApiKey: string; webhookToken: string }>>({
         ai: { providerApiKey: "", webhookToken: "" },
         telegram: { providerApiKey: "", webhookToken: "" },
     });
+    const previewBodyImages = useMemo(() => {
+        if (!selectedReviewItem) return [] as string[];
+        const base = selectedReviewItem.rawImageUrl || selectedReviewItem?.raw?.imageUrl || null;
+        let detail: string[] = [];
+        try {
+            const rawJson = selectedReviewItem?.raw?.rawJson ? JSON.parse(selectedReviewItem.raw.rawJson) : {};
+            detail = Array.isArray(rawJson?.detailImages)
+                ? rawJson.detailImages.filter((x: unknown): x is string => typeof x === "string" && x.trim().length > 0)
+                : [];
+        } catch {
+            detail = [];
+        }
+
+        return Array.from(new Set([base, ...detail].filter(Boolean) as string[]));
+    }, [selectedReviewItem]);
 
     const fetchReviewItems = async (withLoader: boolean = true) => {
         if (withLoader) setIsLoadingReview(true);
@@ -134,14 +145,12 @@ export default function AutomationPage() {
             if (withLoader) setIsLoadingReview(false);
         }
     };
-
-
     const loadIntegrationConfigs = async () => {
         try {
             const res = await fetch("/api/admin/integrations");
             if (!res.ok) return;
             const data = await res.json();
-            const byType = (data.configs || []).reduce((acc: any, item: IntegrationConfig) => {
+            const byType = (data.configs || []).reduce((acc: Partial<Record<IntegrationType, IntegrationConfig>>, item: IntegrationConfig) => {
                 acc[item.integrationType] = item;
                 return acc;
             }, {});
@@ -150,18 +159,10 @@ export default function AutomationPage() {
             console.error("Failed to load integration configs", error);
         }
     };
-
     const fetchRawItems = async () => {
         setIsLoadingRaw(true);
         try {
-            const params = new URLSearchParams({
-                includeKeywords,
-                excludeKeywords,
-                aiInstructions,
-                aiStrictMode: String(aiStrictMode),
-            });
-
-            const res = await fetch(`/api/admin/automation/raw?${params.toString()}`);
+            const res = await fetch(`/api/admin/automation/raw`);
             if (!res.ok) return;
             const data = await res.json();
             setRawItems(data.items || []);
@@ -171,51 +172,44 @@ export default function AutomationPage() {
             setIsLoadingRaw(false);
         }
     };
-
     useEffect(() => {
         fetchReviewItems();
         fetchRawItems();
         loadIntegrationConfigs();
+        loadAutomationSettings();
+        refreshData();
     }, []);
-
-    useEffect(() => {
-        const saved = localStorage.getItem("automationRequirements");
-        if (!saved) return;
-
+    const loadAutomationSettings = async () => {
         try {
-            const parsed = JSON.parse(saved);
-            setIncludeKeywords(parsed.includeKeywords || "");
-            setExcludeKeywords(parsed.excludeKeywords || "");
-            setAiInstructions(parsed.aiInstructions || "");
-            setAiStrictMode(Boolean(parsed.aiStrictMode));
+            const res = await fetch("/api/admin/automation/settings");
+            if (!res.ok) return;
+            const data = await res.json();
+            const settings = data?.settings || {};
+            setIncludeKeywords(settings.includeKeywords || "");
+            setExcludeKeywords(settings.excludeKeywords || "");
+            setAiInstructions(settings.aiInstructions || "");
+            setAiStrictMode(Boolean(settings.aiStrictMode));
             setPipelineSettings({
-                automatedPull: parsed.pipelineSettings?.automatedPull ?? true,
-                processing: parsed.pipelineSettings?.processing ?? true,
-                translation: parsed.pipelineSettings?.translation ?? true,
+                automatedPull: settings.automatedPull ?? true,
+                processing: settings.processing ?? true,
+                translation: settings.translation ?? true,
+                fetchPeriodMinutes: settings.fetchPeriodMinutes ?? 30,
             });
         } catch {
-            // ignore invalid local settings
+            // ignore
         }
-    }, []);
-
-    useEffect(() => {
-        localStorage.setItem(
-            "automationRequirements",
-            JSON.stringify({
-                includeKeywords,
-                excludeKeywords,
-                aiInstructions,
-                aiStrictMode,
-                pipelineSettings,
-            }),
-        );
-    }, [includeKeywords, excludeKeywords, aiInstructions, aiStrictMode, pipelineSettings]);
-
+    };
+    const saveAutomationSettings = async (next: { includeKeywords: string; excludeKeywords: string; aiInstructions: string; aiStrictMode: boolean; automatedPull: boolean; processing: boolean; translation: boolean; fetchPeriodMinutes: number; }) => {
+        await fetch("/api/admin/automation/settings", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(next),
+        });
+    };
     // Reset pagination when switching view
     useEffect(() => {
         setPage(1);
     }, [sortBy, processedItems.length]);
-
     useEffect(() => {
         if (activeTab === "review") {
             setSelectedRawIds([]);
@@ -223,11 +217,21 @@ export default function AutomationPage() {
             setSelectedReviewIds([]);
         }
     }, [activeTab]);
-
     useEffect(() => {
-        fetchRawItems();
-    }, [includeKeywords, excludeKeywords, aiInstructions, aiStrictMode]);
-
+        const timeout = setTimeout(() => {
+            saveAutomationSettings({
+                includeKeywords,
+                excludeKeywords,
+                aiInstructions,
+                aiStrictMode,
+                automatedPull: pipelineSettings.automatedPull,
+                processing: pipelineSettings.processing,
+                translation: pipelineSettings.translation,
+                fetchPeriodMinutes: pipelineSettings.fetchPeriodMinutes,
+            }).catch(() => null);
+        }, 400);
+    return () => clearTimeout(timeout);
+    }, [includeKeywords, excludeKeywords, aiInstructions, aiStrictMode, pipelineSettings]);
     const handleSync = async () => {
         if (!pipelineSettings.automatedPull) return toast.warning("Automated Pull is disabled in pipeline settings");
         setIsProcessing(true);
@@ -236,7 +240,7 @@ export default function AutomationPage() {
             const res = await fetch("/api/cron/pull", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ includeKeywords, excludeKeywords, aiInstructions, aiStrictMode }),
+                body: JSON.stringify({ includeKeywords, excludeKeywords, aiInstructions, aiStrictMode, force: true }),
             });
             const data = await res.json().catch(() => ({}));
             if (res.ok) {
@@ -252,7 +256,6 @@ export default function AutomationPage() {
             setIsProcessing(false);
         }
     };
-
     const handleProcess = async () => {
         if (!pipelineSettings.processing) return toast.warning("Processing pipeline is disabled");
         setIsProcessing(true);
@@ -261,10 +264,11 @@ export default function AutomationPage() {
             const res = await fetch("/api/cron/process", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ includeKeywords, excludeKeywords, aiInstructions, aiStrictMode }),
+                body: JSON.stringify({ includeKeywords, excludeKeywords, aiInstructions, aiStrictMode, force: true }),
             });
             const data = await res.json().catch(() => ({}));
             if (res.ok) {
+                setTranslationProgress(100);
                 toast.success(`Processing complete: ${data.processedCount ?? "?"} items processed.`);
                 fetchReviewItems();
                 fetchRawItems();
@@ -277,36 +281,47 @@ export default function AutomationPage() {
             setIsProcessing(false);
         }
     };
-
     const handleTranslateSelected = async () => {
         if (!pipelineSettings.translation) return toast.warning("Translation pipeline is disabled");
         if (selectedRawIds.length === 0) return toast.warning("Select items to translate first");
-
         setIsTranslating(true);
+        setTranslationProgress(0);
         toast.info(`Translating ${selectedRawIds.length} items...`);
-
+        let processedTotal = 0;
+        let failedTotal = 0;
         try {
-            const res = await fetch("/api/cron/process", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ ids: selectedRawIds, includeKeywords, excludeKeywords, aiInstructions, aiStrictMode }),
-            });
-            const data = await res.json().catch(() => ({}));
-            if (res.ok) {
-                toast.success(`Processing complete: ${data.processedCount ?? "?"} items processed.`);
-                setSelectedRawIds([]);
-                fetchReviewItems();
-                fetchRawItems();
-            } else {
-                toast.error(data.error || "Processing failed");
+            const ids = [...selectedRawIds];
+            for (let i = 0; i < ids.length; i++) {
+                const id = ids[i];
+                console.info("[automation.translate] processing item", { id, index: i + 1, total: ids.length });
+                const res = await fetch("/api/cron/process", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ ids: [id], includeKeywords, excludeKeywords, aiInstructions, aiStrictMode, force: true }),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    failedTotal += 1;
+                    console.error("[automation.translate] failed item", { id, data });
+                } else {
+                    processedTotal += Number(data?.processedCount || 0);
+                    failedTotal += Number(data?.failedCount || 0);
+                }
+                const percent = Math.round(((i + 1) / ids.length) * 100);
+                setTranslationProgress(percent);
             }
-        } catch {
+            toast.success(`Processing complete: ${processedTotal} items processed${failedTotal ? `, ${failedTotal} failed` : ""}.`);
+            setSelectedRawIds([]);
+            fetchReviewItems();
+            fetchRawItems();
+        } catch (error) {
+            console.error("[automation.translate] network error", error);
             toast.error("Network error during processing");
         } finally {
+            window.setTimeout(() => setTranslationProgress(0), 600);
             setIsTranslating(false);
         }
     };
-
     const handlePublish = async () => {
         setIsProcessing(true);
         toast.info("Triggering publishing of approved articles...");
@@ -330,7 +345,6 @@ export default function AutomationPage() {
             setIsProcessing(false);
         }
     };
-
     const handleUpdateStatus = async (id: string, newStatus: string) => {
         const previous = processedItems;
         setProcessedItems((items) => items.map((item) => (item.id === id ? { ...item, status: newStatus } : item)));
@@ -352,17 +366,14 @@ export default function AutomationPage() {
             toast.error("Failed to update status");
         }
     };
-
     const handleBulkReviewStatus = async (newStatus: "ready" | "archived") => {
         if (selectedReviewIds.length === 0) return toast.warning("Select review items first");
-
         try {
             const res = await fetch("/api/admin/automation/review", {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ ids: selectedReviewIds, status: newStatus }),
             });
-
             if (res.ok) {
                 toast.success(`${selectedReviewIds.length} item(s) updated`);
                 setSelectedReviewIds([]);
@@ -374,18 +385,15 @@ export default function AutomationPage() {
             toast.error("Failed to update selected items");
         }
     };
-
     const handleBulkRawDelete = async () => {
         if (selectedRawIds.length === 0) return toast.warning("Select raw items first");
         if (!confirm(`Delete ${selectedRawIds.length} selected raw item(s)?`)) return;
-
         try {
             const res = await fetch("/api/admin/automation/raw", {
                 method: "DELETE",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ ids: selectedRawIds }),
             });
-
             if (res.ok) {
                 toast.success(`${selectedRawIds.length} raw item(s) deleted`);
                 setSelectedRawIds([]);
@@ -397,7 +405,6 @@ export default function AutomationPage() {
             toast.error("Failed to delete selected raw items");
         }
     };
-
     const handleToggleSource = async (id: string, currentStatus: boolean) => {
         try {
             const res = await fetch(`/api/admin/sources`, {
@@ -415,7 +422,6 @@ export default function AutomationPage() {
             toast.error("Failed to toggle source");
         }
     };
-
     const handleDeleteSource = async (id: string) => {
         if (!confirm("Are you sure?")) return;
         try {
@@ -430,19 +436,15 @@ export default function AutomationPage() {
             toast.error("Failed to delete source");
         }
     };
-
     const handleAddSource = async () => {
         if (!newSource.name || !newSource.url) return toast.error("Please fill in all fields");
-
         try {
             const res = await fetch("/api/admin/sources", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ name: newSource.name, feedUrl: newSource.url }),
             });
-
             const data = await res.json().catch(() => ({}));
-
             if (res.ok) {
                 refreshData();
                 setNewSource({ name: "", url: "" });
@@ -454,7 +456,6 @@ export default function AutomationPage() {
             toast.error("Network error while adding source");
         }
     };
-
     const handleSaveDetail = async (id: string, updates: any) => {
         try {
             const res = await fetch("/api/admin/automation/review", {
@@ -473,11 +474,8 @@ export default function AutomationPage() {
             toast.error("Failed to save changes");
         }
     };
-
-
     const handleRetranslate = async (rawId: string) => {
         if (!rawId) return toast.error("Raw article id is missing");
-
         setIsRetranslating(true);
         try {
             const res = await fetch("/api/cron/process", {
@@ -487,13 +485,11 @@ export default function AutomationPage() {
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(data.error || "Failed to re-translate article");
-
             const preview = (data.previews || []).find((item: any) => item.rawId === rawId);
             if (!preview) {
                 toast.warning(data.message || "No re-translation preview generated");
                 return;
             }
-
             setSelectedReviewItem((prev: any) => (prev ? { ...prev, ...preview } : prev));
             setProcessedItems((items) =>
                 items.map((item) => (item.rawId === rawId ? { ...item, ...preview } : item)),
@@ -505,7 +501,6 @@ export default function AutomationPage() {
             setIsRetranslating(false);
         }
     };
-
     const handleRetranslateSelected = async () => {
         if (selectedReviewIds.length === 0) return toast.warning("Select review items first");
         const rawIds = processedItems
@@ -513,7 +508,6 @@ export default function AutomationPage() {
             .map((item) => item.rawId)
             .filter(Boolean);
         if (rawIds.length === 0) return toast.warning("Selected items do not have source raw ids");
-
         setIsRetranslating(true);
         try {
             const res = await fetch("/api/cron/process", {
@@ -523,19 +517,16 @@ export default function AutomationPage() {
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(data.error || "Failed to re-translate selected articles");
-
             const previews = Array.isArray(data.previews) ? data.previews : [];
             if (previews.length === 0) {
                 toast.warning(data.message || "No selected items were re-translated");
                 return;
             }
-
             const previewByRawId = new Map(previews.map((item: any) => [item.rawId, item]));
             setProcessedItems((items) => items.map((item) => {
                 const preview = previewByRawId.get(item.rawId);
                 return preview ? { ...item, ...preview } : item;
             }));
-
             if (selectedReviewItem?.rawId && previewByRawId.has(selectedReviewItem.rawId)) {
                 setSelectedReviewItem((prev: any) => {
                     if (!prev) return prev;
@@ -543,7 +534,6 @@ export default function AutomationPage() {
                     return preview ? { ...prev, ...preview } : prev;
                 });
             }
-
             toast.success(`Generated ${previews.length} re-translation preview(s). Save changes to persist.`);
             setSelectedReviewIds([]);
         } catch (error) {
@@ -552,11 +542,8 @@ export default function AutomationPage() {
             setIsRetranslating(false);
         }
     };
-
-
     const handlePublishSingleReview = async (processedId: string) => {
         if (!processedId) return toast.error("Missing review item id");
-
         setIsPublishingSingle(true);
         try {
             const res = await fetch("/api/cron/publish", {
@@ -566,7 +553,6 @@ export default function AutomationPage() {
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(data.error || "Failed to publish selected article");
-
             if ((data.publishedCount ?? 0) === 0) {
                 toast.warning(data.message || "No article was published");
             } else {
@@ -581,7 +567,6 @@ export default function AutomationPage() {
             setIsPublishingSingle(false);
         }
     };
-
     const sortedItems = useMemo(() => {
         const items = [...processedItems];
         items.sort((a, b) => {
@@ -591,41 +576,42 @@ export default function AutomationPage() {
         });
         return items;
     }, [processedItems, sortBy]);
-
     const totalPages = Math.max(1, Math.ceil(sortedItems.length / itemsPerPage));
     const safePage = Math.min(page, totalPages);
-
     const paginatedItems = useMemo(() => {
         const start = (safePage - 1) * itemsPerPage;
         return sortedItems.slice(start, start + itemsPerPage);
     }, [sortedItems, safePage]);
-
     const toggleRawSelection = (id: string) => {
         setSelectedRawIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
     };
-
     const toggleReviewSelection = (id: string) => {
         setSelectedReviewIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
     };
-
     const selectAllReviewOnPage = () => {
         const ids = paginatedItems.map((x) => x.id).filter(Boolean);
         setSelectedReviewIds(ids);
     };
-
     const clearReviewSelection = () => setSelectedReviewIds([]);
-
     const selectAllRawOnPage = () => {
         const ids = rawItems.map((x) => x.id).filter(Boolean);
         setSelectedRawIds(ids);
     };
-
     const clearRawSelection = () => setSelectedRawIds([]);
-
     const updatePipeline = (key: "automatedPull" | "processing" | "translation") => {
-        setPipelineSettings((prev) => ({ ...prev, [key]: !prev[key] }));
+        const next = { ...pipelineSettings, [key]: !pipelineSettings[key] };
+        setPipelineSettings(next);
+        saveAutomationSettings({
+            includeKeywords,
+            excludeKeywords,
+            aiInstructions,
+            aiStrictMode,
+            automatedPull: next.automatedPull,
+            processing: next.processing,
+            translation: next.translation,
+            fetchPeriodMinutes: next.fetchPeriodMinutes,
+        }).catch(() => null);
     };
-
     const updateIntegration = (type: IntegrationType, patch: Partial<IntegrationConfig>) => {
         setIntegrationConfigs((prev) => ({
             ...prev,
@@ -635,9 +621,8 @@ export default function AutomationPage() {
             },
         }));
     };
-
     const saveIntegration = async (type: IntegrationType) => {
-        setIsSavingIntegration(true);
+        setIsSavingIntegration((prev) => ({ ...prev, [type]: true }));
         try {
             const res = await fetch("/api/admin/integrations", {
                 method: "PUT",
@@ -651,19 +636,16 @@ export default function AutomationPage() {
         } catch (error) {
             toast.error(error instanceof Error ? error.message : "Failed to save integration");
         } finally {
-            setIsSavingIntegration(false);
+            setIsSavingIntegration((prev) => ({ ...prev, [type]: false }));
         }
     };
-
-
     const saveSecret = async (type: IntegrationType) => {
         const payload = pendingSecrets[type];
         if (!payload.providerApiKey.trim() && !payload.webhookToken.trim()) {
             toast.warning("Enter a secret value first");
             return;
         }
-
-        setIsSavingSecret(true);
+        setIsSavingSecret((prev) => ({ ...prev, [type]: true }));
         try {
             const res = await fetch("/api/admin/integrations/secret", {
                 method: "POST",
@@ -678,10 +660,9 @@ export default function AutomationPage() {
         } catch (error) {
             toast.error(error instanceof Error ? error.message : "Failed to save secret");
         } finally {
-            setIsSavingSecret(false);
+            setIsSavingSecret((prev) => ({ ...prev, [type]: false }));
         }
     };
-
     const sendTelegramTest = async () => {
         setIsSendingTelegramTest(true);
         try {
@@ -699,7 +680,6 @@ export default function AutomationPage() {
             setIsSendingTelegramTest(false);
         }
     };
-
     return (
         <div className="space-y-8">
             {/* Header */}
@@ -708,7 +688,6 @@ export default function AutomationPage() {
                     <h1 className="text-2xl font-bold font-serif">Automation Dashboard</h1>
                     <p className="text-sm text-muted-foreground mt-1">News pipeline control</p>
                 </div>
-
                 <div className="flex items-center gap-3">
                     <button
                         onClick={handleSync}
@@ -718,7 +697,6 @@ export default function AutomationPage() {
                         <RefreshCw className={`h-4 w-4 ${isProcessing ? "animate-spin" : ""}`} />
                         Sync
                     </button>
-
                     <button
                         onClick={handleProcess}
                         disabled={isProcessing}
@@ -727,7 +705,6 @@ export default function AutomationPage() {
                         <Brain className="h-4 w-4" />
                         Process
                     </button>
-
                     <button
                         onClick={handlePublish}
                         disabled={isProcessing}
@@ -738,7 +715,17 @@ export default function AutomationPage() {
                     </button>
                 </div>
             </div>
-
+            {isTranslating && (
+                <div className="rounded-lg border border-border/40 bg-card p-3">
+                    <div className="flex items-center justify-between text-xs mb-2">
+                        <span className="text-muted-foreground">AI translation progress</span>
+                        <span className="font-semibold">{translationProgress}%</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-blue-500 to-blue-400 transition-all duration-500" style={{ width: `${translationProgress}%` }} />
+                    </div>
+                </div>
+            )}
             <div className="space-y-3">
                 <div className="flex flex-wrap items-center gap-2">
                     <button type="button" onClick={() => setShowRequirements((prev) => !prev)} className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-border text-sm font-semibold hover:bg-muted">
@@ -748,35 +735,14 @@ export default function AutomationPage() {
                         <Settings2 className="h-4 w-4" /> {showIntegrationsPanel ? "Hide integrations" : "Show integrations"}
                     </button>
                 </div>
-
                 {showRequirements && (
             <div className="p-4 rounded-xl border border-border/40 bg-card grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Automation requirements: include keywords</label>
-                    <input
-                        type="text"
-                        className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
-                        placeholder="e.g. university, research, scholarship"
-                        value={includeKeywords}
-                        onChange={(e) => setIncludeKeywords(e.target.value)}
-                    />
-                </div>
-                <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Exclude keywords</label>
-                    <input
-                        type="text"
-                        className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
-                        placeholder="e.g. celebrity, gossip"
-                        value={excludeKeywords}
-                        onChange={(e) => setExcludeKeywords(e.target.value)}
-                    />
-                </div>
                 <div className="space-y-2 md:col-span-2">
-                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">AI editorial instructions</label>
+                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">AI prompt</label>
                     <textarea
-                        rows={3}
+                        rows={4}
                         className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
-                        placeholder="Describe what the AI should prioritize, tone, and what to avoid."
+                        placeholder="Describe what to fetch/skip, translation style, paraphrasing tone, category priorities, and output rules."
                         value={aiInstructions}
                         onChange={(e) => setAiInstructions(e.target.value)}
                     />
@@ -786,45 +752,45 @@ export default function AutomationPage() {
                             checked={aiStrictMode}
                             onChange={(e) => setAiStrictMode(e.target.checked)}
                         />
-                        Strict mode: only process articles matching the AI instructions/keywords
+                        Strict mode: process only content that matches AI prompt terms.
                     </label>
                 </div>
                 <p className="md:col-span-2 text-xs text-muted-foreground">
-                    These admin requirements are applied when processing/translation is triggered, so the AI pipeline processes only matching items.
+                    AI and Telegram settings are saved independently in their own integration cards.
                 </p>
             </div>
                 )}
             </div>
-
             {showIntegrationsPanel && (
             <section className="rounded-xl border border-border/40 bg-card p-5 space-y-4">
                 <div className="flex items-center justify-between">
                     <h2 className="text-lg font-semibold flex items-center gap-2"><Settings2 className="h-4 w-4" />Integrations</h2>
                     <span className="text-xs text-muted-foreground">Secure AI + Telegram control plane</span>
                 </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="rounded-lg border border-border/40 p-4 space-y-3">
                         <div className="flex items-center justify-between">
                             <h3 className="font-medium">AI Modules</h3>
                             <input type="checkbox" checked={integrationConfigs.ai.enabled} onChange={(e) => updateIntegration("ai", { enabled: e.target.checked })} />
                         </div>
-                        <input className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm" placeholder="Provider model (e.g. openai/gpt-5.2)" value={integrationConfigs.ai.provider} onChange={(e) => updateIntegration("ai", { provider: e.target.value })} />
+                        <input className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm" placeholder="Provider" value={integrationConfigs.ai.provider} onChange={(e) => updateIntegration("ai", { provider: e.target.value })} />
+                        <input className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm" placeholder="Provider model (e.g. openai/gpt-5.2)" value={integrationConfigs.ai.providerModel || ""} onChange={(e) => updateIntegration("ai", { providerModel: e.target.value })} />
                         <input className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm" placeholder="Paste AI provider API key to rotate" value={pendingSecrets.ai.providerApiKey} onChange={(e) => setPendingSecrets((prev) => ({ ...prev, ai: { ...prev.ai, providerApiKey: e.target.value } }))} />
                         <p className="text-xs text-muted-foreground">Stored encrypted. Current key: {integrationConfigs.ai.hasProviderApiKey ? `configured (${integrationConfigs.ai.secretFingerprint || "fingerprint unavailable"})` : "not configured"}</p>
                         <div className="flex gap-2">
-                            <button type="button" onClick={() => saveSecret("ai")} disabled={isSavingSecret} className="px-3 py-2 rounded-md border border-border text-sm font-semibold disabled:opacity-60">{isSavingSecret ? "Saving..." : "Rotate AI key"}</button>
+                            <button type="button" onClick={() => saveSecret("ai")} disabled={isSavingSecret.ai} className="px-3 py-2 rounded-md border border-border text-sm font-semibold disabled:opacity-60">{isSavingSecret.ai ? "Saving..." : "Rotate AI key"}</button>
                         </div>
+                        <p className="text-[11px] text-muted-foreground">Rotate AI key = securely replaces stored provider API key only. It does not change Telegram settings.</p>
                         <label className="flex items-center justify-between text-sm"><span>Summarization</span><input type="checkbox" checked={integrationConfigs.ai.aiSummarization} onChange={(e) => updateIntegration("ai", { aiSummarization: e.target.checked })} /></label>
                         <label className="flex items-center justify-between text-sm"><span>Categorization</span><input type="checkbox" checked={integrationConfigs.ai.aiCategorization} onChange={(e) => updateIntegration("ai", { aiCategorization: e.target.checked })} /></label>
-                        <select className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm" value={integrationConfigs.ai.translationPolicy} onChange={(e) => updateIntegration("ai", { translationPolicy: e.target.value as any })}>
+                        <textarea className="w-full min-h-24 px-3 py-2 rounded-md border border-input bg-background text-sm" placeholder="AI editorial prompt: translation/paraphrasing instructions" value={integrationConfigs.ai.editorialPrompt || ""} onChange={(e) => updateIntegration("ai", { editorialPrompt: e.target.value })} />
+                        <select className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm" value={integrationConfigs.ai.translationPolicy} onChange={(e) => updateIntegration("ai", { translationPolicy: e.target.value as IntegrationConfig["translationPolicy"] })}>
                             <option value="full">Full translation</option>
                             <option value="summary_only">Summary-only translation</option>
                             <option value="disabled">Translation disabled</option>
                         </select>
-                        <button type="button" onClick={() => saveIntegration("ai")} disabled={isSavingIntegration} className="px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-60">{isSavingIntegration ? "Saving..." : "Save AI config"}</button>
+                        <button type="button" onClick={() => saveIntegration("ai")} disabled={isSavingIntegration.ai} className="px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-60">{isSavingIntegration.ai ? "Saving..." : "Save AI config"}</button>
                     </div>
-
                     <div className="rounded-lg border border-border/40 p-4 space-y-3">
                         <div className="flex items-center justify-between">
                             <h3 className="font-medium">Telegram Connector</h3>
@@ -836,15 +802,14 @@ export default function AutomationPage() {
                         <input className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm" placeholder="Channel/chat ID" value={integrationConfigs.telegram.channelId} onChange={(e) => updateIntegration("telegram", { channelId: e.target.value })} />
                         <input className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm" placeholder="Webhook token (optional)" value={pendingSecrets.telegram.webhookToken} onChange={(e) => setPendingSecrets((prev) => ({ ...prev, telegram: { ...prev.telegram, webhookToken: e.target.value } }))} />
                         <label className="flex items-center justify-between text-sm"><span>Send selected/published news to Telegram</span><input type="checkbox" checked={integrationConfigs.telegram.sendOnPublish} onChange={(e) => updateIntegration("telegram", { sendOnPublish: e.target.checked })} /></label>
-                        <button type="button" onClick={() => saveSecret("telegram")} disabled={isSavingSecret} className="px-3 py-2 rounded-md border border-border text-sm font-semibold disabled:opacity-60">{isSavingSecret ? "Saving..." : "Rotate Telegram secrets"}</button>
-                        <button type="button" onClick={() => saveIntegration("telegram")} disabled={isSavingIntegration} className="px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-60">{isSavingIntegration ? "Saving..." : "Save Telegram config"}</button>
+                        <button type="button" onClick={() => saveSecret("telegram")} disabled={isSavingSecret.telegram} className="px-3 py-2 rounded-md border border-border text-sm font-semibold disabled:opacity-60">{isSavingSecret.telegram ? "Saving..." : "Rotate Telegram secrets"}</button>
+                        <button type="button" onClick={() => saveIntegration("telegram")} disabled={isSavingIntegration.telegram} className="px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-60">{isSavingIntegration.telegram ? "Saving..." : "Save Telegram config"}</button>
                         <button type="button" onClick={sendTelegramTest} disabled={isSendingTelegramTest} className="px-3 py-2 rounded-md border border-border text-sm font-semibold disabled:opacity-60">{isSendingTelegramTest ? "Sending..." : "Send test message"}</button>
                     </div>
                 </div>
                 <p className="text-xs text-muted-foreground">Secrets are encrypted server-side and never returned in plaintext to the browser.</p>
             </section>
             )}
-
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Left column */}
                 <div className="lg:col-span-2 space-y-4">
@@ -861,7 +826,6 @@ export default function AutomationPage() {
                             >
                                 Review Queue ({processedItems.length})
                             </button>
-
                             <button
                                 onClick={() => setActiveTab("raw")}
                                 className={`pb-2 text-sm font-bold transition-all relative ${activeTab === "raw"
@@ -873,7 +837,6 @@ export default function AutomationPage() {
                                 Raw Items ({rawItems.length})
                             </button>
                         </div>
-
                         {activeTab === "review" ? (
                             <div className="flex items-center gap-2 flex-wrap justify-end">
                                 <select
@@ -961,7 +924,6 @@ export default function AutomationPage() {
                             </div>
                         )}
                     </div>
-
                     {/* Content */}
                     {activeTab === "review" ? (
                         <>
@@ -987,23 +949,18 @@ export default function AutomationPage() {
                                             </button>
                                         ))}
                                     </div>
-
                                     {paginatedItems.map((item) => {
                                         const isSelected = selectedReviewItem?.id === item.id;
-
                                         const getHeadline = () => {
                                             const byLang =
                                                 lang === "en" ? item.headlineEn : lang === "ru" ? item.headlineRu : item.headlineUz;
                                             return byLang || item.headlineEn || item.headlineRu || item.headlineUz || item.raw?.title || "Untitled";
                                         };
-
                                         const getSummary = () => {
                                             const byLang = lang === "en" ? item.summaryEn : lang === "ru" ? item.summaryRu : item.summaryUz;
                                             return byLang || item.summaryEn || item.summaryRu || item.summaryUz || item.raw?.description || "";
                                         };
-
                                         const prettyStatus = String(item.status || "").replaceAll("_", " ");
-
                                         return (
                                             <div
                                                 key={item.id}
@@ -1030,7 +987,6 @@ export default function AutomationPage() {
                                                             onClick={(e) => e.stopPropagation()}
                                                             className="mt-1"
                                                         />
-
                                                         <div className="flex-1 space-y-1 min-w-0">
                                                             <div className="flex items-center gap-2 mb-1 min-w-0 flex-wrap">
                                                                 <span
@@ -1039,39 +995,32 @@ export default function AutomationPage() {
                                                                 >
                                                                     {prettyStatus}
                                                                 </span>
-
                                                                 {item.raw?.language && (
                                                                     <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
                                                                         {String(item.raw.language)}
                                                                     </span>
                                                                 )}
-
                                                                 <span className="text-xs text-muted-foreground truncate">
                                                                     • Categories: {item.categories || "None"}
                                                                 </span>
                                                             </div>
-
                                                             <h3 className="font-bold text-lg leading-tight hover:text-primary transition-colors truncate">
                                                                 {getHeadline()}
                                                             </h3>
-
                                                             <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
                                                                 {getSummary()}
                                                             </p>
-
                                                             <div className="flex items-center justify-between pt-2 border-t border-border/10 gap-3">
                                                                 <div className="flex items-center gap-4 text-xs text-muted-foreground min-w-0">
                                                                     <span className="flex items-center gap-1 max-w-[240px] min-w-0">
                                                                         <ExternalLink className="h-3 w-3 shrink-0" />
                                                                         <span className="truncate">{item.raw?.source?.name || "Unknown source"}</span>
                                                                     </span>
-
                                                                     <span className="max-w-[220px] truncate">Author: {item.raw?.author || "Original"}</span>
                                                                 </div>
                                                             </div>
                                                         </div>
                                                     </div>
-
                                                     <div className="flex items-center gap-2 shrink-0">
                                                         <button
                                                             onClick={(e) => {
@@ -1084,7 +1033,6 @@ export default function AutomationPage() {
                                                         >
                                                             <Edit3 className="h-4 w-4" />
                                                         </button>
-
                                                         <button
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
@@ -1098,7 +1046,6 @@ export default function AutomationPage() {
                                                         >
                                                             {item.status === "ready" ? "Revert" : "Approve"}
                                                         </button>
-
                                                         <button
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
@@ -1115,7 +1062,6 @@ export default function AutomationPage() {
                                             </div>
                                         );
                                     })}
-
                                     {totalPages > 1 && (
                                         <div className="flex items-center justify-center gap-2 pt-4">
                                             <button
@@ -1126,11 +1072,9 @@ export default function AutomationPage() {
                                             >
                                                 <ChevronLeft className="h-4 w-4" />
                                             </button>
-
                                             <span className="text-sm font-bold">
                                                 Page {safePage} of {totalPages}
                                             </span>
-
                                             <button
                                                 disabled={safePage === totalPages}
                                                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
@@ -1168,7 +1112,6 @@ export default function AutomationPage() {
                                                         onChange={() => toggleRawSelection(item.id)}
                                                         className="mt-1"
                                                     />
-
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
                                                             <span className="font-bold">{item.source?.name || "Unknown source"}</span>
@@ -1177,17 +1120,14 @@ export default function AutomationPage() {
                                                             )}
                                                             {item.language && <span className="uppercase font-bold">• {String(item.language)}</span>}
                                                         </div>
-
                                                         <div className="font-bold text-sm mt-1 truncate">{item.title || "Untitled"}</div>
                                                         <div className="text-xs text-muted-foreground line-clamp-2 mt-1">
                                                             {item.description || ""}
                                                         </div>
-
                                                         <div className="text-xs text-muted-foreground mt-2 truncate">
                                                             URL: {item.url}
                                                         </div>
                                                     </div>
-
                                                     {item.imageUrl && (
                                                         <img
                                                             src={item.imageUrl}
@@ -1205,7 +1145,6 @@ export default function AutomationPage() {
                         </>
                     )}
                 </div>
-
                 {/* Right column: sources */}
                 <div className="space-y-6">
                     <div className="p-6 rounded-xl border border-border/40 bg-card space-y-4">
@@ -1218,7 +1157,6 @@ export default function AutomationPage() {
                                 <Settings2 className="h-3 w-3" /> {showFeedManagement ? "Hide" : "Show"}
                             </button>
                         </div>
-
                         {showFeedManagement && (
                         <>
                         <div className="space-y-3">
@@ -1244,7 +1182,6 @@ export default function AutomationPage() {
                                 Add Source
                             </button>
                         </div>
-
                         <div className="pt-4 space-y-3 max-h-[400px] overflow-y-auto">
                             {sources?.map((source) => (
                                 <div key={source.id} className="p-3 rounded-lg border border-border/40 bg-muted/30">
@@ -1279,7 +1216,6 @@ export default function AutomationPage() {
                         </>
                         )}
                     </div>
-
                     <div className="p-6 rounded-xl border border-border/40 bg-card space-y-3">
                         <div className="flex items-center justify-between">
                             <h3 className="font-bold text-sm">Active Pipelines</h3>
@@ -1326,12 +1262,37 @@ export default function AutomationPage() {
                                     </div>
                                 </div>
                             ))}
+                            <div className="pt-2 border-t border-border/40 space-y-1">
+                                <label className="text-[11px] text-muted-foreground">Auto-fetch period (minutes)</label>
+                                <input
+                                    type="number"
+                                    min={5}
+                                    max={1440}
+                                    value={pipelineSettings.fetchPeriodMinutes}
+                                    onChange={(e) => {
+                                        const minutes = Math.min(1440, Math.max(5, Number(e.target.value) || 30));
+                                        const next = { ...pipelineSettings, fetchPeriodMinutes: minutes };
+                                        setPipelineSettings(next);
+                                        saveAutomationSettings({
+                                            includeKeywords,
+                                            excludeKeywords,
+                                            aiInstructions,
+                                            aiStrictMode,
+                                            automatedPull: next.automatedPull,
+                                            processing: next.processing,
+                                            translation: next.translation,
+                                            fetchPeriodMinutes: next.fetchPeriodMinutes,
+                                        }).catch(() => null);
+                                    }}
+                                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                />
+                                <p className="text-[11px] text-muted-foreground">Used by /api/cron/automation to run pull/process in background cadence.</p>
+                            </div>
                         </div>
                         )}
                     </div>
                 </div>
             </div>
-
             {/* Modal */}
             {selectedReviewItem && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/95 backdrop-blur-sm p-4 overflow-y-auto">
@@ -1349,10 +1310,9 @@ export default function AutomationPage() {
                                 <X className="h-5 w-5" />
                             </button>
                         </div>
-
                         <div className="p-8 space-y-8 max-h-[70vh] overflow-y-auto">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <div className="space-y-4 md:col-span-3">
+                            <div className="space-y-6">
+                                <div className="space-y-4">
                                     <label className="text-[10px] uppercase font-bold tracking-widest text-primary">
                                         Categories (comma separated)
                                     </label>
@@ -1363,8 +1323,7 @@ export default function AutomationPage() {
                                         onChange={(e) => setSelectedReviewItem({ ...selectedReviewItem, categories: e.target.value })}
                                     />
                                 </div>
-
-                                <div className="md:col-span-3 space-y-3">
+                                <div className="space-y-3">
                                     <label className="text-[10px] uppercase font-bold tracking-widest text-primary inline-flex items-center gap-2">
                                         <ImageIcon className="h-3 w-3" /> Preview image URL
                                     </label>
@@ -1377,88 +1336,82 @@ export default function AutomationPage() {
                                     />
                                     {(selectedReviewItem.rawImageUrl || selectedReviewItem?.raw?.imageUrl) && (
                                         <div className="rounded-xl overflow-hidden border border-border/40">
-                                            <img src={selectedReviewItem.rawImageUrl || selectedReviewItem?.raw?.imageUrl} alt="Article" className="w-full max-h-64 object-cover" />
+                                            <img src={selectedReviewItem.rawImageUrl || selectedReviewItem?.raw?.imageUrl} alt="Article" className="w-full max-h-72 object-cover" />
                                         </div>
                                     )}
                                 </div>
-
-                                <div className="space-y-4">
-                                    <label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground flex items-center gap-2">
-                                        <div className="h-2 w-2 rounded-full bg-blue-500" /> English
-                                    </label>
-                                    <input
-                                        type="text"
-                                        className="w-full bg-muted/30 p-3 rounded-lg border-none text-sm font-bold"
-                                        value={selectedReviewItem.headlineEn || ""}
-                                        onChange={(e) => setSelectedReviewItem({ ...selectedReviewItem, headlineEn: e.target.value })}
-                                    />
-                                    <textarea
-                                        rows={6}
-                                        className="w-full bg-muted/30 p-3 rounded-lg border-none text-xs leading-relaxed"
-                                        value={selectedReviewItem.summaryEn || ""}
-                                        onChange={(e) => setSelectedReviewItem({ ...selectedReviewItem, summaryEn: e.target.value })}
-                                    />
-                                    <textarea
-                                        rows={8}
-                                        className="w-full bg-muted/20 p-3 rounded-lg border-none text-xs leading-relaxed"
-                                        value={selectedReviewItem.contentEn || ""}
-                                        onChange={(e) => setSelectedReviewItem({ ...selectedReviewItem, contentEn: e.target.value })}
-                                        placeholder="Detailed content (EN)"
-                                    />
+                                <div className="flex items-center justify-between gap-4">
+                                    <div className="flex items-center gap-2">
+                                        {(["en", "ru", "uz"] as Lang[]).map((l) => (
+                                            <button
+                                                key={`review-${l}`}
+                                                type="button"
+                                                onClick={() => setReviewLang(l)}
+                                                className={`px-3 py-1.5 rounded-md text-xs font-bold ${reviewLang === l ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80"}`}
+                                            >
+                                                {l.toUpperCase()}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <span className="text-xs text-muted-foreground">Public preview mode</span>
                                 </div>
-
-                                <div className="space-y-4">
-                                    <label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground flex items-center gap-2">
-                                        <div className="h-2 w-2 rounded-full bg-red-500" /> Russian
-                                    </label>
-                                    <input
-                                        type="text"
-                                        className="w-full bg-muted/30 p-3 rounded-lg border-none text-sm font-bold"
-                                        value={selectedReviewItem.headlineRu || ""}
-                                        onChange={(e) => setSelectedReviewItem({ ...selectedReviewItem, headlineRu: e.target.value })}
-                                    />
-                                    <textarea
-                                        rows={6}
-                                        className="w-full bg-muted/30 p-3 rounded-lg border-none text-xs leading-relaxed"
-                                        value={selectedReviewItem.summaryRu || ""}
-                                        onChange={(e) => setSelectedReviewItem({ ...selectedReviewItem, summaryRu: e.target.value })}
-                                    />
-                                    <textarea
-                                        rows={8}
-                                        className="w-full bg-muted/20 p-3 rounded-lg border-none text-xs leading-relaxed"
-                                        value={selectedReviewItem.contentRu || ""}
-                                        onChange={(e) => setSelectedReviewItem({ ...selectedReviewItem, contentRu: e.target.value })}
-                                        placeholder="Detailed content (RU)"
-                                    />
-                                </div>
-
-                                <div className="space-y-4">
-                                    <label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground flex items-center gap-2">
-                                        <div className="h-2 w-2 rounded-full bg-green-500" /> Uzbek
-                                    </label>
-                                    <input
-                                        type="text"
-                                        className="w-full bg-muted/30 p-3 rounded-lg border-none text-sm font-bold"
-                                        value={selectedReviewItem.headlineUz || ""}
-                                        onChange={(e) => setSelectedReviewItem({ ...selectedReviewItem, headlineUz: e.target.value })}
-                                    />
-                                    <textarea
-                                        rows={6}
-                                        className="w-full bg-muted/30 p-3 rounded-lg border-none text-xs leading-relaxed"
-                                        value={selectedReviewItem.summaryUz || ""}
-                                        onChange={(e) => setSelectedReviewItem({ ...selectedReviewItem, summaryUz: e.target.value })}
-                                    />
-                                    <textarea
-                                        rows={8}
-                                        className="w-full bg-muted/20 p-3 rounded-lg border-none text-xs leading-relaxed"
-                                        value={selectedReviewItem.contentUz || ""}
-                                        onChange={(e) => setSelectedReviewItem({ ...selectedReviewItem, contentUz: e.target.value })}
-                                        placeholder="Detailed content (UZ)"
-                                    />
+                                <div className="rounded-xl border border-border/40 bg-background overflow-hidden">
+                                    <div className="p-5 border-b border-border/40 space-y-3">
+                                        <p className="text-[10px] uppercase tracking-widest text-primary font-bold">{reviewLang.toUpperCase()} headline</p>
+                                        <input
+                                            type="text"
+                                            className="w-full bg-muted/40 p-3 rounded-lg border-none text-base font-bold"
+                                            value={reviewLang === "en" ? (selectedReviewItem.headlineEn || "") : reviewLang === "ru" ? (selectedReviewItem.headlineRu || "") : (selectedReviewItem.headlineUz || "")}
+                                            onChange={(e) => setSelectedReviewItem({
+                                                ...selectedReviewItem,
+                                                ...(reviewLang === "en" ? { headlineEn: e.target.value } : reviewLang === "ru" ? { headlineRu: e.target.value } : { headlineUz: e.target.value }),
+                                            })}
+                                        />
+                                        <textarea
+                                            rows={5}
+                                            className="w-full bg-muted/30 p-3 rounded-lg border-none text-sm leading-relaxed"
+                                            value={reviewLang === "en" ? (selectedReviewItem.summaryEn || "") : reviewLang === "ru" ? (selectedReviewItem.summaryRu || "") : (selectedReviewItem.summaryUz || "")}
+                                            onChange={(e) => setSelectedReviewItem({
+                                                ...selectedReviewItem,
+                                                ...(reviewLang === "en" ? { summaryEn: e.target.value } : reviewLang === "ru" ? { summaryRu: e.target.value } : { summaryUz: e.target.value }),
+                                            })}
+                                        />
+                                    </div>
+                                    <div className="p-5 space-y-4">
+                                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">Public article preview</p>
+                                        <div className="space-y-4 rounded-lg border border-border/40 bg-card p-4">
+                                            <h3 className="text-xl font-serif font-bold leading-tight">
+                                                {reviewLang === "en" ? (selectedReviewItem.headlineEn || "") : reviewLang === "ru" ? (selectedReviewItem.headlineRu || "") : (selectedReviewItem.headlineUz || "")}
+                                            </h3>
+                                            <p className="text-sm text-muted-foreground whitespace-pre-line">
+                                                {reviewLang === "en" ? (selectedReviewItem.summaryEn || "") : reviewLang === "ru" ? (selectedReviewItem.summaryRu || "") : (selectedReviewItem.summaryUz || "")}
+                                            </p>
+                                            {previewBodyImages[0] && <img src={previewBodyImages[0]} alt="Lead" className="w-full max-h-80 object-cover rounded-lg" />}
+                                            {(String(reviewLang === "en" ? (selectedReviewItem.contentEn || "") : reviewLang === "ru" ? (selectedReviewItem.contentRu || "") : (selectedReviewItem.contentUz || ""))
+                                                .split(/\n\s*\n/)
+                                                .map((x) => x.trim())
+                                                .filter(Boolean)
+                                            ).map((block, idx) => (
+                                                <div key={`preview-block-${idx}`} className="space-y-3">
+                                                    <p className="text-sm leading-7 whitespace-pre-line">{block}</p>
+                                                    {previewBodyImages[idx + 1] && <img src={previewBodyImages[idx + 1]} alt={`Inline ${idx + 1}`} className="w-full max-h-72 object-cover rounded-lg" />}
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <textarea
+                                            rows={10}
+                                            className="w-full bg-muted/20 p-4 rounded-lg border-none text-sm leading-7"
+                                            value={reviewLang === "en" ? (selectedReviewItem.contentEn || "") : reviewLang === "ru" ? (selectedReviewItem.contentRu || "") : (selectedReviewItem.contentUz || "")}
+                                            onChange={(e) => setSelectedReviewItem({
+                                                ...selectedReviewItem,
+                                                ...(reviewLang === "en" ? { contentEn: e.target.value } : reviewLang === "ru" ? { contentRu: e.target.value } : { contentUz: e.target.value }),
+                                            })}
+                                            placeholder={`Detailed content (${reviewLang.toUpperCase()})`}
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </div>
-
                         <div className="p-6 border-t border-border/40 bg-muted/20 flex items-center justify-between">
                             <div className="text-[10px] font-bold text-muted-foreground space-y-1">
                                 <div>SOURCE: {String(selectedReviewItem?.raw?.source?.name || "Unknown").toUpperCase()}</div>
@@ -1481,7 +1434,6 @@ export default function AutomationPage() {
                                 >
                                     Cancel
                                 </button>
-
                                 <button
                                     onClick={() => handleRetranslate(selectedReviewItem.rawId)}
                                     disabled={isRetranslating}
@@ -1491,7 +1443,6 @@ export default function AutomationPage() {
                                     {isRetranslating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Brain className="h-4 w-4" />}
                                     Re-translate
                                 </button>
-
                                 <button
                                     onClick={() => handlePublishSingleReview(selectedReviewItem.id)}
                                     disabled={isPublishingSingle}
@@ -1501,7 +1452,6 @@ export default function AutomationPage() {
                                     {isPublishingSingle ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
                                     Publish this article
                                 </button>
-
                                 <button
                                     onClick={() =>
                                         handleSaveDetail(selectedReviewItem.id, {

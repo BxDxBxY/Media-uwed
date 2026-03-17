@@ -6,12 +6,14 @@ export type IntegrationConfigPayload = {
   integrationType: IntegrationType;
   enabled: boolean;
   provider?: string;
+  providerModel?: string;
   channelId?: string;
   sendOnPublish?: boolean;
   aiSummarization?: boolean;
   aiCategorization?: boolean;
   translationPolicy?: "full" | "summary_only" | "disabled";
   retryLimit?: number;
+  editorialPrompt?: string;
 };
 
 export type IntegrationSecretPayload = {
@@ -23,6 +25,7 @@ export type IntegrationSecretPayload = {
 export const DEFAULT_AI_CONFIG: Omit<IntegrationConfigPayload, "integrationType"> = {
   enabled: true,
   provider: "openrouter",
+  providerModel: "openai/gpt-4o-mini",
   aiSummarization: true,
   aiCategorization: true,
   translationPolicy: "full",
@@ -52,12 +55,14 @@ export function normalizeIntegrationPayload(input: unknown): IntegrationConfigPa
     integrationType: body.integrationType,
     enabled: Boolean(body.enabled),
     provider: typeof body.provider === "string" ? body.provider.trim() : undefined,
+    providerModel: typeof body.providerModel === "string" ? body.providerModel.trim() : undefined,
     channelId: typeof body.channelId === "string" ? body.channelId.trim() : undefined,
     sendOnPublish: Boolean(body.sendOnPublish),
     aiSummarization: body.aiSummarization === undefined ? true : Boolean(body.aiSummarization),
     aiCategorization: body.aiCategorization === undefined ? true : Boolean(body.aiCategorization),
     translationPolicy,
     retryLimit: typeof body.retryLimit === "number" ? Math.max(0, Math.min(10, body.retryLimit)) : 3,
+    editorialPrompt: typeof body.editorialPrompt === "string" ? body.editorialPrompt.trim() : undefined,
   };
 }
 
@@ -81,12 +86,14 @@ export function formatIntegrationForClient(config: IntegrationConfig) {
     integrationType: config.integrationType,
     enabled: config.enabled,
     provider: config.provider || "",
+    providerModel: config.providerModel || "",
     channelId: config.channelId || "",
     sendOnPublish: config.sendOnPublish,
     aiSummarization: config.aiSummarization,
     aiCategorization: config.aiCategorization,
     translationPolicy: config.translationPolicy,
     retryLimit: config.retryLimit,
+    editorialPrompt: config.editorialPrompt || "",
     hasProviderApiKey: Boolean(config.providerApiKeyEncrypted),
     hasWebhookToken: Boolean(config.webhookTokenEncrypted),
     secretFingerprint: config.providerApiKeyHash || null,

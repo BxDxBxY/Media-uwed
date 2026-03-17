@@ -1,6 +1,6 @@
 "use client";
 
-import { Eye, Loader2, Save, Trash2 } from "lucide-react";
+import { ChevronDown, Eye, Loader2, Save, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -36,7 +36,8 @@ export function AdminStaticPageEditor({ slug, heading }: { slug: Slug; heading: 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState(false);
-  const [previewLang, setPreviewLang] = useState<LangKey>("en");
+  const [activeLang, setActiveLang] = useState<LangKey>("en");
+  const [previewLang, setPreviewLang] = useState<LangKey | null>(null);
 
   const setCurrentField = (field: keyof Draft, value: string) => {
     setDraft((prev) => ({ ...prev, [field]: value }));
@@ -118,9 +119,12 @@ export function AdminStaticPageEditor({ slug, heading }: { slug: Slug; heading: 
     }
   };
 
+  const activeLanguage = languageMeta.find((lang) => lang.key === activeLang) || languageMeta[0];
+
   const previewData = useMemo(() => {
-    if (previewLang === "ru") return { title: draft.titleRu || draft.title, content: draft.contentRu || draft.content };
-    if (previewLang === "uz") return { title: draft.titleUz || draft.title, content: draft.contentUz || draft.content };
+    const lang = previewLang || "en";
+    if (lang === "ru") return { title: draft.titleRu || draft.title, content: draft.contentRu || draft.content };
+    if (lang === "uz") return { title: draft.titleUz || draft.title, content: draft.contentUz || draft.content };
     return { title: draft.title, content: draft.content };
   }, [draft, previewLang]);
 
@@ -141,30 +145,41 @@ export function AdminStaticPageEditor({ slug, heading }: { slug: Slug; heading: 
       </div>
 
       <div className="space-y-4 rounded-xl border border-border/40 bg-card p-4">
-        {languageMeta.map((lang) => (
-          <section key={lang.key} className="space-y-3 rounded-lg border border-border/40 bg-background/60 p-4">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{lang.label}</h2>
-            <input
-              value={String(draft[lang.titleKey] || "")}
-              onChange={(e) => setCurrentField(lang.titleKey, e.target.value)}
-              placeholder={`Title (${lang.label})`}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            />
-            <div className="flex flex-wrap gap-2">
-              {templateButtons.map((btn) => (
-                <button key={`${lang.key}-${btn.label}`} type="button" onClick={() => insertTemplate(lang.contentKey, btn.value)} className="rounded border border-border px-2.5 py-1 text-xs font-medium hover:bg-muted">
-                  + {btn.label}
-                </button>
-              ))}
-            </div>
-            <textarea
-              value={String(draft[lang.contentKey] || "")}
-              onChange={(e) => setCurrentField(lang.contentKey, e.target.value)}
-              placeholder={`Content (${lang.label}) — HTML is supported.`}
-              className="min-h-[260px] w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm leading-6 font-mono"
-            />
-          </section>
-        ))}
+        <div className="flex flex-wrap gap-2">
+          {languageMeta.map((lang) => (
+            <button
+              key={lang.key}
+              type="button"
+              onClick={() => setActiveLang(lang.key)}
+              className={`rounded-md border px-3 py-1.5 text-xs font-semibold ${activeLang === lang.key ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-muted"}`}
+            >
+              Edit {lang.label}
+            </button>
+          ))}
+        </div>
+
+        <section className="space-y-3 rounded-lg border border-border/40 bg-background/60 p-4">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{activeLanguage.label}</h2>
+          <input
+            value={String(draft[activeLanguage.titleKey] || "")}
+            onChange={(e) => setCurrentField(activeLanguage.titleKey, e.target.value)}
+            placeholder={`Title (${activeLanguage.label})`}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          />
+          <div className="flex flex-wrap gap-2">
+            {templateButtons.map((btn) => (
+              <button key={`${activeLanguage.key}-${btn.label}`} type="button" onClick={() => insertTemplate(activeLanguage.contentKey, btn.value)} className="rounded border border-border px-2.5 py-1 text-xs font-medium hover:bg-muted">
+                + {btn.label}
+              </button>
+            ))}
+          </div>
+          <textarea
+            value={String(draft[activeLanguage.contentKey] || "")}
+            onChange={(e) => setCurrentField(activeLanguage.contentKey, e.target.value)}
+            placeholder={`Content (${activeLanguage.label}) — HTML is supported.`}
+            className="min-h-[320px] w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm leading-6 font-mono"
+          />
+        </section>
       </div>
 
       <div className="rounded-xl border border-border/40 bg-card p-4 space-y-3">
@@ -172,20 +187,30 @@ export function AdminStaticPageEditor({ slug, heading }: { slug: Slug; heading: 
           <h3 className="text-sm font-semibold inline-flex items-center gap-2"><Eye className="h-4 w-4" /> Preview</h3>
           <div className="flex gap-2">
             {languageMeta.map((lang) => (
-              <button key={`preview-${lang.key}`} onClick={() => setPreviewLang(lang.key)} className={`px-3 py-1 rounded-md text-xs border ${previewLang === lang.key ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}>{lang.label}</button>
+              <button
+                key={`preview-${lang.key}`}
+                onClick={() => setPreviewLang((prev) => (prev === lang.key ? null : lang.key))}
+                className={`px-3 py-1 rounded-md text-xs border inline-flex items-center gap-1 ${previewLang === lang.key ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
+              >
+                {lang.label}
+                <ChevronDown className={`h-3 w-3 transition-transform ${previewLang === lang.key ? "rotate-180" : ""}`} />
+              </button>
             ))}
           </div>
         </div>
-        <h4 className="text-xl font-serif font-bold">{previewData.title || "Untitled"}</h4>
-        <div
-          className="rounded-lg border border-border/40 bg-background p-4 md:p-6 leading-7 text-base [&_p]:mb-4 [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mt-6 [&_h2]:mb-3 [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:mt-5 [&_h3]:mb-2 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_blockquote]:border-l-4 [&_blockquote]:pl-4 [&_blockquote]:italic [&_a]:text-primary [&_a]:underline"
-          dangerouslySetInnerHTML={{ __html: previewData.content || "<p>No content yet.</p>" }}
-        />
-      </div>
 
-      <p className="text-xs text-muted-foreground">
-        Editor note: due package-registry restrictions in this environment, a fully controlled HTML editor is provided with reusable templates and per-language rows.
-      </p>
+        {previewLang ? (
+          <>
+            <h4 className="text-xl font-serif font-bold">{previewData.title || "Untitled"}</h4>
+            <div
+              className="rounded-lg border border-border/40 bg-background p-4 md:p-6 leading-7 text-base [&_p]:mb-4 [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mt-6 [&_h2]:mb-3 [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:mt-5 [&_h3]:mb-2 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_blockquote]:border-l-4 [&_blockquote]:pl-4 [&_blockquote]:italic [&_a]:text-primary [&_a]:underline"
+              dangerouslySetInnerHTML={{ __html: previewData.content || "<p>No content yet.</p>" }}
+            />
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground">Choose a language button to open preview.</p>
+        )}
+      </div>
     </div>
   );
 }

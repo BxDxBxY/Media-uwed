@@ -200,7 +200,11 @@ export default function NewsPage() {
           {articles.map((article) => (
             <Link key={article.id} href={`/article/${article.slug}`} className="group flex flex-col h-full bg-card rounded-xl border border-border/40 overflow-hidden hover:shadow-lg transition-all duration-300">
               <div className="aspect-[16/11] overflow-hidden relative">
-                <Image src={article.image} alt={article.title} fill unoptimized sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw" className="object-cover transition-transform duration-500 group-hover:scale-105" />
+                {article.image ? (
+                  <Image src={article.image} alt={article.title} fill unoptimized sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw" className="object-cover transition-transform duration-500 group-hover:scale-105" />
+                ) : (
+                  <div className="h-full w-full bg-gradient-to-br from-muted to-muted/40" />
+                )}
               </div>
               <div className="p-3 md:p-4 flex flex-col flex-1">
                 <div className="flex items-center gap-2 mb-2 flex-wrap">
@@ -224,7 +228,11 @@ export default function NewsPage() {
           {articles.map((article) => (
             <Link key={article.id} href={`/article/${article.slug}`} className="group flex flex-col sm:flex-row gap-3 bg-card p-2.5 md:p-3 rounded-xl border border-border/40 hover:shadow-md transition-all">
               <div className="w-full sm:w-44 md:w-52 aspect-[16/11] sm:aspect-[4/3] shrink-0 rounded-lg overflow-hidden relative">
-                <Image src={article.image} alt={article.title} fill unoptimized sizes="(max-width: 640px) 100vw, 256px" className="object-cover group-hover:scale-105 transition-transform" />
+                {article.image ? (
+                  <Image src={article.image} alt={article.title} fill unoptimized sizes="(max-width: 640px) 100vw, 256px" className="object-cover group-hover:scale-105 transition-transform" />
+                ) : (
+                  <div className="h-full w-full bg-gradient-to-br from-muted to-muted/40" />
+                )}
               </div>
               <div className="flex flex-col justify-center flex-1">
                 <div className="flex items-center gap-2 mb-2 flex-wrap">

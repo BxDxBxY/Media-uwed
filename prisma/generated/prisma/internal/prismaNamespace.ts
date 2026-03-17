@@ -397,6 +397,7 @@ export const ModelName = {
   Source: 'Source',
   ArticleRaw: 'ArticleRaw',
   ArticleProcessed: 'ArticleProcessed',
+  AutomationConfig: 'AutomationConfig',
   AdminApiKey: 'AdminApiKey',
   AdminUser: 'AdminUser',
   IntegrationConfig: 'IntegrationConfig'
@@ -415,7 +416,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "article" | "category" | "aboutContent" | "siteVisit" | "articleView" | "event" | "media" | "subscriber" | "contactMessage" | "siteSettings" | "source" | "articleRaw" | "articleProcessed" | "adminApiKey" | "adminUser" | "integrationConfig"
+    modelProps: "article" | "category" | "aboutContent" | "siteVisit" | "articleView" | "event" | "media" | "subscriber" | "contactMessage" | "siteSettings" | "source" | "articleRaw" | "articleProcessed" | "automationConfig" | "adminApiKey" | "adminUser" | "integrationConfig"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1381,6 +1382,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    AutomationConfig: {
+      payload: Prisma.$AutomationConfigPayload<ExtArgs>
+      fields: Prisma.AutomationConfigFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.AutomationConfigFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AutomationConfigPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.AutomationConfigFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AutomationConfigPayload>
+        }
+        findFirst: {
+          args: Prisma.AutomationConfigFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AutomationConfigPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.AutomationConfigFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AutomationConfigPayload>
+        }
+        findMany: {
+          args: Prisma.AutomationConfigFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AutomationConfigPayload>[]
+        }
+        create: {
+          args: Prisma.AutomationConfigCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AutomationConfigPayload>
+        }
+        createMany: {
+          args: Prisma.AutomationConfigCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.AutomationConfigCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AutomationConfigPayload>[]
+        }
+        delete: {
+          args: Prisma.AutomationConfigDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AutomationConfigPayload>
+        }
+        update: {
+          args: Prisma.AutomationConfigUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AutomationConfigPayload>
+        }
+        deleteMany: {
+          args: Prisma.AutomationConfigDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.AutomationConfigUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.AutomationConfigUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AutomationConfigPayload>[]
+        }
+        upsert: {
+          args: Prisma.AutomationConfigUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AutomationConfigPayload>
+        }
+        aggregate: {
+          args: Prisma.AutomationConfigAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateAutomationConfig>
+        }
+        groupBy: {
+          args: Prisma.AutomationConfigGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AutomationConfigGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.AutomationConfigCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AutomationConfigCountAggregateOutputType> | number
+        }
+      }
+    }
     AdminApiKey: {
       payload: Prisma.$AdminApiKeyPayload<ExtArgs>
       fields: Prisma.AdminApiKeyFieldRefs
@@ -1841,6 +1916,23 @@ export const ArticleProcessedScalarFieldEnum = {
 export type ArticleProcessedScalarFieldEnum = (typeof ArticleProcessedScalarFieldEnum)[keyof typeof ArticleProcessedScalarFieldEnum]
 
 
+export const AutomationConfigScalarFieldEnum = {
+  id: 'id',
+  includeKeywords: 'includeKeywords',
+  excludeKeywords: 'excludeKeywords',
+  aiInstructions: 'aiInstructions',
+  aiStrictMode: 'aiStrictMode',
+  automatedPull: 'automatedPull',
+  processing: 'processing',
+  translation: 'translation',
+  fetchPeriodMinutes: 'fetchPeriodMinutes',
+  lastScheduledRunAt: 'lastScheduledRunAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type AutomationConfigScalarFieldEnum = (typeof AutomationConfigScalarFieldEnum)[keyof typeof AutomationConfigScalarFieldEnum]
+
+
 export const AdminApiKeyScalarFieldEnum = {
   id: 'id',
   name: 'name',
@@ -1874,6 +1966,7 @@ export const IntegrationConfigScalarFieldEnum = {
   integrationType: 'integrationType',
   enabled: 'enabled',
   provider: 'provider',
+  providerModel: 'providerModel',
   providerApiKeyEncrypted: 'providerApiKeyEncrypted',
   providerApiKeyHash: 'providerApiKeyHash',
   channelId: 'channelId',
@@ -1882,6 +1975,7 @@ export const IntegrationConfigScalarFieldEnum = {
   aiSummarization: 'aiSummarization',
   aiCategorization: 'aiCategorization',
   translationPolicy: 'translationPolicy',
+  editorialPrompt: 'editorialPrompt',
   retryLimit: 'retryLimit',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
@@ -2090,6 +2184,7 @@ export type GlobalOmitConfig = {
   source?: Prisma.SourceOmit
   articleRaw?: Prisma.ArticleRawOmit
   articleProcessed?: Prisma.ArticleProcessedOmit
+  automationConfig?: Prisma.AutomationConfigOmit
   adminApiKey?: Prisma.AdminApiKeyOmit
   adminUser?: Prisma.AdminUserOmit
   integrationConfig?: Prisma.IntegrationConfigOmit
