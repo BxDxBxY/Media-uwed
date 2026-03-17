@@ -193,7 +193,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const categoryList = categories || (category ? [category] : ["News"]);
+    const rawCategoryList = Array.isArray(categories) ? categories : category ? [category] : ["News"];
+    const categoryList = Array.from(new Set(rawCategoryList.map((name: string) => String(name || "").trim()).filter(Boolean))).slice(0, 3);
     const categoryConnect = await Promise.all(
       categoryList.map(async (name: string) => {
         const cat = await prisma.category.upsert({

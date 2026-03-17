@@ -320,51 +320,43 @@ function summarizeToTwoParagraphs(text: string): string {
 }
 
 function detectCategories(title: string, description: string): string[] {
-  const t = `${title} ${description}`.toLowerCase();
-  const cats: string[] = [];
+  const text = cleanText(`${title}. ${description}`.toLowerCase());
 
-  const add = (c: string) => {
-    if (!cats.includes(c)) cats.push(c);
-  };
+  const rules: Array<{ category: string; weight: number; pattern: RegExp }> = [
+    { category: "War in Iran", weight: 5, pattern: /\biran|tehran|isfahan|israel-iran|iranian military|iran strike\b/ },
+    { category: "Ukraine", weight: 5, pattern: /\bukraine|kyiv|kiev|donbas|moscow|russia-ukraine\b/ },
+    { category: "Palestine", weight: 5, pattern: /\bpalestin|gaza|west bank|israel|hamas\b/ },
+    { category: "Afghanistan", weight: 5, pattern: /\bafghan|taliban|kabul\b/ },
+    { category: "Politics", weight: 3, pattern: /\belection|parliament|government|minister|policy|sanction|diplomat\b/ },
+    { category: "Technology", weight: 3, pattern: /\bai\b|artificial intelligence|machine learning|tech|software|google|apple|microsoft|openai\b/ },
+    { category: "Health", weight: 3, pattern: /\bhealth|hospital|virus|disease|vaccine|clinic|medical\b/ },
+    { category: "Education", weight: 3, pattern: /\buniversity|student|education|school|campus|academic|faculty\b/ },
+    { category: "Economy", weight: 3, pattern: /\beconomy|inflation|gdp|market|trade|oil|gas|business|investment\b/ },
+    { category: "Sports", weight: 3, pattern: /\bsport|match|tournament|league|football|basketball|tennis|fifa|olympic\b/ },
+    { category: "Culture", weight: 2, pattern: /\bculture|art|music|movie|theater|festival|exhibition|museum\b/ },
+    { category: "Science", weight: 2, pattern: /\bscience|research|discovery|laboratory|physics|biology|chemistry\b/ },
+    { category: "Events", weight: 2, pattern: /\bevent|conference|workshop|seminar|meeting|summit|forum\b/ },
+    { category: "Interviews", weight: 2, pattern: /\binterview|exclusive|q&a|conversation|asked\b/ },
+    { category: "Analysis", weight: 1, pattern: /\bopinion|analysis|editorial|insight\b/ },
+    { category: "World", weight: 1, pattern: /\bworld|international|global|foreign\b/ },
+    { category: "News", weight: 1, pattern: /\bbreaking|update|reported|latest|statement\b/ },
+  ];
 
-  if (/\bukraine|kyiv|kiev|russia|moscow|war\b/.test(t)) add("Ukraine");
-  if (/\bpalestin|gaza|israel|hamas\b/.test(t)) add("Palestine");
-  if (/\bafghan|taliban|kabul\b/.test(t)) add("Afghanistan");
-  if (/\belection|parliament|government|minister|policy|sanction\b/.test(t))
-    add("Politics");
-  if (
-    /\bai\b|artificial intelligence|machine learning|tech|software|google|apple|microsoft/.test(
-      t,
-    )
-  )
-    add("Technology");
-  if (/\bhealth|hospital|virus|disease|vaccine\b/.test(t)) add("Health");
-  if (/\buniversity|student|education|school|campus|academic|faculty\b/.test(t))
-    add("Education");
-  if (
-    /\beconomy|inflation|gdp|market|trade|oil|gas|business|investment\b/.test(t)
-  )
-    add("Economy");
-  if (/\bsport|match|tournament|league|football|basketball|tennis\b/.test(t))
-    add("Sports");
-  if (/\bculture|art|music|movie|theater|festival|exhibition\b/.test(t))
-    add("Culture");
-  if (
-    /\bscience|research|discovery|laboratory|physics|biology|chemistry\b/.test(
-      t,
-    )
-  )
-    add("Science");
-  if (/\bevent|conference|workshop|seminar|meeting|gathering\b/.test(t))
-    add("Events");
-  if (/\bcampus|dormitory|student life|community\b/.test(t)) add("Campus");
-  if (/\binterview|exclusive|q&a|conversation\b/.test(t)) add("Interviews");
-  if (/\bopinion|analysis|editorial|insight\b/.test(t)) add("Analysis");
-  if (/\buniversity|student|education|school|campus|academic|faculty\b/.test(t)) add("University");
-  if (/\bworld|international|global|foreign\b/.test(t)) add("World");
+  const score = new Map<string, number>();
 
-  if (cats.length === 0) add("World");
-  return cats.slice(0, 3);
+  for (const rule of rules) {
+    if (rule.pattern.test(text)) {
+      score.set(rule.category, (score.get(rule.category) || 0) + rule.weight);
+    }
+  }
+
+  if (score.size === 0) return ["News"];
+
+  const sorted = [...score.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([category]) => category);
+
+  return sorted.slice(0, 3);
 }
 
 export async function processNewsAI(
