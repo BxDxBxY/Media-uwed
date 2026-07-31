@@ -7,8 +7,9 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev": "next dev",
-    "build": "DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@127.0.0.1:5432/postgres} prisma generate && next build",
+    "dev": "next dev --webpack",
+    "build": "prisma generate && next build",
+    "build:webpack": "prisma generate && next build --webpack",
     "vercel-build": "prisma generate && prisma migrate deploy && next build",
     "start": "next start",
     "lint": "eslint .",
@@ -20,8 +21,8 @@
     "pull:local": "node -e \"fetch('http://localhost:3000/api/cron/pull', {method: 'POST'}).then(r => r.json()).then(console.log)\"",
     "process:local": "node -e \"fetch('http://localhost:3000/api/cron/process', {method: 'POST'}).then(r => r.json()).then(console.log)\"",
     "postinstall": "prisma generate",
-    "vercel-build:with-migrate": "prisma generate && prisma migrate deploy && next build",
-    "admin:create": "tsx scripts/create-admin.ts"
+    "admin:create": "tsx scripts/create-admin.ts",
+    "check:ai": "tsx scripts/check-ai-pipeline.mts"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.4.1",

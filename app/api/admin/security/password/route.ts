@@ -1,11 +1,22 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAdminSessionFromRequest, hashPassword, requireAdmin, verifyPassword } from "@/lib/admin-auth";
+import {
+  createAdminSessionToken,
+  getAdminSessionFromRequest,
+  hashPassword,
+  requireAdmin,
+  setAdminSessionCookie,
+  verifyPassword,
+} from "@/lib/admin-auth";
+import { enforceRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 export async function PUT(request: Request) {
   try {
     const unauthorized = requireAdmin(request);
     if (unauthorized) return unauthorized;
+
+    const limited = enforceRateLimit(request, "change-password", RATE_LIMITS.auth);
+    if (limited) return limited;
 
     const session = getAdminSessionFromRequest(request);
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -23,12 +34,30 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "Current password is incorrect" }, { status: 400 });
     }
 
+    if (verifyPassword(newPassword, admin.passwordHash)) {
+      return NextResponse.json(
+        { error: "New password must differ from the current one" },
+        { status: 400 },
+      );
+    }
+
     await prisma.adminUser.update({
       where: { id: admin.id },
-      data: { passwordHash: hashPassword(newPassword) },
+      data: {
+        passwordHash: hashPassword(newPassword),
+        // Invalidates sessions issued before now (see isSessionStale).
+        passwordChangedAt: new Date(),
+      },
     });
 
-    return NextResponse.json({ ok: true });
+    // Issue a fresh token so the admin who just changed their own password is not
+    // logged out by the invalidation above.
+    const response = NextResponse.json({ ok: true });
+    setAdminSessionCookie(
+      response,
+      createAdminSessionToken({ userId: admin.id, role: admin.role }),
+    );
+    return response;
   } catch {
     return NextResponse.json({ error: "Failed to update password" }, { status: 500 });
   }

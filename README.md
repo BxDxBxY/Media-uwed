@@ -1,5 +1,14 @@
 # University Media Platform
 
+> ## Project status (2026-07-31)
+> The security and correctness blockers found in the [audit](docs/06-AUDIT-2026-07-31.md) are **fixed and verified** — see **[docs/07-HARDENING-2026-07-31.md](docs/07-HARDENING-2026-07-31.md)** for what changed and §6 there for the short list of things still needing credentials or a decision (AI key, `APP_URL`, email, cron secret in the host env).
+>
+> Two caveats when reading the sections below:
+> - **AI pipeline:** with a provider key configured, one structured model call per article now does the rewrite/summarise/translate/categorise work (§6). Without a key it silently falls back to regex heuristics and free translation services — publishable, but noticeably weaker.
+> - **Local production builds do not work from this drive.** The repository sits on an exFAT volume, which breaks both bundlers (`fs.readlink` semantics and `:` in chunk filenames). `npm run dev` is unaffected; build from an NTFS drive or in CI.
+>
+> Documentation index: [docs/README.md](docs/README.md).
+
 A production-style university media/news platform built with **Next.js + TypeScript + Prisma + PostgreSQL**.
 
 This project includes:

@@ -400,6 +400,7 @@ export const ModelName = {
   AutomationConfig: 'AutomationConfig',
   AdminApiKey: 'AdminApiKey',
   AdminUser: 'AdminUser',
+  AssistantMemory: 'AssistantMemory',
   IntegrationConfig: 'IntegrationConfig'
 } as const
 
@@ -416,7 +417,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "article" | "category" | "aboutContent" | "siteVisit" | "articleView" | "event" | "media" | "subscriber" | "contactMessage" | "siteSettings" | "source" | "articleRaw" | "articleProcessed" | "automationConfig" | "adminApiKey" | "adminUser" | "integrationConfig"
+    modelProps: "article" | "category" | "aboutContent" | "siteVisit" | "articleView" | "event" | "media" | "subscriber" | "contactMessage" | "siteSettings" | "source" | "articleRaw" | "articleProcessed" | "automationConfig" | "adminApiKey" | "adminUser" | "assistantMemory" | "integrationConfig"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1604,6 +1605,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    AssistantMemory: {
+      payload: Prisma.$AssistantMemoryPayload<ExtArgs>
+      fields: Prisma.AssistantMemoryFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.AssistantMemoryFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AssistantMemoryPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.AssistantMemoryFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AssistantMemoryPayload>
+        }
+        findFirst: {
+          args: Prisma.AssistantMemoryFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AssistantMemoryPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.AssistantMemoryFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AssistantMemoryPayload>
+        }
+        findMany: {
+          args: Prisma.AssistantMemoryFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AssistantMemoryPayload>[]
+        }
+        create: {
+          args: Prisma.AssistantMemoryCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AssistantMemoryPayload>
+        }
+        createMany: {
+          args: Prisma.AssistantMemoryCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.AssistantMemoryCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AssistantMemoryPayload>[]
+        }
+        delete: {
+          args: Prisma.AssistantMemoryDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AssistantMemoryPayload>
+        }
+        update: {
+          args: Prisma.AssistantMemoryUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AssistantMemoryPayload>
+        }
+        deleteMany: {
+          args: Prisma.AssistantMemoryDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.AssistantMemoryUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.AssistantMemoryUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AssistantMemoryPayload>[]
+        }
+        upsert: {
+          args: Prisma.AssistantMemoryUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AssistantMemoryPayload>
+        }
+        aggregate: {
+          args: Prisma.AssistantMemoryAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateAssistantMemory>
+        }
+        groupBy: {
+          args: Prisma.AssistantMemoryGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AssistantMemoryGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.AssistantMemoryCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AssistantMemoryCountAggregateOutputType> | number
+        }
+      }
+    }
     IntegrationConfig: {
       payload: Prisma.$IntegrationConfigPayload<ExtArgs>
       fields: Prisma.IntegrationConfigFieldRefs
@@ -1954,11 +2029,31 @@ export const AdminUserScalarFieldEnum = {
   email: 'email',
   passwordHash: 'passwordHash',
   role: 'role',
+  approved: 'approved',
+  resetToken: 'resetToken',
+  resetTokenExpires: 'resetTokenExpires',
+  isSuperAdmin: 'isSuperAdmin',
+  passwordChangedAt: 'passwordChangedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
 
 export type AdminUserScalarFieldEnum = (typeof AdminUserScalarFieldEnum)[keyof typeof AdminUserScalarFieldEnum]
+
+
+export const AssistantMemoryScalarFieldEnum = {
+  id: 'id',
+  kind: 'kind',
+  role: 'role',
+  content: 'content',
+  token: 'token',
+  actionType: 'actionType',
+  target: 'target',
+  consumedAt: 'consumedAt',
+  createdAt: 'createdAt'
+} as const
+
+export type AssistantMemoryScalarFieldEnum = (typeof AssistantMemoryScalarFieldEnum)[keyof typeof AssistantMemoryScalarFieldEnum]
 
 
 export const IntegrationConfigScalarFieldEnum = {
@@ -1969,6 +2064,7 @@ export const IntegrationConfigScalarFieldEnum = {
   providerModel: 'providerModel',
   providerApiKeyEncrypted: 'providerApiKeyEncrypted',
   providerApiKeyHash: 'providerApiKeyHash',
+  providerBaseUrl: 'providerBaseUrl',
   channelId: 'channelId',
   webhookTokenEncrypted: 'webhookTokenEncrypted',
   sendOnPublish: 'sendOnPublish',
@@ -2187,6 +2283,7 @@ export type GlobalOmitConfig = {
   automationConfig?: Prisma.AutomationConfigOmit
   adminApiKey?: Prisma.AdminApiKeyOmit
   adminUser?: Prisma.AdminUserOmit
+  assistantMemory?: Prisma.AssistantMemoryOmit
   integrationConfig?: Prisma.IntegrationConfigOmit
 }
 

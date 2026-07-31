@@ -1,5 +1,6 @@
 import Parser from "rss-parser";
 import crypto from "crypto";
+import { safeFetch } from "@/lib/safe-fetch";
 
 export interface NormalizedRSSItem {
   url: string;
@@ -70,7 +71,7 @@ function normalizeItem(item: any): NormalizedRSSItem | null {
 export async function fetchRSSFeed(feedUrl: string): Promise<{ items: NormalizedRSSItem[]; error?: string }> {
   try {
     // NOTE: fetch + parseString avoids `url.parse()` deprecation path inside parser.parseURL
-    const response = await fetch(feedUrl, {
+    const response = await safeFetch(feedUrl, {
       headers: {
         "User-Agent": "Mozilla/5.0 (compatible; NewsBot/1.0)",
         Accept: "application/rss+xml, application/xml;q=0.9, text/xml;q=0.8, */*;q=0.5",

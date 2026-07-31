@@ -247,16 +247,40 @@ model AdminApiKey {
 }
 
 model AdminUser {
-  id           String   @id @default(uuid())
-  username     String   @unique
-  email        String   @unique
-  passwordHash String
-  role         String   @default("admin")
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime      @updatedAt
-  apiKeys      AdminApiKey[]
+  id                String        @id @default(uuid())
+  username          String        @unique
+  email             String        @unique
+  passwordHash      String
+  role              String        @default("admin")
+  approved          Boolean       @default(false)
+  resetToken        String?       @unique
+  resetTokenExpires DateTime?
+  isSuperAdmin      Boolean       @default(false)
+  /// Sessions issued before this moment are refused when entering the admin UI.
+  passwordChangedAt DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  apiKeys           AdminApiKey[]
 
   @@map("admin_users")
+}
+
+/// Admin assistant chat memory and pending confirmation tokens.
+/// Previously these rows lived in `contact_messages` behind magic subject values,
+/// which mixed internal state into the public inbox.
+model AssistantMemory {
+  id         String    @id @default(uuid())
+  kind       String // "message" | "action"
+  role       String? // "user" | "assistant" (kind = "message")
+  content    String
+  token      String?   @unique // kind = "action"
+  actionType String? // "publish" | "delete"
+  target     String?
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([kind, createdAt])
+  @@map("assistant_memory")
 }
 
 model IntegrationConfig {
@@ -267,6 +291,7 @@ model IntegrationConfig {
   providerModel           String?
   providerApiKeyEncrypted String?
   providerApiKeyHash      String?
+  providerBaseUrl         String?  @default("https://openrouter.ai/api/v1")
   channelId               String?
   webhookTokenEncrypted   String?
   sendOnPublish           Boolean  @default(false)

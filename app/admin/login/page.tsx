@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -90,10 +91,19 @@ export default function AdminLoginPage() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full rounded-md bg-primary text-primary-foreground py-2 text-sm font-medium disabled:opacity-70"
+            className="w-full rounded-md bg-primary text-primary-foreground py-2 text-sm font-medium disabled:opacity-70 transition-colors hover:bg-primary/90"
           >
             {isSubmitting ? "Signing in..." : "Sign in"}
           </button>
+
+          <div className="flex items-center justify-between pt-2 border-t border-border/40 mt-4">
+            <Link href="/admin/forgot-password" className="text-xs text-primary hover:underline">
+              Forgot password?
+            </Link>
+            <Link href="/admin/signup" className="text-xs text-primary hover:underline">
+              Request Access
+            </Link>
+          </div>
         </form>
       </div>
     </main>

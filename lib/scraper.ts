@@ -1,5 +1,6 @@
 import axios from "axios";
 import * as cheerio from "cheerio";
+import { assertPublicUrl } from "@/lib/safe-fetch";
 
 const DEFAULT_HEADERS = {
   "User-Agent":
@@ -42,6 +43,7 @@ function pickBestImage(candidates: string[]): string | null {
  */
 export async function scrapeOgImage(url: string): Promise<string | null> {
   try {
+    await assertPublicUrl(url);
     const response = await axios.get(url, {
       timeout: 10000,
       headers: DEFAULT_HEADERS,
@@ -74,6 +76,7 @@ export async function scrapeOgImage(url: string): Promise<string | null> {
 
 export async function scrapeArticleDetails(url: string): Promise<{ content: string | null; imageUrl: string | null; imageUrls: string[] }> {
   try {
+    await assertPublicUrl(url);
     const response = await axios.get(url, {
       timeout: 15000,
       headers: DEFAULT_HEADERS,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useGlobalContext } from "@/lib/context";
+import { useGlobalContext, type Article } from "@/lib/context";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState, Suspense } from "react";
 import { ArrowLeft, Save, Loader2, Globe, Image as ImageIcon, Plus, X } from "lucide-react";
@@ -67,29 +67,66 @@ function ArticleFormContent() {
 
   useEffect(() => {
     if (!id) return;
-    const article = articles.find((a) => a.id === id);
-    if (!article) return;
-    const parsed = extractGallery(article.content || "");
-    const categories = Array.from(new Set([...(article.categories || []).map((c) => c.name), article.category].filter(Boolean)));
-    setFormData({
-      title: article.title,
-      titleRu: article.titleRu || "",
-      titleUz: article.titleUz || "",
-      summary: article.summary,
-      summaryRu: article.summaryRu || "",
-      summaryUz: article.summaryUz || "",
-      content: parsed.cleanContent,
-      contentRu: article.contentRu || "",
-      contentUz: article.contentUz || "",
-      image: article.image,
-      imageCaption: article.imageCaption || "",
-      imageCaptionRu: article.imageCaptionRu || "",
-      imageCaptionUz: article.imageCaptionUz || "",
-      categories: categories.length ? categories : ["News"],
-      author: article.author,
-      slug: article.slug,
-      gallery: parsed.images.length ? parsed.images : [article.image || ""],
-    });
+
+    const listEntry = articles.find((a) => a.id === id);
+    if (!listEntry) return;
+
+    let cancelled = false;
+
+    const fill = (article: Article) => {
+      const parsed = extractGallery(article.content || "");
+      const categories = Array.from(
+        new Set([...(article.categories || []).map((c) => c.name), article.category].filter(Boolean)),
+      );
+      setFormData({
+        title: article.title,
+        titleRu: article.titleRu || "",
+        titleUz: article.titleUz || "",
+        summary: article.summary,
+        summaryRu: article.summaryRu || "",
+        summaryUz: article.summaryUz || "",
+        content: parsed.cleanContent,
+        contentRu: article.contentRu || "",
+        contentUz: article.contentUz || "",
+        image: article.image,
+        imageCaption: article.imageCaption || "",
+        imageCaptionRu: article.imageCaptionRu || "",
+        imageCaptionUz: article.imageCaptionUz || "",
+        categories: categories.length ? categories : ["News"],
+        author: article.author,
+        slug: article.slug,
+        gallery: parsed.images.length ? parsed.images : [article.image || ""],
+      });
+    };
+
+    // The shared context only carries article metadata, so pull the full record
+    // (bodies, captions) for the one article being edited.
+    const load = async () => {
+      if (listEntry.content) {
+        fill(listEntry);
+        return;
+      }
+
+      try {
+        const res = await fetch(
+          `/api/frontend/articles?slug=${encodeURIComponent(listEntry.slug)}&full=1`,
+        );
+        const data = await res.json();
+        if (!cancelled && res.ok && data?.article) {
+          fill({ ...listEntry, ...data.article });
+        } else if (!cancelled) {
+          fill(listEntry);
+        }
+      } catch {
+        if (!cancelled) fill(listEntry);
+      }
+    };
+
+    load();
+
+    return () => {
+      cancelled = true;
+    };
   }, [id, articles]);
 
   useEffect(() => {

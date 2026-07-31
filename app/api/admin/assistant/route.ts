@@ -4,10 +4,17 @@ import { requireAdmin } from "@/lib/admin-auth";
 import axios from "axios";
 import { decryptSecret } from "@/lib/security";
 import { logger } from "@/lib/logger";
-import { POST as publishPost } from "@/app/api/cron/publish/route";
+import { runPublish } from "@/lib/pipeline/publish";
+import {
+  consumePendingToolAction,
+  findPendingToolAction,
+  getRecentAssistantMessages,
+  queueToolAction,
+  saveAssistantMessage,
+  type PendingToolAction,
+  type ToolActionType,
+} from "@/lib/assistant-memory";
 
-const ASSISTANT_SUBJECT = "__assistant_memory__";
-const ASSISTANT_ACTION_SUBJECT = "__assistant_action__";
 const OPENROUTER_MODEL = process.env.OPENROUTER_ASSISTANT_MODEL || "openai/gpt-4o-mini";
 const OPENROUTER_REFERER = process.env.OPENROUTER_REFERER || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 const OPENROUTER_TITLE = process.env.OPENROUTER_TITLE || "University Media Admin";
@@ -20,15 +27,6 @@ type AssistantStats = {
   events: number;
   articles: number;
   media: number;
-};
-
-type ToolActionType = "publish" | "delete";
-
-type PendingToolAction = {
-  token: string;
-  type: ToolActionType;
-  target: string;
-  createdAt: string;
 };
 
 const fallbackReply = (message: string, stats: AssistantStats) => {
@@ -105,20 +103,25 @@ const callOpenRouter = async (
   messages: Array<{ role: "system" | "user" | "assistant"; content: string }>,
   apiKey: string | null,
   model: string,
+  providerBaseUrl?: string,
 ): Promise<string | null> => {
   const sanitized = sanitizeMessages(messages);
-  if (!apiKey || sanitized.length === 0) return null;
+  const baseUrl = (providerBaseUrl || "").trim() || "https://openrouter.ai/api/v1";
+  const url = `${baseUrl.replace(/\/+$/, "")}/chat/completions`;
+  const isLocal = url.includes("localhost") || url.includes("127.0.0.1") || url.includes("192.168.") || url.includes("::1");
+  const safeKey = (apiKey || "").trim() || (isLocal ? "local-model" : "");
+  if (!safeKey || sanitized.length === 0) return null;
 
   try {
-    logger.info("Assistant OpenRouter request", {
-      endpoint: OPENROUTER_ENDPOINT,
+    logger.info("Assistant AI request", {
+      endpoint: url,
       model,
       messageCount: sanitized.length,
-      hasApiKey: Boolean(apiKey),
+      hasApiKey: Boolean(safeKey),
     });
 
     const res = await axios.post(
-      OPENROUTER_ENDPOINT,
+      url,
       {
         model,
         messages: sanitized,
@@ -127,7 +130,7 @@ const callOpenRouter = async (
       {
         timeout: 30_000,
         headers: {
-          Authorization: `Bearer ${apiKey}`,
+          Authorization: `Bearer ${safeKey}`,
           "Content-Type": "application/json",
           "HTTP-Referer": OPENROUTER_REFERER,
           "X-OpenRouter-Title": OPENROUTER_TITLE,
@@ -151,10 +154,6 @@ const callOpenRouter = async (
   }
 };
 
-function createActionToken() {
-  return Math.random().toString(36).slice(2, 10);
-}
-
 function parseToolAction(message: string): { type: ToolActionType; target: string } | null {
   const normalized = message.trim();
   const publishMatch = normalized.match(/^\/tool\s+publish\s+(.+)$/i);
@@ -169,58 +168,6 @@ function parseToolAction(message: string): { type: ToolActionType; target: strin
 function parseConfirmToken(message: string): string | null {
   const match = message.trim().match(/^\/confirm\s+([a-z0-9]{6,16})$/i);
   return match ? match[1].toLowerCase() : null;
-}
-
-async function saveAssistantMessage(role: "user" | "assistant", message: string) {
-  await prisma.contactMessage.create({
-    data: {
-      name: role === "assistant" ? "Admin Assistant" : "Admin User",
-      email: role === "assistant" ? "assistant@system.local" : "user@system.local",
-      subject: ASSISTANT_SUBJECT,
-      message,
-    },
-  });
-}
-
-async function queueToolAction(type: ToolActionType, target: string) {
-  const token = createActionToken();
-  const payload: PendingToolAction = { token, type, target, createdAt: new Date().toISOString() };
-
-  await prisma.contactMessage.create({
-    data: {
-      name: token,
-      email: "user@system.local",
-      subject: ASSISTANT_ACTION_SUBJECT,
-      message: JSON.stringify(payload),
-    },
-  });
-
-  return token;
-}
-
-async function findPendingToolAction(token: string): Promise<PendingToolAction | null> {
-  const item = await prisma.contactMessage.findFirst({
-    where: {
-      subject: ASSISTANT_ACTION_SUBJECT,
-      name: token,
-      email: "user@system.local",
-    },
-    orderBy: { createdAt: "desc" },
-  });
-  if (!item) return null;
-
-  try {
-    return JSON.parse(item.message) as PendingToolAction;
-  } catch {
-    return null;
-  }
-}
-
-async function consumePendingToolAction(token: string) {
-  await prisma.contactMessage.updateMany({
-    where: { subject: ASSISTANT_ACTION_SUBJECT, name: token, email: "user@system.local" },
-    data: { email: "consumed@system.local" },
-  });
 }
 
 async function executeToolAction(action: PendingToolAction) {
@@ -246,20 +193,13 @@ async function executeToolAction(action: PendingToolAction) {
   if (!processed) return `Publish failed: review item '${action.target}' not found.`;
 
   logger.info("Assistant tool publish execute", { processedId: processed.id });
-  const publishResponse = await publishPost(
-    new Request("http://internal/api/cron/publish", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ processedIds: [processed.id] }),
-    }),
-  );
-  const data = await publishResponse.json().catch(() => ({}));
 
-  if (!publishResponse.ok) {
-    return `Publish failed for '${processed.id}': ${data?.error || "Unknown error"}`;
+  try {
+    const data = await runPublish({ processedIds: [processed.id] });
+    return `✅ Publish completed for '${processed.id}'. Result: published=${data?.publishedCount ?? 0}, telegram=${data?.telegramSentCount ?? 0}.`;
+  } catch (error) {
+    return `Publish failed for '${processed.id}': ${error instanceof Error ? error.message : "Unknown error"}`;
   }
-
-  return `✅ Publish completed for '${processed.id}'. Result: published=${data?.publishedCount ?? 0}, telegram=${data?.telegramSentCount ?? 0}.`;
 }
 
 export async function GET(request: Request) {
@@ -271,18 +211,19 @@ export async function GET(request: Request) {
     const limit = Math.min(Number(searchParams.get("limit") || 40), 100);
 
     const [memory, aiIntegration] = await Promise.all([
-      prisma.contactMessage.findMany({
-        where: { subject: ASSISTANT_SUBJECT },
-        orderBy: { createdAt: "asc" },
+      prisma.assistantMemory.findMany({
+        where: { kind: "message" },
+        orderBy: { createdAt: "desc" },
         take: limit,
       }),
       prisma.integrationConfig.findUnique({ where: { integrationType: "ai" } }),
     ]);
 
-    const messages = memory.map((item) => ({
+    // Newest-first from the DB (so `take` keeps the most recent), oldest-first for the UI.
+    const messages = memory.reverse().map((item) => ({
       id: item.id,
-      role: item.email === "assistant@system.local" ? "assistant" : "user",
-      text: item.message,
+      role: item.role === "assistant" ? "assistant" : "user",
+      text: item.content,
       createdAt: item.createdAt,
     }));
 
@@ -317,11 +258,7 @@ export async function POST(request: Request) {
         prisma.article.count(),
         prisma.media.count(),
         prisma.siteSettings.findUnique({ where: { id: "default" } }),
-        prisma.contactMessage.findMany({
-          where: { subject: ASSISTANT_SUBJECT },
-          orderBy: { createdAt: "desc" },
-          take: 20,
-        }),
+        getRecentAssistantMessages(20),
         prisma.integrationConfig.findUnique({ where: { integrationType: "ai" } }),
         prisma.integrationConfig.findUnique({ where: { integrationType: "telegram" } }),
       ]);
@@ -349,13 +286,21 @@ export async function POST(request: Request) {
     if (confirmToken) {
       const pending = await findPendingToolAction(confirmToken);
       if (!pending) {
-        const reply = "No pending action found for this token (or already consumed).";
+        const reply = "No pending action found for this token (expired, unknown, or already used).";
+        await saveAssistantMessage("assistant", reply);
+        return NextResponse.json({ reply, model: "tool-router", usedFallback: false, fallbackReason: null });
+      }
+
+      // Burn the token *before* executing, so a replayed /confirm cannot run a
+      // destructive action twice.
+      const claimed = await consumePendingToolAction(confirmToken);
+      if (!claimed) {
+        const reply = "That confirmation token has already been used.";
         await saveAssistantMessage("assistant", reply);
         return NextResponse.json({ reply, model: "tool-router", usedFallback: false, fallbackReason: null });
       }
 
       const result = await executeToolAction(pending);
-      await consumePendingToolAction(confirmToken);
       await saveAssistantMessage("assistant", result);
       return NextResponse.json({ reply: result, model: "tool-router", usedFallback: false, fallbackReason: null });
     }
@@ -371,9 +316,9 @@ export async function POST(request: Request) {
       });
     }
 
+    // Already oldest-first from getRecentAssistantMessages().
     const history = recentMemory
-      .reverse()
-      .map((item) => `${item.email === "assistant@system.local" ? "Assistant" : "User"}: ${item.message}`)
+      .map((item) => `${item.role === "assistant" ? "Assistant" : "User"}: ${item.content}`)
       .join("\n");
 
     const aiKeyFromConfig = decryptSecret(aiIntegration?.providerApiKeyEncrypted);
@@ -419,6 +364,7 @@ export async function POST(request: Request) {
       ],
       aiKeyFromConfig || process.env.OPENROUTER_API_KEY || null,
       assistantModel,
+      (aiIntegration as any)?.providerBaseUrl || undefined,
     );
 
     const usedFallback = !openRouterReply;

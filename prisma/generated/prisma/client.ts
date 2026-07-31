@@ -120,6 +120,13 @@ export type AdminApiKey = Prisma.AdminApiKeyModel
  */
 export type AdminUser = Prisma.AdminUserModel
 /**
+ * Model AssistantMemory
+ * Admin assistant chat memory and pending confirmation tokens.
+ * Previously these rows lived in `contact_messages` behind magic subject values,
+ * which mixed internal state into the public inbox.
+ */
+export type AssistantMemory = Prisma.AssistantMemoryModel
+/**
  * Model IntegrationConfig
  * 
  */

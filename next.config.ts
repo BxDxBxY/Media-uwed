@@ -28,6 +28,11 @@ const nextConfig: NextConfig = {
       { protocol: "http", hostname: "**" },
     ],
   },
+  // NOTE (2026-07-31): `next build` cannot run from an exFAT volume — see
+  // docs/02-SETUP-GUIDE.md §10. exFAT has no reparse points, so fs.readlink() answers
+  // EISDIR where webpack expects EINVAL, and exFAT also rejects the ':' that Turbopack
+  // puts in chunk filenames. Neither is fixable from this config (resolve.symlinks
+  // and cache:false were both tried). Build from an NTFS drive or in CI.
   async headers() {
     return [
       {

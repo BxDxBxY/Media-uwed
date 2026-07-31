@@ -1,5 +1,7 @@
 # Admin & News Panel Fixes Validation
 
+> ℹ️ Historical changelog of admin/news panel fixes. For current project status and open issues see [docs/06-AUDIT-2026-07-31.md](docs/06-AUDIT-2026-07-31.md); index at [docs/README.md](docs/README.md).
+
 ## Implemented areas
 
 - Visits analytics page map behavior was rebuilt to be an interactive map-like vector view with country markers.

@@ -67,6 +67,7 @@ export const ModelName = {
   AutomationConfig: 'AutomationConfig',
   AdminApiKey: 'AdminApiKey',
   AdminUser: 'AdminUser',
+  AssistantMemory: 'AssistantMemory',
   IntegrationConfig: 'IntegrationConfig'
 } as const
 
@@ -323,11 +324,31 @@ export const AdminUserScalarFieldEnum = {
   email: 'email',
   passwordHash: 'passwordHash',
   role: 'role',
+  approved: 'approved',
+  resetToken: 'resetToken',
+  resetTokenExpires: 'resetTokenExpires',
+  isSuperAdmin: 'isSuperAdmin',
+  passwordChangedAt: 'passwordChangedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
 
 export type AdminUserScalarFieldEnum = (typeof AdminUserScalarFieldEnum)[keyof typeof AdminUserScalarFieldEnum]
+
+
+export const AssistantMemoryScalarFieldEnum = {
+  id: 'id',
+  kind: 'kind',
+  role: 'role',
+  content: 'content',
+  token: 'token',
+  actionType: 'actionType',
+  target: 'target',
+  consumedAt: 'consumedAt',
+  createdAt: 'createdAt'
+} as const
+
+export type AssistantMemoryScalarFieldEnum = (typeof AssistantMemoryScalarFieldEnum)[keyof typeof AssistantMemoryScalarFieldEnum]
 
 
 export const IntegrationConfigScalarFieldEnum = {
@@ -338,6 +359,7 @@ export const IntegrationConfigScalarFieldEnum = {
   providerModel: 'providerModel',
   providerApiKeyEncrypted: 'providerApiKeyEncrypted',
   providerApiKeyHash: 'providerApiKeyHash',
+  providerBaseUrl: 'providerBaseUrl',
   channelId: 'channelId',
   webhookTokenEncrypted: 'webhookTokenEncrypted',
   sendOnPublish: 'sendOnPublish',

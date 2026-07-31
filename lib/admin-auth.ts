@@ -9,6 +9,8 @@ type AdminSessionPayload = {
   userId: string;
   role: string;
   exp: number;
+  /** Issued-at (seconds). Compared against `AdminUser.passwordChangedAt`. */
+  iat?: number;
 };
 
 function getSessionSecret() {
@@ -41,10 +43,12 @@ export function verifyPassword(password: string, passwordHash: string) {
 }
 
 export function createAdminSessionToken(data: { userId: string; role: string }) {
+  const issuedAt = Math.floor(Date.now() / 1000);
   const payload: AdminSessionPayload = {
     userId: data.userId,
     role: data.role,
-    exp: Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS,
+    exp: issuedAt + SESSION_TTL_SECONDS,
+    iat: issuedAt,
   };
   const encodedPayload = toBase64Url(JSON.stringify(payload));
   const signature = createHmac("sha256", getSessionSecret()).update(encodedPayload).digest("base64url");
@@ -117,4 +121,25 @@ export function requireAdmin(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   return null;
+}
+
+/**
+ * True when the session predates the account's last password change.
+ *
+ * Session verification is otherwise stateless (no database round trip per request),
+ * so this is applied where the user record is already being loaded: entering the admin
+ * UI (`app/admin/(protected)/layout.tsx`) and the super-admin user management route.
+ * A stolen token can therefore still be used against individual API routes until it
+ * expires (12h max) — closing that fully means an async, DB-backed check in
+ * `requireAdmin` on every route.
+ */
+export function isSessionStale(
+  session: { iat?: number } | null,
+  user: { passwordChangedAt?: Date | null } | null,
+) {
+  if (!session || !user?.passwordChangedAt) return false;
+  // Tokens issued before this feature carry no `iat`; treat them as stale so a
+  // password change reliably locks out older sessions.
+  if (!session.iat) return true;
+  return session.iat * 1000 < user.passwordChangedAt.getTime();
 }
