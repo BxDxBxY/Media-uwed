@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { logger } from "@/lib/logger";
-import { detectSourceLanguage, processNewsAI } from "@/lib/ai";
+import { DEFAULT_AI_MODEL, MIN_SOURCE_CHARS, detectSourceLanguage, processNewsAI } from "@/lib/ai";
+import { getAiUsage, recordAiRequests } from "@/lib/ai-usage";
 import { scrapeArticleDetails } from "@/lib/scraper";
 import { decryptSecret } from "@/lib/security";
 import {
@@ -101,17 +102,62 @@ export async function runProcess(input: ProcessInput = {}) {
     const aiProviderModel =
       aiIntegration?.providerModel?.trim() ||
       process.env.OPENROUTER_TRANSLATE_MODEL ||
-      "openai/gpt-4o-mini";
+      DEFAULT_AI_MODEL;
+
+    // The environment variable is a valid way to configure the key, so the budget has to
+    // apply to it too — otherwise an env-only setup silently runs unmetered.
+    const hasProviderKey = Boolean(
+      (aiProviderApiKey || "").trim() || (process.env.OPENROUTER_API_KEY || "").trim(),
+    );
+    const usage = await getAiUsage();
+    // Only the LLM path spends quota. Without a key every article takes the offline
+    // heuristic path, which is free and unlimited.
+    const budgetApplies = hasProviderKey && !usage.unlimited;
+
+    let requestsSpent = 0;
+    let requestsRecorded = 0;
+    let stoppedForBudget = false;
+    // Split the batch by which pipeline actually produced each article: the LLM
+    // editorial pass, or the offline heuristics. A run that quietly went all-heuristic
+    // is the failure mode this reporting exists to make visible.
+    let llmArticles = 0;
+    let heuristicArticles = 0;
+    let skippedThinSource = 0;
+
+    if (budgetApplies && usage.remaining <= 0) {
+      return {
+        processedCount: 0,
+        failedCount: 0,
+        totalAttempted: 0,
+        aiBudget: { used: usage.used, limit: usage.limit, remaining: 0, spentThisRun: 0 },
+        message:
+          `Daily AI request budget is spent (${usage.used}/${usage.limit} for ${usage.day}). ` +
+          `${filteredArticles.length} article(s) stay queued until the quota resets at 00:00 UTC. ` +
+          `Raise AI_DAILY_REQUEST_LIMIT, or set it to 0 to disable metering, if the account is not on the free tier.`,
+      };
+    }
 
     logger.debug("Processing batch with AI provider", {
-      hasProviderKey: Boolean(aiProviderApiKey && aiProviderApiKey.trim()),
+      hasProviderKey,
       integrationEnabled: aiIntegration?.enabled ?? true,
       providerName: aiIntegration?.provider || null,
       providerModel: aiProviderModel,
       articles: filteredArticles.length,
+      dailyBudget: budgetApplies ? `${usage.used}/${usage.limit}` : "unmetered",
     });
 
     for (const raw of filteredArticles) {
+      if (budgetApplies && requestsSpent >= usage.remaining) {
+        // Leaving the rest queued beats processing them with the weak heuristic path:
+        // they keep their place and get a real editorial pass tomorrow.
+        stoppedForBudget = true;
+        logger.warn("Stopping the batch: daily AI request budget reached", {
+          requestsSpent,
+          budgetRemaining: usage.remaining,
+        });
+        break;
+      }
+
       try {
         let detailedContent = "";
         let finalImageUrl = raw.imageUrl;
@@ -160,9 +206,22 @@ export async function runProcess(input: ProcessInput = {}) {
           });
         }
 
-        const sourceLang = detectSourceLanguage(
-          `${raw.title}\n${raw.description || ""}\n${detailedContent}`,
-        );
+        const sourceMaterial = `${raw.title}\n${raw.description || ""}\n${detailedContent}`;
+
+        // A headline with no body and no teaser cannot be rewritten into an article —
+        // it can only be padded out with invented detail. Leave it queued: a later run
+        // may scrape successfully, and until then nothing false gets published.
+        if (sourceMaterial.trim().length < MIN_SOURCE_CHARS) {
+          skippedThinSource++;
+          logger.warn("Skipping article: not enough source material to rewrite", {
+            id: raw.id,
+            url: raw.url,
+            chars: sourceMaterial.trim().length,
+          });
+          continue;
+        }
+
+        const sourceLang = detectSourceLanguage(sourceMaterial);
 
         const aiResult = await processNewsAI(
           raw.title,
@@ -181,8 +240,25 @@ export async function runProcess(input: ProcessInput = {}) {
             providerModel: aiProviderModel,
             providerBaseUrl: (aiIntegration as any)?.providerBaseUrl || undefined,
             editorialPrompt: aiIntegration?.editorialPrompt || undefined,
+            maxProviderRequests: budgetApplies
+              ? Math.max(1, usage.remaining - requestsSpent)
+              : undefined,
+            onProviderRequest: () => {
+              requestsSpent++;
+            },
+            onEditorialOutcome: ({ model }) => {
+              if (model) llmArticles++;
+              else heuristicArticles++;
+            },
           },
         );
+
+        // Persist the counter before branching, so a failed article still pays for the
+        // requests it sent.
+        if (requestsSpent > requestsRecorded) {
+          await recordAiRequests(requestsSpent - requestsRecorded);
+          requestsRecorded = requestsSpent;
+        }
 
         if (!aiResult) {
           failedCount++;
@@ -256,6 +332,20 @@ export async function runProcess(input: ProcessInput = {}) {
       }
     }
 
+    // Flush whatever the per-article write missed, e.g. an article that threw.
+    if (requestsSpent > requestsRecorded) {
+      await recordAiRequests(requestsSpent - requestsRecorded);
+    }
+
+    const thinNote = skippedThinSource
+      ? ` ${skippedThinSource} skipped: the source gave only a headline, so there was nothing to rewrite.`
+      : "";
+
+    const budgetNote = stoppedForBudget
+      ? ` Stopped early: the daily AI request budget (${usage.limit}) is spent, ` +
+        `${filteredArticles.length - processedCount - failedCount} article(s) stay queued until 00:00 UTC.`
+      : "";
+
     return {
       processedCount,
       failedCount,
@@ -265,9 +355,22 @@ export async function runProcess(input: ProcessInput = {}) {
       aiStrictMode: Boolean(aiStrictMode),
       aiInstructionTerms: instructionTerms.length,
       previews: retranslate ? previews : undefined,
+      aiBudget: budgetApplies
+        ? {
+            used: usage.used + requestsSpent,
+            limit: usage.limit,
+            remaining: Math.max(0, usage.remaining - requestsSpent),
+            spentThisRun: requestsSpent,
+          }
+        : undefined,
+      llmArticles,
+      heuristicArticles,
+      skippedThinSource,
       message: retranslate
-        ? `Generated ${processedCount} re-translation preview(s). Save changes to persist.`
-        : `Successfully processed ${processedCount} articles. Status: pending_review.`,
+        ? `Generated ${processedCount} re-translation preview(s). Save changes to persist.${budgetNote}`
+        : `Successfully processed ${processedCount} articles ` +
+          `(${llmArticles} via the AI editorial pass, ${heuristicArticles} via offline heuristics). ` +
+          `Status: pending_review.${thinNote}${budgetNote}`,
     };
   }
 }

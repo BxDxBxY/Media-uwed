@@ -22,7 +22,11 @@
     "process:local": "node -e \"fetch('http://localhost:3000/api/cron/process', {method: 'POST'}).then(r => r.json()).then(console.log)\"",
     "postinstall": "prisma generate",
     "admin:create": "tsx scripts/create-admin.ts",
-    "check:ai": "tsx scripts/check-ai-pipeline.mts"
+    "check:ai": "tsx scripts/check-ai-pipeline.mts",
+    "check:models": "tsx scripts/compare-free-models.mts",
+    "check:rss": "tsx scripts/check-rss.mts",
+    "seed:sources": "tsx scripts/seed-sources.mts",
+    "check": "npm run typecheck && npm run lint && npm run check:ai && npm run check:rss"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.4.1",

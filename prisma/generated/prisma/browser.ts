@@ -105,6 +105,16 @@ export type AdminUser = Prisma.AdminUserModel
  */
 export type AssistantMemory = Prisma.AssistantMemoryModel
 /**
+ * Model AiUsageDay
+ * Requests sent to the AI provider per UTC day.
+ * 
+ * Exists because the deployment runs on OpenRouter's free tier: 50 requests/day shared
+ * across every `:free` model. Without a counter the first cron run of the day would
+ * spend the whole quota on one batch and every later article would silently degrade to
+ * the heuristic pipeline. One row per day; old rows are harmless history.
+ */
+export type AiUsageDay = Prisma.AiUsageDayModel
+/**
  * Model IntegrationConfig
  * 
  */

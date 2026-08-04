@@ -5,6 +5,8 @@ import axios from "axios";
 import { decryptSecret } from "@/lib/security";
 import { logger } from "@/lib/logger";
 import { runPublish } from "@/lib/pipeline/publish";
+import { DEFAULT_AI_MODEL } from "@/lib/ai";
+import { recordAiRequests } from "@/lib/ai-usage";
 import {
   consumePendingToolAction,
   findPendingToolAction,
@@ -15,7 +17,7 @@ import {
   type ToolActionType,
 } from "@/lib/assistant-memory";
 
-const OPENROUTER_MODEL = process.env.OPENROUTER_ASSISTANT_MODEL || "openai/gpt-4o-mini";
+const OPENROUTER_MODEL = process.env.OPENROUTER_ASSISTANT_MODEL || DEFAULT_AI_MODEL;
 const OPENROUTER_REFERER = process.env.OPENROUTER_REFERER || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 const OPENROUTER_TITLE = process.env.OPENROUTER_TITLE || "University Media Admin";
 const OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
@@ -87,7 +89,9 @@ const commandReply = (message: string, stats: AssistantStats) => {
 function normalizeModel(input: string | null | undefined): string {
   const candidate = String(input || "").trim();
   if (!candidate) return OPENROUTER_MODEL;
-  if (!/^[a-z0-9._/-]+$/i.test(candidate)) return OPENROUTER_MODEL;
+  // `:` is part of the id for free and routed variants (`…:free`, `…:nitro`), so it has
+  // to be allowed — rejecting it silently sent every free model to the default instead.
+  if (!/^[a-z0-9._:/-]+$/i.test(candidate)) return OPENROUTER_MODEL;
   return candidate;
 }
 
@@ -138,8 +142,14 @@ const callOpenRouter = async (
       },
     );
 
+    // The chat shares the provider quota with the editorial pipeline, so it has to be
+    // counted too — otherwise the pipeline's budget check works from a stale number.
+    await recordAiRequests(1);
+
     return res.data?.choices?.[0]?.message?.content?.trim() || null;
   } catch (error) {
+    await recordAiRequests(1);
+
     if (axios.isAxiosError(error)) {
       logger.error("OpenRouter assistant error", {
         status: error.response?.status || "n/a",

@@ -2,6 +2,26 @@ import { prisma } from "@/lib/prisma";
 import { fetchMultipleFeeds } from "@/lib/rss";
 import { matchesRequirements, normalizeKeywords } from "@/lib/automation-filters";
 
+/**
+ * Keeps the scraped body and image list from a previous run while taking the feed's
+ * fresher metadata. Fields the incoming item does not have simply survive.
+ */
+function mergeRawJson(existingRaw: string, incomingRaw: string): string {
+  try {
+    const existing = JSON.parse(existingRaw) as Record<string, unknown>;
+    const incoming = JSON.parse(incomingRaw) as Record<string, unknown>;
+
+    const preserved: Record<string, unknown> = { ...incoming };
+    for (const key of ["fullContent", "detailImages", "detailFetchedAt"]) {
+      if (!incoming[key] && existing[key]) preserved[key] = existing[key];
+    }
+
+    return JSON.stringify(preserved);
+  } catch {
+    return incomingRaw;
+  }
+}
+
 export type PullInput = {
   includeKeywords?: string | string[] | null;
   excludeKeywords?: string | string[] | null;
@@ -90,8 +110,15 @@ export async function runPull(input: PullInput = {}) {
                 guid: item.guid,
               },
             },
-            select: { id: true },
+            select: { id: true, rawJson: true },
           });
+
+          // A refresh must not discard a body that was already scraped: the feed item
+          // carries only the teaser, so overwriting rawJson wholesale would throw away
+          // the scraped text and images and force the article to be fetched again.
+          const rawJson = existing?.rawJson
+            ? mergeRawJson(existing.rawJson, item.rawJson)
+            : item.rawJson;
 
           await prisma.articleRaw.upsert({
             where: {
@@ -104,9 +131,10 @@ export async function runPull(input: PullInput = {}) {
               title: item.title,
               description: item.description,
               author: item.author,
-              imageUrl: item.imageUrl,
+              // A feed that stops sending an image must not blank one already found.
+              ...(item.imageUrl ? { imageUrl: item.imageUrl } : {}),
               publishedAt: item.publishedAt,
-              rawJson: item.rawJson,
+              rawJson,
             },
             create: {
               sourceId: source.id,
@@ -117,7 +145,7 @@ export async function runPull(input: PullInput = {}) {
               author: item.author,
               imageUrl: item.imageUrl,
               publishedAt: item.publishedAt,
-              rawJson: item.rawJson,
+              rawJson,
             },
           });
 

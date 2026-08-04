@@ -25,6 +25,22 @@ export type AiTaskConfig = {
   providerModel?: string;
   providerBaseUrl?: string;
   editorialPrompt?: string;
+  /** Models tried, in order, if `providerModel` fails. Defaults to `DEFAULT_FALLBACK_MODELS`. */
+  fallbackModels?: string[];
+  /** Requests this article may spend across all models. Defaults to `MAX_REQUESTS_PER_ARTICLE`. */
+  maxProviderRequests?: number;
+  /**
+   * Called once per HTTP request actually sent to the provider, so the caller can meter
+   * a daily quota. Fired for failed requests too — a rejected request still counts
+   * against OpenRouter's rate limit.
+   */
+  onProviderRequest?: (info: { model: string; status: number | null; ok: boolean }) => void;
+  /**
+   * Which model produced the article, or `null` when every model failed and the offline
+   * heuristics took over. Lets callers report how much of a batch got a real editorial
+   * pass instead of a regex paraphrase.
+   */
+  onEditorialOutcome?: (info: { model: string | null }) => void;
 };
 // Free/no-auth translation endpoints (may rate-limit sometimes)
 const LIBRETRANSLATE_URL = "https://libretranslate.de/translate"; // public instance
@@ -32,9 +48,70 @@ const MYMEMORY_URL = "https://api.mymemory.translated.net/get";
 
 const MAX_TRANSLATE_CHARS = 450;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const OPENROUTER_MODEL = process.env.OPENROUTER_TRANSLATE_MODEL || "openai/gpt-4o-mini";
+
+/**
+ * Default model, deliberately a `:free` OpenRouter variant.
+ *
+ * The account this runs on has no credits, so free variants are the only usable ones:
+ * 20 requests/minute and 50 requests/day shared across every `:free` model (1000/day
+ * once $10 of credit has ever been purchased). That quota is why the editorial pass is
+ * a single call per article and why `lib/ai-usage.ts` meters it.
+ *
+ * Switching to a paid model is one field: `OPENROUTER_TRANSLATE_MODEL`, or the model
+ * box in Admin → Automation → Integrations.
+ */
+export const DEFAULT_AI_MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free";
+const OPENROUTER_MODEL = process.env.OPENROUTER_TRANSLATE_MODEL || DEFAULT_AI_MODEL;
+
+/**
+ * Tried in order when the chosen model is rate-limited, out of capacity, or returns
+ * something unusable. Free capacity is shared between all OpenRouter users and is often
+ * busy, so a single-model configuration falls through to the weak heuristic pipeline far
+ * more often than it has to. Override with `OPENROUTER_FALLBACK_MODELS` (comma-separated).
+ *
+ * Order comes from `npm run check:models` on a real 1292-character article (2026-08-01),
+ * and is by Uzbek quality rather than speed, because Uzbek is what gets published under
+ * the university's name and the weakest models mangle it:
+ *  - nemotron-3-ultra-550b (75s) — fluent Uzbek, every fact traceable to the source;
+ *  - gpt-oss-20b (250s) — good Uzbek, but turned a federal-budget surplus into "market
+ *    profit from lending", and is too slow for a serverless function's time limit;
+ *  - nemotron-3-super-120b (28s) — fastest, but its Uzbek came back salted with Dutch and
+ *    Turkish words ("Kremlda gehouden", "1 iyulga geldik"), so it is a last resort.
+ * `google/gemma-4-31b-it:free` was dropped: 429 from the shared upstream pool on both
+ * attempts.
+ */
+export const DEFAULT_FALLBACK_MODELS = [
+  "openai/gpt-oss-20b:free",
+  "nvidia/nemotron-3-super-120b-a12b:free",
+];
+
+/**
+ * Requests one article may spend, including fallbacks and retries. Without a cap a
+ * single stubborn article could eat a large slice of a 50-request day.
+ */
+const MAX_REQUESTS_PER_ARTICLE = 3;
+
+/**
+ * Below this much source material the editorial pass switches to brief mode. See the
+ * comment at the `isThinSource` computation for why.
+ */
+const BRIEF_SOURCE_CHARS = 400;
+
+/**
+ * Below this there is nothing to rewrite — a headline alone cannot become an article
+ * without inventing the article. `runProcess` skips these and leaves them queued.
+ */
+export const MIN_SOURCE_CHARS = 120;
+
 const OPENROUTER_REFERER = process.env.OPENROUTER_REFERER || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 const OPENROUTER_TITLE = process.env.OPENROUTER_TITLE || "University Media AI";
+
+export function parseModelList(value: string | null | undefined): string[] {
+  return String(value || "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
 
 function chunkText(input: string, limit: number = MAX_TRANSLATE_CHARS): string[] {
   const text = cleanText(input);
@@ -75,79 +152,6 @@ function chunkText(input: string, limit: number = MAX_TRANSLATE_CHARS): string[]
 
 
 
-async function translateWithOpenRouterChunk(
-  chunk: string,
-  source: "en" | "ru" | "uz",
-  target: "en" | "ru" | "uz",
-  apiKey: string | null,
-  model: string,
-  editorialPrompt?: string,
-  providerBaseUrl?: string,
-): Promise<string | null> {
-  const baseUrl = (providerBaseUrl || "").trim() || "https://openrouter.ai/api/v1";
-  const url = `${baseUrl.replace(/\/+$/, "")}/chat/completions`;
-  const isLocal = url.includes("localhost") || url.includes("127.0.0.1") || url.includes("192.168.") || url.includes("::1");
-  const safeKey = (apiKey || "").trim() || (isLocal ? "local-model" : "");
-  if (!safeKey) {
-    logger.debug("No AI provider key configured; skipping LLM call and using fallback translators");
-    return null;
-  }
-
-  try {
-    const prompt = [
-      "You are a professional news translator and editor.",
-      `Translate the text from ${source} to ${target}.`,
-      "Return only translated text with no markdown, no explanations, no extra labels.",
-      "Keep names, numbers, and factual meaning accurate.",
-      editorialPrompt ? `Editorial instructions from admin: ${editorialPrompt}` : null,
-      "Input:",
-      chunk,
-    ].filter(Boolean).join("\n");
-
-    // Never log key material, not even a prefix.
-    logger.debug("AI translate request", { url, hasKey: Boolean(safeKey), model });
-
-    const res = await axios.post(
-      url,
-      {
-        model,
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.1,
-        stream: false,
-      },
-      {
-        timeout: 25_000,
-        headers: {
-          Authorization: `Bearer ${safeKey}`,
-          "Content-Type": "application/json",
-          "HTTP-Referer": OPENROUTER_REFERER,
-          "X-OpenRouter-Title": OPENROUTER_TITLE,
-        },
-      },
-    );
-
-    const out = res.data?.choices?.[0]?.message?.content?.trim() || "";
-    if (!out || isRefusalLike(out)) return null;
-
-    return cleanText(out);
-  } catch (error: unknown) {
-    // Response headers can carry credentials/rate-limit tokens — do not log them.
-    if (axios.isAxiosError(error)) {
-      logger.error("AI translation request failed", {
-        status: error.response?.status ?? null,
-        data: typeof error.response?.data === "string"
-          ? error.response.data.slice(0, 500)
-          : error.response?.data ?? null,
-        message: error.message,
-      });
-    } else {
-      logger.error("AI translation request failed", {
-        message: error instanceof Error ? error.message : String(error),
-      });
-    }
-    return null;
-  }
-}
 function cleanText(s: string) {
   return polishText((s || "").replace(/\s+/g, " "));
 }
@@ -238,17 +242,20 @@ function paraphraseBasic(text: string): string {
 }
 
 /**
- * Translation pipeline:
- * 1) OpenRouter (if API key configured)
- * 2) LibreTranslate
- * 3) MyMemory
- * Returns original text if translation fails.
+ * Free translation chain for the heuristic fallback: LibreTranslate, then MyMemory,
+ * then the untranslated source.
+ *
+ * Deliberately LLM-free. The provider is called exactly once per article, by the
+ * editorial pass; this function only runs when that call was impossible or failed.
+ * An earlier version retried the provider here once per 450-character chunk — up to nine
+ * extra requests per article, which on the free tier (50 requests/day) exhausted the
+ * whole day's quota on a handful of articles and then failed anyway, since a failing
+ * editorial call and a failing chunk call almost always share the same cause.
  */
 async function translate(
   text: string,
   source: "en" | "ru" | "uz",
   target: "en" | "ru" | "uz",
-  options?: { providerApiKey?: string; providerModel?: string; editorialPrompt?: string; providerBaseUrl?: string },
 ) {
   const q = cleanText(text);
   if (!q) return "";
@@ -260,35 +267,22 @@ async function translate(
   for (const chunk of chunks) {
     let translatedChunk = "";
 
-    translatedChunk =
-      (await translateWithOpenRouterChunk(
-        chunk,
-        source,
-        target,
-        options?.providerApiKey || OPENROUTER_API_KEY || null,
-        options?.providerModel || OPENROUTER_MODEL,
-        options?.editorialPrompt,
-        options?.providerBaseUrl,
-      )) || "";
-
-    // 2) LibreTranslate
-    if (!translatedChunk) {
-      try {
-        const res = await axios.post(
-          LIBRETRANSLATE_URL,
-          { q: chunk, source, target, format: "text" },
-          { timeout: 20_000 },
-        );
-        const out = res.data?.translatedText;
-        if (typeof out === "string" && out.trim()) {
-          translatedChunk = cleanText(out);
-        }
-      } catch {
-        // ignore, fallback below
+    // 1) LibreTranslate
+    try {
+      const res = await axios.post(
+        LIBRETRANSLATE_URL,
+        { q: chunk, source, target, format: "text" },
+        { timeout: 20_000 },
+      );
+      const out = res.data?.translatedText;
+      if (typeof out === "string" && out.trim()) {
+        translatedChunk = cleanText(out);
       }
+    } catch {
+      // ignore, fallback below
     }
 
-    // 3) MyMemory
+    // 2) MyMemory
     if (!translatedChunk) {
       try {
         const url =
@@ -314,9 +308,8 @@ async function translateWithPivot(
   text: string,
   source: "en" | "ru" | "uz",
   target: "en" | "ru" | "uz",
-  options?: { providerApiKey?: string; providerModel?: string; editorialPrompt?: string; providerBaseUrl?: string },
 ): Promise<string> {
-  const primary = await translate(text, source, target, options);
+  const primary = await translate(text, source, target);
   const normalizedSource = cleanText(text);
 
   if (target === source || !normalizedSource) return primary;
@@ -324,10 +317,10 @@ async function translateWithPivot(
   const unchanged = cleanText(primary).toLowerCase() === normalizedSource.toLowerCase();
   if (!unchanged || source === "en" || target === "en") return primary;
 
-  const pivot = await translate(text, source, "en", options);
+  const pivot = await translate(text, source, "en");
   if (!pivot || cleanText(pivot).toLowerCase() === normalizedSource.toLowerCase()) return primary;
 
-  const pivoted = await translate(pivot, "en", target, options);
+  const pivoted = await translate(pivot, "en", target);
   return cleanText(pivoted) || primary;
 }
 
@@ -427,9 +420,20 @@ function asCleanString(value: unknown): string {
   return typeof value === "string" ? polishText(value.trim()) : "";
 }
 
-/** Tolerant JSON extraction: models like to wrap output in prose or ``` fences. */
+/**
+ * Tolerant JSON extraction: models like to wrap output in prose or ``` fences.
+ *
+ * Reasoning-tuned models (most of the free tier) additionally emit a `<think>` block
+ * before the answer. It is stripped first, because braces inside the reasoning would
+ * otherwise anchor the brace-slice below to the wrong opening brace.
+ */
 function extractJsonObject(raw: string): Record<string, unknown> | null {
-  const text = String(raw || "").trim();
+  const text = String(raw || "")
+    .replace(/<(think|thinking|reasoning)>[\s\S]*?<\/\1>/gi, "")
+    // An unterminated opening tag means the model was cut off mid-thought; there is no
+    // answer after it, but dropping the tag keeps the parse attempt from tripping on it.
+    .replace(/<(?:think|thinking|reasoning)>/gi, "")
+    .trim();
   if (!text) return null;
 
   const withoutFences = text
@@ -488,6 +492,18 @@ async function processNewsWithLlm(
   if (!safeKey) return null;
 
   const model = (taskConfig.providerModel || OPENROUTER_MODEL).trim();
+  // The configured model first, then the fallbacks, with duplicates removed so a model
+  // that also appears in the fallback list is not billed twice for the same failure.
+  const candidates = Array.from(
+    new Set([
+      model,
+      ...(taskConfig.fallbackModels ??
+        (parseModelList(process.env.OPENROUTER_FALLBACK_MODELS).length > 0
+          ? parseModelList(process.env.OPENROUTER_FALLBACK_MODELS)
+          : DEFAULT_FALLBACK_MODELS)),
+    ].filter(Boolean)),
+  );
+  const requestBudget = Math.max(1, taskConfig.maxProviderRequests ?? MAX_REQUESTS_PER_ARTICLE);
   const policy = taskConfig.translationPolicy ?? "full";
   const targets: Array<"en" | "ru" | "uz"> =
     policy === "disabled" ? [sourceLanguage] : ["en", "ru", "uz"];
@@ -496,6 +512,16 @@ async function processNewsWithLlm(
   // Keep the prompt bounded; feed articles are rarely longer than this and the tail
   // of a scraped page is usually navigation noise.
   const boundedBody = sourceBody.length > 9000 ? `${sourceBody.slice(0, 9000)}…` : sourceBody;
+
+  /**
+   * Some sources give a full article, some a one-sentence teaser, and some (TASS, whose
+   * pages block scraping) nothing but a headline plus a teaser. Asking for "3-6
+   * paragraphs" from two sentences does not produce a short article — it produces an
+   * invented one: measured against a headline-only source, a model padded the body with
+   * a textbook explanation of what lending statistics are. A university masthead cannot
+   * publish that, so a thin source switches the prompt to brief mode.
+   */
+  const isThinSource = cleanText(`${title} ${description} ${detailedContent}`).length < BRIEF_SOURCE_CHARS;
 
   const instructions = [
     "You are the editor of a university news desk. Rewrite the source material as an original news article.",
@@ -508,12 +534,21 @@ async function processNewsWithLlm(
       .join(", ")}. Each version must read as if written natively, not translated.`,
     "- `headline`: one line, no trailing period, max 120 characters.",
     "- `summary`: 1-2 sentences, max 300 characters.",
-    policy === "summary_only"
-      ? `- "content": full article only in ${LANGUAGE_NAMES[sourceLanguage]}; for the other languages repeat the summary.`
-      : '- "content": the full article, 3-6 paragraphs separated by a blank line. Do not truncate mid-sentence.',
+    isThinSource
+      ? '- The source is a short news brief. "content": 1-3 sentences, no more. Add NO background, ' +
+        "context, definitions, history or consequences — nothing that is not stated in the source. " +
+        "A shorter, accurate item is correct; padding it out is a factual error."
+      : policy === "summary_only"
+        ? `- "content": full article only in ${LANGUAGE_NAMES[sourceLanguage]}; for the other languages repeat the summary.`
+        : '- "content": the full article, 3-6 paragraphs separated by a blank line. Do not truncate mid-sentence.',
     taskConfig.categorizationEnabled === false
       ? '- `categories`: return exactly ["News"].'
-      : `- \`categories\`: 1-3 items chosen ONLY from this list: ${CATEGORY_VOCABULARY.join(", ")}.`,
+      : `- \`categories\`: chosen ONLY from this list: ${CATEGORY_VOCABULARY.join(", ")}. ` +
+        "Put the single most specific one first, and add a second only if it is genuinely " +
+        "central to the story — two precise tags beat three vague ones. " +
+        '"Events" means a scheduled event (conference, ceremony, festival, match), not any ' +
+        'piece of news; "Analysis" means commentary rather than reporting; "Campus Life" and ' +
+        '"University" are for this university\'s own community.',
     taskConfig.editorialPrompt?.trim()
       ? `\nAdditional editorial instructions from the admin (follow them unless they conflict with accuracy):\n${taskConfig.editorialPrompt.trim()}`
       : null,
@@ -536,126 +571,272 @@ async function processNewsWithLlm(
     .filter(Boolean)
     .join("\n");
 
-  try {
-    logger.debug("AI editorial pass request", { url, model, targets: targets.join(",") });
+  let requestsSpent = 0;
 
-    const res = await axios.post(
+  for (const candidate of candidates) {
+    if (requestsSpent >= requestBudget) {
+      logger.warn("AI editorial pass hit its per-article request budget", {
+        requestsSpent,
+        requestBudget,
+      });
+      break;
+    }
+
+    const call = await callEditorialModel({
+      candidate,
       url,
-      {
-        model,
-        messages: [
-          { role: "system", content: instructions },
-          { role: "user", content: userContent },
-        ],
-        temperature: 0.3,
-        stream: false,
+      apiKey: safeKey,
+      instructions,
+      userContent,
+      remainingRequests: requestBudget - requestsSpent,
+      onProviderRequest: (info) => {
+        requestsSpent++;
+        taskConfig.onProviderRequest?.(info);
       },
-      {
+    });
+
+    if (call.outcome === "abort") break;
+    if (call.outcome === "next") continue;
+
+    if (isRefusalLike(call.content)) {
+      logger.warn("AI editorial pass was refused; trying the next model", { model: candidate });
+      continue;
+    }
+
+    const parsed = extractJsonObject(call.content);
+    if (!parsed) {
+      logger.warn("AI editorial pass output was not valid JSON; trying the next model", {
+        model: candidate,
+      });
+      continue;
+    }
+
+    const mapped = mapEditorialJson(parsed, sourceLanguage, taskConfig);
+    if (!mapped) {
+      logger.warn("AI editorial pass omitted the source language; trying the next model", {
+        model: candidate,
+      });
+      continue;
+    }
+
+    logger.info("AI editorial pass succeeded", {
+      model: candidate,
+      requestsSpent,
+      categories: mapped.categories.join(","),
+    });
+    taskConfig.onEditorialOutcome?.({ model: candidate });
+    return mapped;
+  }
+
+  logger.warn("No AI model produced a usable article; falling back to heuristics", {
+    tried: candidates.join(","),
+    requestsSpent,
+  });
+  return null;
+}
+
+/** Statuses where another model is worth trying rather than giving up on the article. */
+const RETRYABLE_PROVIDER_STATUSES = new Set([402, 408, 409, 429, 500, 502, 503, 504, 524]);
+
+type EditorialCall =
+  | { outcome: "content"; content: string }
+  /** This model failed; try the next one. */
+  | { outcome: "next" }
+  /** Nothing will work (bad or missing credentials) — stop spending requests. */
+  | { outcome: "abort" };
+
+/**
+ * Sends the editorial prompt to one model.
+ *
+ * Spends up to two requests on it: the first asks for JSON mode and raises the
+ * completion cap, and if the endpoint rejects those optional fields the same model is
+ * retried with a plain body. Free endpoints differ in which parameters they accept, so
+ * this is self-healing rather than a hardcoded capability table.
+ */
+async function callEditorialModel(args: {
+  candidate: string;
+  url: string;
+  apiKey: string;
+  instructions: string;
+  userContent: string;
+  remainingRequests: number;
+  onProviderRequest: (info: { model: string; status: number | null; ok: boolean }) => void;
+}): Promise<EditorialCall> {
+  const { candidate, url, apiKey, instructions, userContent, remainingRequests, onProviderRequest } =
+    args;
+
+  // Only attempt the plain-body retry if the article can still afford a second request.
+  const modes: readonly boolean[] = remainingRequests > 1 ? [true, false] : [true];
+
+  for (const strict of modes) {
+    const body: Record<string, unknown> = {
+      model: candidate,
+      messages: [
+        { role: "system", content: instructions },
+        { role: "user", content: userContent },
+      ],
+      temperature: 0.3,
+      stream: false,
+    };
+
+    if (strict) {
+      body.response_format = { type: "json_object" };
+      // Three languages of article body do not fit in the default completion cap of
+      // several free endpoints, which truncates the JSON mid-string.
+      body.max_tokens = 8000;
+    }
+
+    try {
+      logger.debug("AI editorial pass request", { url, model: candidate, jsonMode: strict });
+
+      const res = await axios.post(url, body, {
         timeout: 120_000,
         headers: {
-          Authorization: `Bearer ${safeKey}`,
+          Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
           "HTTP-Referer": OPENROUTER_REFERER,
           "X-Title": OPENROUTER_TITLE,
         },
-      },
-    );
-
-    const raw = res.data?.choices?.[0]?.message?.content ?? "";
-    if (!raw || isRefusalLike(raw)) {
-      logger.warn("AI editorial pass returned no usable content; falling back to heuristics");
-      return null;
-    }
-
-    const parsed = extractJsonObject(raw);
-    if (!parsed) {
-      logger.warn("AI editorial pass output was not valid JSON; falling back to heuristics");
-      return null;
-    }
-
-    const perLanguage = (code: "en" | "ru" | "uz") => {
-      const block = (parsed[code] ?? {}) as LlmArticle;
-      return {
-        headline: asCleanString(block.headline),
-        summary: asCleanString(block.summary),
-        content: asCleanString(block.content),
-      };
-    };
-
-    const source = perLanguage(sourceLanguage);
-    if (!source.headline || !(source.summary || source.content)) {
-      logger.warn("AI editorial pass omitted the source language; falling back to heuristics");
-      return null;
-    }
-
-    // Any language the model skipped falls back to the source-language version rather
-    // than being left empty.
-    const pick = (code: "en" | "ru" | "uz") => {
-      const block = perLanguage(code);
-      return {
-        headline: block.headline || source.headline,
-        summary: block.summary || source.summary || source.content,
-        content: block.content || source.content || source.summary,
-      };
-    };
-
-    const en = pick("en");
-    const ru = pick("ru");
-    const uz = pick("uz");
-
-    const rawCategories = Array.isArray(parsed.categories) ? parsed.categories : [];
-    const categories =
-      taskConfig.categorizationEnabled === false
-        ? ["News"]
-        : Array.from(
-            new Set(
-              rawCategories
-                .map((value) => String(value ?? "").trim())
-                .filter(Boolean)
-                // Accept only the agreed taxonomy, case-insensitively.
-                .map(
-                  (value) =>
-                    CATEGORY_VOCABULARY.find(
-                      (allowed) => allowed.toLowerCase() === value.toLowerCase(),
-                    ) || "",
-                )
-                .filter(Boolean),
-            ),
-          ).slice(0, 3);
-
-    const summarize = (value: string, fallback: string) =>
-      taskConfig.summarizationEnabled === false ? fallback : value || fallback;
-
-    logger.info("AI editorial pass succeeded", { model, categories: categories.join(",") });
-
-    return {
-      headlineEn: en.headline,
-      headlineRu: ru.headline,
-      headlineUz: uz.headline,
-      summaryEn: summarize(en.summary, en.headline),
-      summaryRu: summarize(ru.summary, ru.headline),
-      summaryUz: summarize(uz.summary, uz.headline),
-      contentEn: en.content,
-      contentRu: ru.content,
-      contentUz: uz.content,
-      categories: categories.length > 0 ? categories : ["News"],
-    };
-  } catch (error: unknown) {
-    if (axios.isAxiosError(error)) {
-      logger.error("AI editorial pass failed", {
-        status: error.response?.status ?? null,
-        data: typeof error.response?.data === "string"
-          ? error.response.data.slice(0, 500)
-          : error.response?.data ?? null,
-        message: error.message,
       });
-    } else {
-      logger.error("AI editorial pass failed", {
-        message: error instanceof Error ? error.message : String(error),
+
+      onProviderRequest({ model: candidate, status: res.status, ok: true });
+
+      const raw = res.data?.choices?.[0]?.message?.content;
+      if (typeof raw === "string" && raw.trim()) {
+        return { outcome: "content", content: raw };
+      }
+
+      // Reasoning-tuned models sometimes spend the whole completion budget thinking and
+      // return an empty message. Another model beats retrying this one.
+      logger.warn("AI editorial pass returned an empty message", {
+        model: candidate,
+        finishReason: res.data?.choices?.[0]?.finish_reason ?? null,
       });
+      return { outcome: "next" };
+    } catch (error: unknown) {
+      const status = axios.isAxiosError(error) ? error.response?.status ?? null : null;
+      onProviderRequest({ model: candidate, status, ok: false });
+      logProviderError(candidate, status, error);
+
+      // A 400/422 normally means `response_format` or `max_tokens` was rejected, not that
+      // the model is unusable — retry it once with a plain body.
+      if (strict && modes.length > 1 && (status === 400 || status === 422)) continue;
+
+      // Bad credentials fail identically for every model, so stop rather than burning
+      // one request per candidate to learn the same thing.
+      if (status === 401 || status === 403) return { outcome: "abort" };
+
+      return { outcome: "next" };
     }
-    return null;
   }
+
+  return { outcome: "next" };
+}
+
+function logProviderError(model: string, status: number | null, error: unknown): void {
+  // Response headers can carry credentials — log status and body only.
+  const data = axios.isAxiosError(error)
+    ? typeof error.response?.data === "string"
+      ? error.response.data.slice(0, 500)
+      : error.response?.data ?? null
+    : null;
+
+  logger.error("AI editorial pass request failed", {
+    model,
+    status,
+    data,
+    message: error instanceof Error ? error.message : String(error),
+    retryable: status === null ? true : RETRYABLE_PROVIDER_STATUSES.has(status),
+  });
+
+  // Two failures are common enough on the free tier to deserve an actionable message
+  // instead of a bare status code in the log.
+  if (status === 404 && JSON.stringify(data ?? "").toLowerCase().includes("data policy")) {
+    logger.error(
+      "OpenRouter found no endpoint matching the account's data policy for this model. " +
+        "Check OpenRouter → Settings → Privacy, which has separate toggles for free and " +
+        "paid models, or choose a different model.",
+      { model },
+    );
+  }
+
+  if (status === 429) {
+    logger.warn(
+      "OpenRouter rate limit reached: free models allow 20 requests/minute and 50/day " +
+        "(1000/day once $10 of credit has been purchased).",
+      { model },
+    );
+  }
+}
+
+/** Turns a validated editorial JSON object into the pipeline's result shape. */
+function mapEditorialJson(
+  parsed: Record<string, unknown>,
+  sourceLanguage: "en" | "ru" | "uz",
+  taskConfig: AiTaskConfig,
+): ProcessedNews | null {
+  const perLanguage = (code: "en" | "ru" | "uz") => {
+    const block = (parsed[code] ?? {}) as LlmArticle;
+    return {
+      headline: asCleanString(block.headline),
+      summary: asCleanString(block.summary),
+      content: asCleanString(block.content),
+    };
+  };
+
+  const source = perLanguage(sourceLanguage);
+  if (!source.headline || !(source.summary || source.content)) return null;
+
+  // Any language the model skipped falls back to the source-language version rather
+  // than being left empty.
+  const pick = (code: "en" | "ru" | "uz") => {
+    const block = perLanguage(code);
+    return {
+      headline: block.headline || source.headline,
+      summary: block.summary || source.summary || source.content,
+      content: block.content || source.content || source.summary,
+    };
+  };
+
+  const en = pick("en");
+  const ru = pick("ru");
+  const uz = pick("uz");
+
+  const rawCategories = Array.isArray(parsed.categories) ? parsed.categories : [];
+  const categories =
+    taskConfig.categorizationEnabled === false
+      ? ["News"]
+      : Array.from(
+          new Set(
+            rawCategories
+              .map((value) => String(value ?? "").trim())
+              .filter(Boolean)
+              // Accept only the agreed taxonomy, case-insensitively.
+              .map(
+                (value) =>
+                  CATEGORY_VOCABULARY.find(
+                    (allowed) => allowed.toLowerCase() === value.toLowerCase(),
+                  ) || "",
+              )
+              .filter(Boolean),
+          ),
+        ).slice(0, 3);
+
+  const summarize = (value: string, fallback: string) =>
+    taskConfig.summarizationEnabled === false ? fallback : value || fallback;
+
+  return {
+    headlineEn: en.headline,
+    headlineRu: ru.headline,
+    headlineUz: uz.headline,
+    summaryEn: summarize(en.summary, en.headline),
+    summaryRu: summarize(ru.summary, ru.headline),
+    summaryUz: summarize(uz.summary, uz.headline),
+    contentEn: en.content,
+    contentRu: ru.content,
+    contentUz: uz.content,
+    categories: categories.length > 0 ? categories : ["News"],
+  };
 }
 
 /**
@@ -683,6 +864,8 @@ export async function processNewsAI(
   );
   if (llmResult) return llmResult;
 
+  taskConfig.onEditorialOutcome?.({ model: null });
+
   try {
     const src = sourceLanguage;
 
@@ -703,25 +886,25 @@ export async function processNewsAI(
 
     const [headlineEn, headlineRu, headlineUz] = shouldTranslateTitle
       ? await Promise.all([
-          translateWithPivot(rewrittenTitle, src, "en", taskConfig),
-          translateWithPivot(rewrittenTitle, src, "ru", taskConfig),
-          translateWithPivot(rewrittenTitle, src, "uz", taskConfig),
+          translateWithPivot(rewrittenTitle, src, "en"),
+          translateWithPivot(rewrittenTitle, src, "ru"),
+          translateWithPivot(rewrittenTitle, src, "uz"),
         ])
       : [rewrittenTitle, rewrittenTitle, rewrittenTitle];
 
     const [summaryEn, summaryRu, summaryUz] = shouldTranslateSummary
       ? await Promise.all([
-          translateWithPivot(rewrittenSummary, src, "en", taskConfig),
-          translateWithPivot(rewrittenSummary, src, "ru", taskConfig),
-          translateWithPivot(rewrittenSummary, src, "uz", taskConfig),
+          translateWithPivot(rewrittenSummary, src, "en"),
+          translateWithPivot(rewrittenSummary, src, "ru"),
+          translateWithPivot(rewrittenSummary, src, "uz"),
         ])
       : [rewrittenSummary, rewrittenSummary, rewrittenSummary];
 
     const [contentEn, contentRu, contentUz] = shouldTranslateContent
       ? await Promise.all([
-          translateWithPivot(rewrittenContent, src, "en", taskConfig),
-          translateWithPivot(rewrittenContent, src, "ru", taskConfig),
-          translateWithPivot(rewrittenContent, src, "uz", taskConfig),
+          translateWithPivot(rewrittenContent, src, "en"),
+          translateWithPivot(rewrittenContent, src, "ru"),
+          translateWithPivot(rewrittenContent, src, "uz"),
         ])
       : [rewrittenContent, rewrittenContent, rewrittenContent];
 

@@ -80,7 +80,7 @@ export default function AutomationPage() {
             integrationType: "ai",
             enabled: true,
             provider: "openrouter",
-            providerModel: "openai/gpt-4o-mini",
+            providerModel: "nvidia/nemotron-3-ultra-550b-a55b:free",
             providerBaseUrl: "https://openrouter.ai/api/v1",
             editorialPrompt: "",
             channelId: "",
@@ -777,7 +777,7 @@ export default function AutomationPage() {
                         </div>
                         <input className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm" placeholder="Provider (e.g. openrouter, lm-studio)" value={integrationConfigs.ai.provider} onChange={(e) => updateIntegration("ai", { provider: e.target.value })} />
                         <input className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm" placeholder="API Endpoint Base URL (e.g. https://openrouter.ai/api/v1)" value={integrationConfigs.ai.providerBaseUrl || ""} onChange={(e) => updateIntegration("ai", { providerBaseUrl: e.target.value })} />
-                        <input className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm" placeholder="Provider model (e.g. openai/gpt-4o-mini, llama3)" value={integrationConfigs.ai.providerModel || ""} onChange={(e) => updateIntegration("ai", { providerModel: e.target.value })} />
+                        <input className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm" placeholder="Provider model (e.g. nvidia/nemotron-3-ultra-550b-a55b:free, llama3)" value={integrationConfigs.ai.providerModel || ""} onChange={(e) => updateIntegration("ai", { providerModel: e.target.value })} />
                         <input className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm" placeholder="Paste AI provider API key to rotate" value={pendingSecrets.ai.providerApiKey} onChange={(e) => setPendingSecrets((prev) => ({ ...prev, ai: { ...prev.ai, providerApiKey: e.target.value } }))} />
                         <p className="text-xs text-muted-foreground">Stored encrypted. Current key: {integrationConfigs.ai.hasProviderApiKey ? `configured (${integrationConfigs.ai.secretFingerprint || "fingerprint unavailable"})` : "not configured"}</p>
                         <div className="flex gap-2">

@@ -68,6 +68,7 @@ export const ModelName = {
   AdminApiKey: 'AdminApiKey',
   AdminUser: 'AdminUser',
   AssistantMemory: 'AssistantMemory',
+  AiUsageDay: 'AiUsageDay',
   IntegrationConfig: 'IntegrationConfig'
 } as const
 
@@ -349,6 +350,15 @@ export const AssistantMemoryScalarFieldEnum = {
 } as const
 
 export type AssistantMemoryScalarFieldEnum = (typeof AssistantMemoryScalarFieldEnum)[keyof typeof AssistantMemoryScalarFieldEnum]
+
+
+export const AiUsageDayScalarFieldEnum = {
+  day: 'day',
+  requests: 'requests',
+  updatedAt: 'updatedAt'
+} as const
+
+export type AiUsageDayScalarFieldEnum = (typeof AiUsageDayScalarFieldEnum)[keyof typeof AiUsageDayScalarFieldEnum]
 
 
 export const IntegrationConfigScalarFieldEnum = {

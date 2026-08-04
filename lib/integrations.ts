@@ -1,4 +1,5 @@
 import type { IntegrationConfig } from "../prisma/generated/prisma/client";
+import { DEFAULT_AI_MODEL } from "@/lib/ai";
 
 export type IntegrationType = "ai" | "telegram";
 
@@ -26,7 +27,7 @@ export type IntegrationSecretPayload = {
 export const DEFAULT_AI_CONFIG: Omit<IntegrationConfigPayload, "integrationType"> = {
   enabled: true,
   provider: "openrouter",
-  providerModel: "openai/gpt-4o-mini",
+  providerModel: DEFAULT_AI_MODEL,
   providerBaseUrl: "https://openrouter.ai/api/v1",
   aiSummarization: true,
   aiCategorization: true,
