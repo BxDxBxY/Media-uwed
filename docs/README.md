@@ -1,12 +1,12 @@
 # 📚 Media-uwed Documentation Index
 
-**Start here: [08-AI-FREE-TIER-2026-08-01.md](08-AI-FREE-TIER-2026-08-01.md)** for the AI pipeline as it runs today, and [07-HARDENING-2026-07-31.md](07-HARDENING-2026-07-31.md) for everything else — what was fixed, how it was verified, and §6 "what still needs a human". Read [06-AUDIT-2026-07-31.md](06-AUDIT-2026-07-31.md) alongside them for *why* those things needed fixing.
+**Start here: [08-AI-FREE-TIER-2026-08-01.md](08-AI-FREE-TIER-2026-08-01.md)** for the content pipeline and the public pages as they work today, and [07-HARDENING-2026-07-31.md](07-HARDENING-2026-07-31.md) for the security and build work — what was fixed, how it was verified, and §6 "what still needs a human". Read [06-AUDIT-2026-07-31.md](06-AUDIT-2026-07-31.md) alongside them for *why* those things needed fixing.
 
 ---
 
 ## Current state in one paragraph (2026-08-01)
 
-The audit's blocking defects are fixed and verified: content CRUD and the pipeline endpoints require authorization, the self-approval escalation path is closed, migrations reproduce the schema on a clean database, rate limiting exists, secrets are real, articles are server-rendered with full metadata, and the production build succeeds. The pipeline was proven end-to-end against a stub AI provider: one model call per article producing EN/RU/UZ output awaiting human review. The AI path now targets OpenRouter's **free tier** — free-model defaults, a fallback chain, and a metered daily request budget (50 requests/day on an account with no credit, so roughly 40 articles/day) — see `08`. The exFAT build blocker is resolved by working from `C:\Dev\Media\Media-uwed` on NTFS; a copy still exists on the exFAT `D:` volume, where `npm run build` cannot work. What remains is configuration, not code — the AI provider key, `APP_URL`, email credentials, the cron secret in the host environment. There is still no test suite beyond `npm run check:ai` (27 assertions) and `npm run check:models`.
+The audit's blocking defects are fixed and verified: content CRUD and the pipeline endpoints require authorization, the self-approval escalation path is closed, migrations reproduce the schema on a clean database, rate limiting exists, secrets are real, articles are server-rendered with full metadata, and the production build succeeds. The content pipeline has since been rebuilt around what sources actually send: the scraper no longer needs `<p>` tags (it was returning **zero** characters for every source, so the model was inventing articles from headlines), feeds that carry full text are used directly, malformed XML is repaired, and a source too thin to rewrite is skipped rather than padded out. Topical selection is now the admin's editorial brief judged by the model, batched at 40 headlines per request; the keyword-derivation it replaced did nothing at all in Cyrillic and inverted negations. Everything is metered against the free tier's 50 requests/day (~40 articles). The About page no longer publishes fabricated staff and a false founding year, and empty sections have starter content. Remaining work is presentation, not engine: `/`, `/news`, `/events` and `/media` are still client-only with hardcoded English strings, and the admin panel has not been audited. Test coverage is the pipeline only — `check:ai` (27), `check:rss` (24), `check:triage` (14) — with nothing for auth, secrets or routes. `APP_URL` is still unset, and the repository must stay on NTFS.
 
 ---
 
@@ -14,7 +14,7 @@ The audit's blocking defects are fixed and verified: content CRUD and the pipeli
 
 | # | Document | Date | Status |
 |---|---|---|---|
-| 08 | [08-AI-FREE-TIER-2026-08-01.md](08-AI-FREE-TIER-2026-08-01.md) | 2026-08-01 | ✅ **Authoritative for the AI pipeline.** Free-tier limits, model defaults and fallback chain, daily request budget, and §4 what still needs a human |
+| 08 | [08-AI-FREE-TIER-2026-08-01.md](08-AI-FREE-TIER-2026-08-01.md) | 2026-08-01 | ✅ **Authoritative for the content pipeline and public pages.** Free-tier limits, model choice by measurement, RSS/scraper rewrite, topical triage from the admin's brief, the About-page fixes, and §4 the current open list |
 | 07 | [07-HARDENING-2026-07-31.md](07-HARDENING-2026-07-31.md) | 2026-07-31 | ✅ **Authoritative for everything else.** What was fixed for C1–C5/H1–H8/M*, how each was verified, new files, and §6 the remaining human tasks. AI-model details superseded by `08` |
 | 06 | [06-AUDIT-2026-07-31.md](06-AUDIT-2026-07-31.md) | 2026-07-31 | ✅ Full audit — the starting state, kept unedited. Findings resolved in `07`; §9 lists what older docs got wrong |
 | 01 | [01-ARCHITECTURE-ANALYSIS.md](01-ARCHITECTURE-ANALYSIS.md) | 2026-05-13 | ✅ Accurate after 2026-07-31 corrections (counts, auth model, API surface, section order fixed) |
@@ -34,6 +34,18 @@ The audit's blocking defects are fixed and verified: content CRUD and the pipeli
 | [../FIX_BACKEND.md](../FIX_BACKEND.md) | — | Two-script recovery path via `scripts/setup/` |
 
 ---
+
+## Scripts worth knowing about
+
+| Command | What it does |
+|---|---|
+| `npm run check` | Everything offline: typecheck, lint, and the three check scripts below |
+| `npm run check:ai` | 27 assertions on the editorial pass — fallback chain, JSON-mode self-healing, request caps |
+| `npm run check:rss` | 24 assertions on feed ingestion, one per real-world feed shape |
+| `npm run check:triage` | 14 assertions that topical triage batches its requests and fails open |
+| `npm run check:models` | Compares models on a real queued article and prints Uzbek samples. **Spends one provider request per model.** |
+| `npm run seed:sources` | Installs the default RSS source list, idempotently |
+| `npm run seed:demo` | Starter content for Media, About and Events, idempotently |
 
 ## Conventions for future updates
 

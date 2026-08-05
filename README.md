@@ -1,11 +1,13 @@
 # University Media Platform
 
-> ## Project status (2026-07-31)
-> The security and correctness blockers found in the [audit](docs/06-AUDIT-2026-07-31.md) are **fixed and verified** — see **[docs/07-HARDENING-2026-07-31.md](docs/07-HARDENING-2026-07-31.md)** for what changed and §6 there for the short list of things still needing credentials or a decision (AI key, `APP_URL`, email, cron secret in the host env).
+> ## Project status (2026-08-01)
+> The security and correctness blockers from the [audit](docs/06-AUDIT-2026-07-31.md) are **fixed and verified** ([docs/07](docs/07-HARDENING-2026-07-31.md)), and the content pipeline has since been rebuilt around what news sources actually send ([docs/08](docs/08-AI-FREE-TIER-2026-08-01.md)).
 >
-> Two caveats when reading the sections below:
-> - **AI pipeline:** with a provider key configured, one structured model call per article now does the rewrite/summarise/translate/categorise work (§6). Without a key it silently falls back to regex heuristics and free translation services — publishable, but noticeably weaker.
-> - **Local production builds do not work from this drive.** The repository sits on an exFAT volume, which breaks both bundlers (`fs.readlink` semantics and `:` in chunk filenames). `npm run dev` is unaffected; build from an NTFS drive or in CI.
+> What to know before reading the sections below:
+> - **AI pipeline:** one structured model call per article does the rewrite/summarise/translate/categorise work, on OpenRouter's **free tier** — 50 requests/day, so about 40 articles/day, metered in the database. Topical selection comes from the editorial brief in Admin → Automation, judged by the model in batches of 40 headlines per request. Without a provider key the pipeline falls back to regex heuristics and free translators: publishable, noticeably weaker.
+> - **Sources matter more than the model.** A feed that ships only a headline cannot be turned into an article without inventing one, so such items are skipped rather than padded. See [docs/08](docs/08-AI-FREE-TIER-2026-08-01.md) §2.8.
+> - **Not launch-ready yet.** `/`, `/news`, `/events` and `/media` are still client-only with some hardcoded English, the admin panel has not been audited, and `APP_URL` is unset so canonical links and Open Graph tags point at localhost. Current open list: [docs/08](docs/08-AI-FREE-TIER-2026-08-01.md) §4.
+> - **Production builds require NTFS.** On an exFAT volume both bundlers break (`fs.readlink` semantics and `:` in chunk filenames). `npm run dev` is unaffected; build from an NTFS drive or in CI.
 >
 > Documentation index: [docs/README.md](docs/README.md).
 

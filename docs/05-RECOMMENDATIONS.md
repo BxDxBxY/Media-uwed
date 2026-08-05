@@ -27,16 +27,12 @@
 
 **Verified 2026-07-31:** already fixed — `seed-db.js` imports `./prisma/generated/prisma/client` and builds its own `PrismaPg` adapter. Nothing to do.
 
-### ❌ NOT DONE — Clean Up Database Files
-`prisma/dev.db` and `prisma/dev.db.bak` are still present, plus a stray `prisma/migrations - Copy/` directory (a duplicate of the migrations folder — delete it, it can confuse tooling and reviewers).
+### ✅ DONE — Clean Up Database Files
+~~`prisma/dev.db`, `prisma/dev.db.bak` and a stray `prisma/migrations - Copy/` directory.~~
 
-```powershell
-Remove-Item D:\Dev\Media\Media-uwed\prisma\dev.db
-Remove-Item D:\Dev\Media\Media-uwed\prisma\dev.db.bak
-Remove-Item -Recurse "D:\Dev\Media\Media-uwed\prisma\migrations - Copy"
-```
+**Verified 2026-08-01:** `prisma/` now contains only `generated`, `migrations`, `schema.prisma`, `scripts`. The dead UI components (`hero-section.tsx`, `news-grid.tsx`, `comments-section.tsx`) and `lib/mock-data.ts` are gone too.
 
-Also still pending: delete the dead UI components `components/hero-section.tsx`, `components/news-grid.tsx` (both import `lib/mock-data.ts`) and `components/comments-section.tsx` (hardcoded fake comments with no backing model — while `SiteSettings.enableComments` / `moderateComments` are exposed in Settings and do nothing).
+**Still open from this item:** `SiteSettings.enableComments` / `moderateComments` remain exposed in Settings and still do nothing — there is no comment model. Either implement comments or remove the toggles.
 
 ---
 
@@ -45,9 +41,8 @@ Also still pending: delete the dead UI components `components/hero-section.tsx`,
 > **Status 2026-07-31:** API caching ✅ done (public read endpoints send `s-maxage`/`stale-while-revalidate` and cap `limit` at 100; `swr` is a dependency). Performance indexes ✅ partly done (migration `20260315110000_add_performance_indexes`; `Article.createdAt`, `Source(enabled, createdAt)`, `ContactMessage(archivedAt, createdAt)` exist). Bundle/code-splitting and the SWR-per-route refactor ❌ not started — the global-context over-fetch (audit H7) is the dominant cost and remains unaddressed.
 
 ### Database Indexes
-- Add composite index for `(enabled, lastFetchedAt)` on `Source`
-- Add index on `ArticleProcessed.status` for queue queries
-- Add full-text search index on `Article.title` and `Article.summary`
+- ✅ **Done 2026-08-01** (migration `20260801120000_add_article_relevance`): composite index `(enabled, lastFetchedAt)` on `Source`, and `status` on `ArticleProcessed`. The same migration adds `(relevance, createdAt)` on `ArticleRaw` for the triage queue query.
+- ❌ Open: full-text search index on `Article.title` / `Article.summary`. `/news` search is still `contains`, which will not scale past a few thousand articles.
 
 ### API Caching
 - Add `stale-while-revalidate` headers on public endpoints
@@ -151,8 +146,8 @@ Also still pending: delete the dead UI components `components/hero-section.tsx`,
 | Priority | Task | Effort | Impact | Status |
 |----------|------|--------|--------|--------|
 | 🔴 High | Fix seed-db.js import path | 5 min | High | ✅ done |
-| 🔴 High | Remove old SQLite files | 2 min | Low | ❌ open |
-| 🟡 Medium | Add rate limiting to login | 30 min | High | ❌ open |
+| 🔴 High | Remove old SQLite files | 2 min | Low | ✅ done (verified 2026-08-01) |
+| 🟡 Medium | Add rate limiting to login | 30 min | High | ✅ done 2026-07-31 (`lib/rate-limit.ts`, 10/min on auth) |
 | 🟡 Medium | Implement SWR caching | 1 hour | Medium | ⏳ dependency added, not used for page data |
 | 🟢 Low | Add request IDs to logs | 30 min | Medium | ❌ open |
 | 🟢 Low | Add health endpoint details | 15 min | Low | ✅ done (`/api/health` returns queue counts) |
@@ -183,3 +178,5 @@ Append an entry here whenever a batch of the above is completed, so the next ses
 | 2026-05-13 | `docs/01`–`05` written | manual review |
 | 2026-07-31 | Full re-audit → `docs/06-AUDIT-2026-07-31.md`; docs `01`–`05` corrected against reality (false "no public write endpoints" claim, table/model/migration counts, publish status value, build status, scrambled section order in `01`) | `tsc`, `eslint`, `next build` ×2, `prisma migrate status`/`diff`, live `curl` probes, direct SQL against `media_uwed` |
 | 2026-07-31 | **Hardening: §0 critical fixes C1–C5, all of H1–H8, and M1–M11 except M4** → `docs/07-HARDENING-2026-07-31.md`. Auth on content + pipeline endpoints, escalation closed, missing migrations written, rate limiting, real secrets, LLM editorial pass, SSR/SEO for articles, assistant memory moved out of the inbox table, SSRF guard, dead code removed, CI + cron added | `tsc` clean, `eslint` 0 errors, production build on NTFS, HTTP probes for every changed endpoint, full attack-chain replay, end-to-end `runProcess()` against a stub provider, migrations replayed on a scratch database |
+| 2026-08-01 | **Content pipeline rebuilt for the free tier** → `docs/08-AI-FREE-TIER-2026-08-01.md`. Scraper rewritten (it returned **0 characters for every source**, so the model was inventing articles from headlines); RSS ingestion rewritten around what feeds actually send, including full-text fields, entity decoding, image type-checking and XML repair; thin sources refuse to be padded out; model chosen by measurement; fallback chain; daily request budget metered in a new table; sources replaced with Uzbekistan/regional feeds | `npm run check` (typecheck, lint 0 errors, `check:ai` 27/27, `check:rss` 24/24), production build, migrations applied with no drift, live pipeline run on real feeds, live budget-exhaustion run against a stub provider |
+| 2026-08-01 | **Editorial brief replaces keyword derivation; About page stops publishing fiction.** `deriveTermsFromInstructions` deleted — it filtered nothing in Cyrillic and inverted negations; topical triage now batches 40 headlines per request and fails open. About defaults no longer assert a founding year, a US phone number or a masthead of film characters; its config moved from `contact_messages` into `page_configs`. Empty sections seeded, homepage sections hidden when empty, missing indexes added | `check:triage` 14/14, live triage run (50 headlines → 1 request, 28 rejected with reasons), pages fetched from a running server to confirm the fabricated names are gone, `migrate status` clean at 16 migrations |
