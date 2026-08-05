@@ -740,25 +740,33 @@ export default function AutomationPage() {
                 {showRequirements && (
             <div className="p-4 rounded-xl border border-border/40 bg-card grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2 md:col-span-2">
-                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">AI prompt</label>
+                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Editorial brief — what this site covers</label>
                     <textarea
-                        rows={4}
+                        rows={6}
                         className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
-                        placeholder="Describe what to fetch/skip, translation style, paraphrasing tone, category priorities, and output rules."
+                        placeholder={"Write it as instructions to an assignment editor, in any language. For example:\n\nCover Uzbekistan's diplomacy, foreign policy, economy and higher education, plus Central Asian regional affairs. Prioritise anything involving UWED, its faculty or its students. Skip crime reporting, celebrity news, sport results and domestic politics of other countries."}
                         value={aiInstructions}
                         onChange={(e) => setAiInstructions(e.target.value)}
                     />
-                    <label className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+                    <label className="inline-flex items-start gap-2 text-xs text-muted-foreground">
                         <input
                             type="checkbox"
+                            className="mt-0.5"
                             checked={aiStrictMode}
                             onChange={(e) => setAiStrictMode(e.target.checked)}
                         />
-                        Strict mode: process only content that matches AI prompt terms.
+                        <span>
+                            Apply the brief before processing. The model reads every queued headline against the brief and drops
+                            the off-topic ones. One request covers up to 40 headlines, so this costs a fraction of the daily
+                            budget and saves far more by not writing articles you would reject anyway. Rejected items are kept
+                            and can be restored below.
+                        </span>
                     </label>
                 </div>
                 <p className="md:col-span-2 text-xs text-muted-foreground">
-                    AI and Telegram settings are saved independently in their own integration cards.
+                    The brief decides <strong>which</strong> stories get processed. How they are written — tone, style,
+                    terminology — belongs in <strong>Integrations → AI editorial prompt</strong>. Keywords below are an exact,
+                    literal pre-filter applied before the model is called at all.
                 </p>
             </div>
                 )}
@@ -786,7 +794,7 @@ export default function AutomationPage() {
                         <p className="text-[11px] text-muted-foreground">Rotate AI key = securely replaces stored provider API key only. It does not change Telegram settings.</p>
                         <label className="flex items-center justify-between text-sm"><span>Summarization</span><input type="checkbox" checked={integrationConfigs.ai.aiSummarization} onChange={(e) => updateIntegration("ai", { aiSummarization: e.target.checked })} /></label>
                         <label className="flex items-center justify-between text-sm"><span>Categorization</span><input type="checkbox" checked={integrationConfigs.ai.aiCategorization} onChange={(e) => updateIntegration("ai", { aiCategorization: e.target.checked })} /></label>
-                        <textarea className="w-full min-h-24 px-3 py-2 rounded-md border border-input bg-background text-sm" placeholder="AI editorial prompt: translation/paraphrasing instructions" value={integrationConfigs.ai.editorialPrompt || ""} onChange={(e) => updateIntegration("ai", { editorialPrompt: e.target.value })} />
+                        <textarea className="w-full min-h-24 px-3 py-2 rounded-md border border-input bg-background text-sm" placeholder="AI editorial prompt — how articles are written: tone, register, preferred terminology, what to name and what to leave out. Topic selection belongs in the editorial brief under Requirements." value={integrationConfigs.ai.editorialPrompt || ""} onChange={(e) => updateIntegration("ai", { editorialPrompt: e.target.value })} />
                         <select className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm" value={integrationConfigs.ai.translationPolicy} onChange={(e) => updateIntegration("ai", { translationPolicy: e.target.value as IntegrationConfig["translationPolicy"] })}>
                             <option value="full">Full translation</option>
                             <option value="summary_only">Summary-only translation</option>

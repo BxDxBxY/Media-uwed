@@ -61,52 +61,74 @@ export default function AboutPage() {
         </div>
       </div>
 
-      <div className="mb-20">
-        <h2 className="text-2xl font-serif font-bold text-center mb-12">{teamTitle}</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8">
-          {team.map((member, i) => (
-            <div key={i} className="text-center group">
-              <div className="aspect-square rounded-full overflow-hidden mx-auto mb-4 border-2 border-border/40 w-32 h-32 relative">
-                <Image
-                  src={member.image}
-                  alt={member.name}
-                  fill
-                  sizes="128px"
-                  className="object-cover group-hover:scale-110 transition-transform duration-500"
-                />
+      {/* Hidden entirely when no masthead has been entered — an empty grid under a
+          "Meet the Team" heading reads as broken, and inventing staff is worse. */}
+      {team.length > 0 && (
+        <div className="mb-20">
+          <h2 className="text-2xl font-serif font-bold text-center mb-12">{teamTitle}</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8">
+            {team.map((member, i) => (
+              <div key={i} className="text-center group">
+                {member.image ? (
+                  <div className="aspect-square rounded-full overflow-hidden mx-auto mb-4 border-2 border-border/40 w-32 h-32 relative">
+                    <Image
+                      src={member.image}
+                      alt={member.name}
+                      fill
+                      sizes="128px"
+                      className="object-cover group-hover:scale-110 transition-transform duration-500"
+                    />
+                  </div>
+                ) : (
+                  <div className="rounded-full mx-auto mb-4 border-2 border-border/40 w-32 h-32 grid place-items-center bg-muted text-2xl font-serif font-bold text-muted-foreground">
+                    {member.name.trim().charAt(0).toUpperCase() || "?"}
+                  </div>
+                )}
+                <h3 className="font-bold text-lg">{member.name}</h3>
+                <p className="text-sm text-primary">{member.role}</p>
+                {!!member.email && <p className="text-xs text-muted-foreground mt-1">{member.email}</p>}
               </div>
-              <h3 className="font-bold text-lg">{member.name}</h3>
-              <p className="text-sm text-primary">{member.role}</p>
-              {!!member.email && <p className="text-xs text-muted-foreground mt-1">{member.email}</p>}
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="bg-muted/30 rounded-2xl p-8 md:p-12 text-center space-y-8">
         <h2 className="text-2xl font-serif font-bold">{contactTitle}</h2>
+        {/* Each block appears only when its value is set: an empty contact card invites
+            the reader to try a number that does not exist. */}
         <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16">
-          <div className="flex flex-col items-center gap-2">
-            <div className="h-10 w-10 rounded-full bg-background flex items-center justify-center text-primary shadow-sm">
-              <Mail className="h-5 w-5" />
+          {!!aboutConfig?.contactEmail && (
+            <div className="flex flex-col items-center gap-2">
+              <div className="h-10 w-10 rounded-full bg-background flex items-center justify-center text-primary shadow-sm">
+                <Mail className="h-5 w-5" />
+              </div>
+              <a href={`mailto:${aboutConfig.contactEmail}`} className="font-medium hover:text-primary transition-colors">
+                {aboutConfig.contactEmail}
+              </a>
+              <p className="text-xs text-muted-foreground">{aboutConfig.contactEmailHint?.[language]}</p>
             </div>
-            <p className="font-medium">{aboutConfig?.contactEmail || "editor@university.edu"}</p>
-            <p className="text-xs text-muted-foreground">{aboutConfig?.contactEmailHint?.[language] || "For press releases & tips"}</p>
-          </div>
-          <div className="flex flex-col items-center gap-2">
-            <div className="h-10 w-10 rounded-full bg-background flex items-center justify-center text-primary shadow-sm">
-              <Phone className="h-5 w-5" />
+          )}
+          {!!aboutConfig?.contactPhone && (
+            <div className="flex flex-col items-center gap-2">
+              <div className="h-10 w-10 rounded-full bg-background flex items-center justify-center text-primary shadow-sm">
+                <Phone className="h-5 w-5" />
+              </div>
+              <a href={`tel:${aboutConfig.contactPhone.replace(/[^\d+]/g, "")}`} className="font-medium hover:text-primary transition-colors">
+                {aboutConfig.contactPhone}
+              </a>
+              <p className="text-xs text-muted-foreground">{aboutConfig.contactPhoneHint?.[language]}</p>
             </div>
-            <p className="font-medium">{aboutConfig?.contactPhone || "+1 (555) 123-4567"}</p>
-            <p className="text-xs text-muted-foreground">{aboutConfig?.contactPhoneHint?.[language] || "Newsroom Direct Line"}</p>
-          </div>
-          <div className="flex flex-col items-center gap-2">
-            <div className="h-10 w-10 rounded-full bg-background flex items-center justify-center text-primary shadow-sm">
-              <MapPin className="h-5 w-5" />
+          )}
+          {!!aboutConfig?.contactAddress && (
+            <div className="flex flex-col items-center gap-2">
+              <div className="h-10 w-10 rounded-full bg-background flex items-center justify-center text-primary shadow-sm">
+                <MapPin className="h-5 w-5" />
+              </div>
+              <p className="font-medium">{aboutConfig.contactAddress}</p>
+              <p className="text-xs text-muted-foreground">{aboutConfig.contactAddressHint?.[language]}</p>
             </div>
-            <p className="font-medium">{aboutConfig?.contactAddress || "Student Center, Room 304"}</p>
-            <p className="text-xs text-muted-foreground">{aboutConfig?.contactAddressHint?.[language] || "University Campus"}</p>
-          </div>
+          )}
         </div>
       </div>
     </div>

@@ -68,6 +68,7 @@ export const ModelName = {
   AdminApiKey: 'AdminApiKey',
   AdminUser: 'AdminUser',
   AssistantMemory: 'AssistantMemory',
+  PageConfig: 'PageConfig',
   AiUsageDay: 'AiUsageDay',
   IntegrationConfig: 'IntegrationConfig'
 } as const
@@ -261,7 +262,10 @@ export const ArticleRawScalarFieldEnum = {
   imageUrl: 'imageUrl',
   publishedAt: 'publishedAt',
   rawJson: 'rawJson',
-  createdAt: 'createdAt'
+  createdAt: 'createdAt',
+  relevance: 'relevance',
+  relevanceReason: 'relevanceReason',
+  relevanceCheckedAt: 'relevanceCheckedAt'
 } as const
 
 export type ArticleRawScalarFieldEnum = (typeof ArticleRawScalarFieldEnum)[keyof typeof ArticleRawScalarFieldEnum]
@@ -350,6 +354,15 @@ export const AssistantMemoryScalarFieldEnum = {
 } as const
 
 export type AssistantMemoryScalarFieldEnum = (typeof AssistantMemoryScalarFieldEnum)[keyof typeof AssistantMemoryScalarFieldEnum]
+
+
+export const PageConfigScalarFieldEnum = {
+  key: 'key',
+  value: 'value',
+  updatedAt: 'updatedAt'
+} as const
+
+export type PageConfigScalarFieldEnum = (typeof PageConfigScalarFieldEnum)[keyof typeof PageConfigScalarFieldEnum]
 
 
 export const AiUsageDayScalarFieldEnum = {

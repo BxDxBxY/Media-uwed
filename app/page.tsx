@@ -192,6 +192,24 @@ export default function Home() {
     mediaHighlights: language === "ru" ? "Мультимедиа" : language === "uz" ? "Media lavhalar" : "Multimedia Highlights",
     mediaDesc: language === "ru" ? "Жизнь университета в кадре." : language === "uz" ? "Universitet hayoti kadrda." : "University life in motion and pictures.",
     latestVideos: language === "ru" ? "Последние видео" : language === "uz" ? "So'nggi videolar" : "Latest Videos",
+    insideUniversity: language === "ru" ? "Изнутри университета" : language === "uz" ? "Universitet ichidan" : "Inside University",
+    openGallery: language === "ru" ? "Открыть галерею" : language === "uz" ? "Galereyani ochish" : "Open the gallery",
+    by: language === "ru" ? "Автор" : language === "uz" ? "Muallif" : "By",
+    video: language === "ru" ? "Видео" : language === "uz" ? "Video" : "Video",
+  };
+
+  const localizedMediaTitle = (item: { title: string; titleRu?: string | null; titleUz?: string | null }) => {
+    if (language === "ru" && item.titleRu) return item.titleRu;
+    if (language === "uz" && item.titleUz) return item.titleUz;
+    return item.title;
+  };
+
+  /** Locale-aware date, falling back to the stored string when it is not parseable. */
+  const formatDate = (value: string) => {
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return value;
+    const locale = language === "ru" ? "ru-RU" : language === "uz" ? "uz-UZ" : "en-GB";
+    return parsed.toLocaleDateString(locale, { day: "numeric", month: "long", year: "numeric" });
   };
 
   if (isLoading && sourceArticles.length === 0) {
@@ -235,9 +253,9 @@ export default function Home() {
                   <h1 className="text-3xl md:text-5xl font-serif font-bold mb-4 leading-tight group-hover:text-primary transition-colors">{localizedText(featuredArticle, language, "title")}</h1>
                   <p className="text-muted-foreground text-lg mb-6 line-clamp-2 max-w-2xl">{localizedText(featuredArticle, language, "summary")}</p>
                   <div className="flex items-center gap-4 text-sm text-muted-foreground pt-4 border-t border-border/40">
-                    <span className="font-bold text-foreground">By {featuredArticle.author}</span>
+                    <span className="font-bold text-foreground">{t.by} {featuredArticle.author}</span>
                     <span>•</span>
-                    <span className="flex items-center gap-1"><Clock className="h-4 w-4" /> {featuredArticle.date}</span>
+                    <span className="flex items-center gap-1"><Clock className="h-4 w-4" /> {formatDate(featuredArticle.date)}</span>
                   </div>
                 </div>
               </Link>
@@ -252,7 +270,7 @@ export default function Home() {
             <div className="space-y-4">
               {trendingNews.map((article, i) => (
                 <Link key={article.id} href={`/article/${article.slug}`} className="flex gap-4 group">
-                  <span className="text-4xl font-serif font-black text-muted/30 group-hover:text-primary/20 transition-colors">0{i + 1}</span>
+                  <span className="text-4xl font-serif font-black text-muted/30 group-hover:text-primary/20 transition-colors">{String(i + 1).padStart(2, "0")}</span>
                   <div>
                     <span className="text-[10px] font-bold text-primary uppercase tracking-widest mb-1 block">{getPrimaryCategory(article)}</span>
                     <h4 className="font-bold text-sm leading-tight group-hover:text-primary transition-colors line-clamp-2">{localizedText(article, language, "title")}</h4>
@@ -381,6 +399,10 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Sections with nothing in them are not rendered at all: a heading above an empty
+          grid reads as a broken page, which is exactly how the homepage looked while the
+          media library was empty. */}
+      {featuredImages.length > 0 && (
       <section className="container mx-auto px-4 py-16">
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -392,14 +414,16 @@ export default function Home() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {featuredImages.map((item) => (
             <Link key={item.id} href="/media" className="group relative aspect-[4/3] rounded-3xl overflow-hidden border border-border/40 bg-muted">
-              <Image src={getMediaPreviewUrl(item)} alt={item.title} fill unoptimized sizes="(max-width: 768px) 100vw, 33vw" className="object-cover transition-transform duration-700 group-hover:scale-110" />
+              <Image src={getMediaPreviewUrl(item)} alt={localizedMediaTitle(item)} fill unoptimized sizes="(max-width: 768px) 100vw, 33vw" className="object-cover transition-transform duration-700 group-hover:scale-110" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity" />
-              <div className="absolute bottom-0 left-0 p-6"><h4 className="text-white font-bold text-sm line-clamp-2">{item.title}</h4></div>
+              <div className="absolute bottom-0 left-0 p-6"><h4 className="text-white font-bold text-sm line-clamp-2">{localizedMediaTitle(item)}</h4></div>
             </Link>
           ))}
         </div>
       </section>
+      )}
 
+      {latestVideos.length > 0 && (
       <section className="container mx-auto px-4 pb-16">
         <div className="rounded-[2rem] bg-card border border-border p-8 md:p-12">
           <div className="flex items-center justify-between mb-8">
@@ -410,40 +434,42 @@ export default function Home() {
             {latestVideos.map((item) => (
               <Link key={item.id} href="/media" className="group rounded-xl overflow-hidden border border-border bg-muted/30">
                 <div className="aspect-video relative overflow-hidden">
-                  <Image src={getMediaPreviewUrl(item)} alt={item.title} fill unoptimized sizes="(max-width: 768px) 100vw, 33vw" className="object-cover group-hover:scale-105 transition-transform" />
-                  <span className="absolute top-3 left-3 inline-flex items-center gap-1 bg-primary text-primary-foreground text-[10px] px-2 py-1 rounded uppercase font-bold"><Play className="h-3 w-3 fill-current" /> University</span>
+                  <Image src={getMediaPreviewUrl(item)} alt={localizedMediaTitle(item)} fill unoptimized sizes="(max-width: 768px) 100vw, 33vw" className="object-cover group-hover:scale-105 transition-transform" />
+                  <span className="absolute top-3 left-3 inline-flex items-center gap-1 bg-primary text-primary-foreground text-[10px] px-2 py-1 rounded uppercase font-bold"><Play className="h-3 w-3 fill-current" /> {t.video}</span>
                 </div>
-                <div className="p-4"><h4 className="text-foreground font-bold leading-tight line-clamp-2">{item.title}</h4></div>
+                <div className="p-4"><h4 className="text-foreground font-bold leading-tight line-clamp-2">{localizedMediaTitle(item)}</h4></div>
               </Link>
             ))}
           </div>
         </div>
       </section>
+      )}
 
+      {/* The whole banner depends on a curated media item. Without one it used to render a
+          stock photo and, in the side slot, the instruction "Set media category to
+          hero-side from Admin Media" — addressed to an administrator, shown to readers. */}
+      {heroBackground && (
       <section className="container mx-auto px-4 py-16">
         <div className="bg-card rounded-[2.5rem] overflow-hidden relative min-h-[500px] grid lg:grid-cols-12 border border-border">
-          <Image src={heroBackground ? getMediaPreviewUrl(heroBackground) : "https://images.unsplash.com/photo-1541339907198-e08756ebafe3?auto=format&fit=crop&w=1350&q=80"} alt="University Campus" fill unoptimized sizes="100vw" className="absolute inset-0 object-cover opacity-40" />
+          <Image src={getMediaPreviewUrl(heroBackground)} alt={heroBackground.title} fill unoptimized sizes="100vw" className="absolute inset-0 object-cover opacity-40" />
           <div className="absolute inset-0 bg-gradient-to-r from-background via-background/70 to-transparent" />
           <div className="relative z-10 p-8 md:p-16 max-w-2xl lg:col-span-8">
-            <span className="inline-flex items-center gap-2 bg-primary text-primary-foreground text-[10px] font-black uppercase px-2 py-1 rounded mb-6"><Play className="h-3 w-3 fill-current" /> Inside University</span>
-            <h2 className="text-4xl md:text-6xl font-serif font-bold text-foreground mb-6 leading-tight">{heroBackground?.title || "What’s Happening"}</h2>
-            <p className="text-muted-foreground text-lg mb-8 leading-relaxed">{heroText?.title || "Latest campus highlights, interviews, and developments in one place."}</p>
-            <Link href="/media" className="bg-primary text-primary-foreground px-8 py-4 rounded-full font-bold hover:bg-primary/90 transition-colors inline-flex items-center gap-2">Start Watching <ChevronRight className="h-5 w-5" /></Link>
+            <span className="inline-flex items-center gap-2 bg-primary text-primary-foreground text-[10px] font-black uppercase px-2 py-1 rounded mb-6"><Play className="h-3 w-3 fill-current" /> {t.insideUniversity}</span>
+            <h2 className="text-4xl md:text-6xl font-serif font-bold text-foreground mb-6 leading-tight">{localizedMediaTitle(heroBackground)}</h2>
+            <p className="text-muted-foreground text-lg mb-8 leading-relaxed">{heroText ? localizedMediaTitle(heroText) : t.mediaDesc}</p>
+            <Link href="/media" className="bg-primary text-primary-foreground px-8 py-4 rounded-full font-bold hover:bg-primary/90 transition-colors inline-flex items-center gap-2">{t.openGallery} <ChevronRight className="h-5 w-5" /></Link>
           </div>
-          <div className="relative z-10 lg:col-span-4 p-6 md:p-10 flex items-end">
-            <Link href="/media" className="w-full rounded-2xl border border-border/70 bg-background/70 overflow-hidden hover:bg-background/80 transition-colors">
-              {heroSide ? (
-                <>
-                  <div className="aspect-video overflow-hidden relative"><Image src={getMediaPreviewUrl(heroSide)} alt={heroSide.title} fill unoptimized sizes="(max-width: 1024px) 100vw, 33vw" className="object-cover" /></div>
-                  <div className="p-4"><p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Featured slot</p><h4 className="text-foreground font-bold line-clamp-2">{heroSide.title}</h4></div>
-                </>
-              ) : (
-                <div className="p-6"><p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Featured slot</p><h4 className="text-foreground font-bold">Set media category to &quot;hero-side&quot; from Admin Media to show content here.</h4></div>
-              )}
-            </Link>
-          </div>
+          {heroSide && (
+            <div className="relative z-10 lg:col-span-4 p-6 md:p-10 flex items-end">
+              <Link href="/media" className="w-full rounded-2xl border border-border/70 bg-background/70 overflow-hidden hover:bg-background/80 transition-colors">
+                <div className="aspect-video overflow-hidden relative"><Image src={getMediaPreviewUrl(heroSide)} alt={heroSide.title} fill unoptimized sizes="(max-width: 1024px) 100vw, 33vw" className="object-cover" /></div>
+                <div className="p-4"><h4 className="text-foreground font-bold line-clamp-2">{localizedMediaTitle(heroSide)}</h4></div>
+              </Link>
+            </div>
+          )}
         </div>
       </section>
+      )}
     </main>
   );
 }

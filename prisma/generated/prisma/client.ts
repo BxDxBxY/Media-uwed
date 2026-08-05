@@ -127,6 +127,17 @@ export type AdminUser = Prisma.AdminUserModel
  */
 export type AssistantMemory = Prisma.AssistantMemoryModel
 /**
+ * Model PageConfig
+ * Editable page configuration that is a document rather than a set of columns —
+ * currently the About page (mission, team, contact block).
+ * 
+ * It used to live in `contact_messages` under the magic subject `__about_page_config__`,
+ * with every save inserting a **new** row, so internal configuration accumulated inside
+ * the public contact inbox forever. Same reasoning as moving assistant memory out of that
+ * table in the 2026-07-31 hardening pass.
+ */
+export type PageConfig = Prisma.PageConfigModel
+/**
  * Model AiUsageDay
  * Requests sent to the AI provider per UTC day.
  * 

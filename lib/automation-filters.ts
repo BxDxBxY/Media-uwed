@@ -11,22 +11,16 @@ export const normalizeKeywords = (value: unknown): string[] => {
     .filter(Boolean);
 };
 
-export const deriveTermsFromInstructions = (instructions: string): string[] => {
-  const stopWords = new Set([
-    "the", "and", "for", "with", "from", "that", "this", "into", "your", "about", "only", "avoid", "should",
-    "need", "must", "news", "article", "articles", "content", "more", "less", "than", "have", "has", "are",
-    "you", "our", "their", "they", "them", "was", "were", "will", "would", "can", "could", "not",
-  ]);
-
-  return instructions
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, " ")
-    .split(/\s+/)
-    .map((word) => word.trim())
-    .filter((word) => word.length >= 4 && !stopWords.has(word))
-    .slice(0, 24);
-};
-
+/**
+ * `deriveTermsFromInstructions` used to live here: it turned the admin's editorial brief
+ * into up to 24 keywords that an article had to contain. It was removed because it failed
+ * silently in both directions — it stripped everything outside `[a-z0-9]`, so a brief
+ * written in Russian or Uzbek produced no terms and filtered nothing, and it harvested
+ * terms from negations too, so "avoid politics" required articles to mention *politics*.
+ * Judging prose about editorial intent is now `lib/pipeline/triage.ts`, which asks the
+ * model. Keywords below stay for what they are good at: cheap, deterministic, exact
+ * matching.
+ */
 export const matchesRequirements = (
   article: { title: string; description?: string | null },
   includeKeywords: string[],

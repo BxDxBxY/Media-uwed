@@ -4,11 +4,8 @@ import { DEFAULT_AI_MODEL, MIN_SOURCE_CHARS, detectSourceLanguage, processNewsAI
 import { getAiUsage, recordAiRequests } from "@/lib/ai-usage";
 import { scrapeArticleDetails } from "@/lib/scraper";
 import { decryptSecret } from "@/lib/security";
-import {
-  deriveTermsFromInstructions,
-  matchesRequirements,
-  normalizeKeywords,
-} from "@/lib/automation-filters";
+import { matchesRequirements, normalizeKeywords } from "@/lib/automation-filters";
+import { triageArticles } from "@/lib/pipeline/triage";
 
 export type ProcessInput = {
   ids?: string[] | null;
@@ -57,13 +54,16 @@ export async function runProcess(input: ProcessInput = {}) {
 
     const include = normalizeKeywords(includeSource);
     const exclude = normalizeKeywords(excludeSource);
-    const instructionTerms = deriveTermsFromInstructions(String(instructionsSource || ""));
-    const effectiveInclude = strictSource ? [...new Set([...include, ...instructionTerms])] : include;
+    const editorialBrief = String(instructionsSource || "").trim();
 
     const targetArticles = await prisma.articleRaw.findMany({
       where: {
         ...(retranslate ? {} : { processed: { is: null } }),
         ...(ids ? { id: { in: ids } } : {}),
+        // Articles already judged off-brief stay out unless explicitly requested by id.
+        // `not: "rejected"` alone would drop everything: in SQL `NULL <> 'rejected'` is
+        // NULL, not true, so un-judged articles would never match.
+        ...(ids ? {} : { OR: [{ relevance: null }, { relevance: { not: "rejected" } }] }),
       },
       include: {
         source: true,
@@ -75,28 +75,13 @@ export async function runProcess(input: ProcessInput = {}) {
       take: ids ? undefined : 50,
     });
 
-    const filteredArticles = targetArticles.filter((raw) =>
-      matchesRequirements(raw, effectiveInclude, exclude),
+    const keywordFiltered = targetArticles.filter((raw) =>
+      matchesRequirements(raw, include, exclude),
     );
 
     const aiIntegration = await prisma.integrationConfig.findUnique({
       where: { integrationType: "ai" },
     });
-
-    if (filteredArticles.length === 0) {
-      return {
-        processedCount: 0,
-        skippedByRequirements: targetArticles.length,
-        message:
-          effectiveInclude.length > 0 || exclude.length > 0
-            ? "No articles matched admin requirements"
-            : "No articles found for processing",
-      };
-    }
-
-    let processedCount = 0;
-    let failedCount = 0;
-    const previews: Array<Record<string, unknown>> = [];
 
     const aiProviderApiKey = decryptSecret(aiIntegration?.providerApiKeyEncrypted);
     const aiProviderModel =
@@ -123,15 +108,122 @@ export async function runProcess(input: ProcessInput = {}) {
     let llmArticles = 0;
     let heuristicArticles = 0;
     let skippedThinSource = 0;
+    let rejectedOffBrief = 0;
 
-    if (budgetApplies && usage.remaining <= 0) {
+    const aiTaskConfig = {
+      providerApiKey: aiProviderApiKey || undefined,
+      providerModel: aiProviderModel,
+      providerBaseUrl: (aiIntegration as any)?.providerBaseUrl || undefined,
+    };
+
+    /**
+     * Topical triage against the admin's editorial brief. Runs before the editorial pass so
+     * off-brief articles never reach it: one batched request can spare dozens of
+     * article-sized ones, which on the free tier is the difference between publishing the
+     * day's relevant news and burning the quota on wire noise.
+     *
+     * `ids` means an editor asked for these specific articles — their judgement overrides
+     * the brief, so triage is skipped.
+     */
+    let filteredArticles = keywordFiltered;
+
+    if (editorialBrief && hasProviderKey && !ids && strictSource) {
+      const untriaged = keywordFiltered.filter((raw) => !raw.relevance);
+
+      if (untriaged.length > 0) {
+        const verdicts = await triageArticles({
+          candidates: untriaged.map((raw) => ({
+            id: raw.id,
+            title: raw.title,
+            description: raw.description,
+            sourceName: raw.source?.name ?? null,
+          })),
+          brief: editorialBrief,
+          taskConfig: {
+            ...aiTaskConfig,
+            onProviderRequest: () => {
+              requestsSpent++;
+            },
+          },
+          // Triage may never take more than a small slice of the day.
+          maxRequests: budgetApplies ? Math.max(1, Math.min(3, usage.remaining)) : 3,
+        });
+
+        if (requestsSpent > requestsRecorded) {
+          await recordAiRequests(requestsSpent - requestsRecorded);
+          requestsRecorded = requestsSpent;
+        }
+
+        if (verdicts) {
+          const rejectedIds = verdicts.filter((v) => !v.keep).map((v) => v.id);
+          const checkedAt = new Date();
+
+          // Persist every verdict, kept and rejected alike, so the next run does not pay
+          // to judge the same headlines again.
+          await Promise.all(
+            verdicts.map((verdict) =>
+              prisma.articleRaw.update({
+                where: { id: verdict.id },
+                data: {
+                  relevance: verdict.keep ? "relevant" : "rejected",
+                  relevanceReason: verdict.reason || null,
+                  relevanceCheckedAt: checkedAt,
+                },
+              }),
+            ),
+          );
+
+          const rejected = new Set(rejectedIds);
+          rejectedOffBrief = rejected.size;
+          filteredArticles = keywordFiltered.filter((raw) => !rejected.has(raw.id));
+
+          logger.info("Triage applied the editorial brief", {
+            judged: verdicts.length,
+            rejected: rejected.size,
+            requestsSpent,
+          });
+        } else {
+          // Triage could not run. Processing everything is the safe failure: a filter that
+          // fails closed would stop the site publishing at all.
+          logger.warn("Triage produced no verdicts; processing the batch unfiltered");
+        }
+      } else {
+        filteredArticles = keywordFiltered.filter((raw) => raw.relevance !== "rejected");
+      }
+    }
+
+    if (filteredArticles.length === 0) {
+      return {
+        processedCount: 0,
+        skippedByRequirements: targetArticles.length - filteredArticles.length,
+        rejectedOffBrief,
+        message:
+          rejectedOffBrief > 0
+            ? `No articles left after the editorial brief rejected ${rejectedOffBrief} as off-topic.`
+            : include.length > 0 || exclude.length > 0
+              ? "No articles matched admin requirements"
+              : "No articles found for processing",
+      };
+    }
+
+    let processedCount = 0;
+    let failedCount = 0;
+    const previews: Array<Record<string, unknown>> = [];
+
+    if (budgetApplies && usage.remaining - requestsSpent <= 0) {
       return {
         processedCount: 0,
         failedCount: 0,
         totalAttempted: 0,
-        aiBudget: { used: usage.used, limit: usage.limit, remaining: 0, spentThisRun: 0 },
+        aiBudget: {
+          used: usage.used + requestsSpent,
+          limit: usage.limit,
+          remaining: 0,
+          spentThisRun: requestsSpent,
+        },
+        rejectedOffBrief,
         message:
-          `Daily AI request budget is spent (${usage.used}/${usage.limit} for ${usage.day}). ` +
+          `Daily AI request budget is spent (${usage.used + requestsSpent}/${usage.limit} for ${usage.day}). ` +
           `${filteredArticles.length} article(s) stay queued until the quota resets at 00:00 UTC. ` +
           `Raise AI_DAILY_REQUEST_LIMIT, or set it to 0 to disable metering, if the account is not on the free tier.`,
       };
@@ -236,9 +328,7 @@ export async function runProcess(input: ProcessInput = {}) {
               aiIntegration?.translationPolicy === "disabled"
                 ? aiIntegration.translationPolicy
                 : "full",
-            providerApiKey: aiProviderApiKey || undefined,
-            providerModel: aiProviderModel,
-            providerBaseUrl: (aiIntegration as any)?.providerBaseUrl || undefined,
+            ...aiTaskConfig,
             editorialPrompt: aiIntegration?.editorialPrompt || undefined,
             maxProviderRequests: budgetApplies
               ? Math.max(1, usage.remaining - requestsSpent)
@@ -337,6 +427,10 @@ export async function runProcess(input: ProcessInput = {}) {
       await recordAiRequests(requestsSpent - requestsRecorded);
     }
 
+    const briefNote = rejectedOffBrief
+      ? ` ${rejectedOffBrief} rejected as off-topic by the editorial brief.`
+      : "";
+
     const thinNote = skippedThinSource
       ? ` ${skippedThinSource} skipped: the source gave only a headline, so there was nothing to rewrite.`
       : "";
@@ -351,9 +445,9 @@ export async function runProcess(input: ProcessInput = {}) {
       failedCount,
       totalAttempted: filteredArticles.length,
       skippedByRequirements: Math.max(0, targetArticles.length - filteredArticles.length),
-      requirementsApplied: effectiveInclude.length > 0 || exclude.length > 0,
-      aiStrictMode: Boolean(aiStrictMode),
-      aiInstructionTerms: instructionTerms.length,
+      requirementsApplied: include.length > 0 || exclude.length > 0,
+      aiStrictMode: strictSource,
+      briefApplied: Boolean(editorialBrief) && strictSource && hasProviderKey,
       previews: retranslate ? previews : undefined,
       aiBudget: budgetApplies
         ? {
@@ -366,11 +460,12 @@ export async function runProcess(input: ProcessInput = {}) {
       llmArticles,
       heuristicArticles,
       skippedThinSource,
+      rejectedOffBrief,
       message: retranslate
         ? `Generated ${processedCount} re-translation preview(s). Save changes to persist.${budgetNote}`
         : `Successfully processed ${processedCount} articles ` +
           `(${llmArticles} via the AI editorial pass, ${heuristicArticles} via offline heuristics). ` +
-          `Status: pending_review.${thinNote}${budgetNote}`,
+          `Status: pending_review.${briefNote}${thinNote}${budgetNote}`,
     };
   }
 }

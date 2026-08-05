@@ -401,6 +401,7 @@ export const ModelName = {
   AdminApiKey: 'AdminApiKey',
   AdminUser: 'AdminUser',
   AssistantMemory: 'AssistantMemory',
+  PageConfig: 'PageConfig',
   AiUsageDay: 'AiUsageDay',
   IntegrationConfig: 'IntegrationConfig'
 } as const
@@ -418,7 +419,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "article" | "category" | "aboutContent" | "siteVisit" | "articleView" | "event" | "media" | "subscriber" | "contactMessage" | "siteSettings" | "source" | "articleRaw" | "articleProcessed" | "automationConfig" | "adminApiKey" | "adminUser" | "assistantMemory" | "aiUsageDay" | "integrationConfig"
+    modelProps: "article" | "category" | "aboutContent" | "siteVisit" | "articleView" | "event" | "media" | "subscriber" | "contactMessage" | "siteSettings" | "source" | "articleRaw" | "articleProcessed" | "automationConfig" | "adminApiKey" | "adminUser" | "assistantMemory" | "pageConfig" | "aiUsageDay" | "integrationConfig"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1680,6 +1681,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    PageConfig: {
+      payload: Prisma.$PageConfigPayload<ExtArgs>
+      fields: Prisma.PageConfigFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.PageConfigFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PageConfigPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.PageConfigFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PageConfigPayload>
+        }
+        findFirst: {
+          args: Prisma.PageConfigFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PageConfigPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.PageConfigFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PageConfigPayload>
+        }
+        findMany: {
+          args: Prisma.PageConfigFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PageConfigPayload>[]
+        }
+        create: {
+          args: Prisma.PageConfigCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PageConfigPayload>
+        }
+        createMany: {
+          args: Prisma.PageConfigCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.PageConfigCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PageConfigPayload>[]
+        }
+        delete: {
+          args: Prisma.PageConfigDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PageConfigPayload>
+        }
+        update: {
+          args: Prisma.PageConfigUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PageConfigPayload>
+        }
+        deleteMany: {
+          args: Prisma.PageConfigDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.PageConfigUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.PageConfigUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PageConfigPayload>[]
+        }
+        upsert: {
+          args: Prisma.PageConfigUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PageConfigPayload>
+        }
+        aggregate: {
+          args: Prisma.PageConfigAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregatePageConfig>
+        }
+        groupBy: {
+          args: Prisma.PageConfigGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PageConfigGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.PageConfigCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PageConfigCountAggregateOutputType> | number
+        }
+      }
+    }
     AiUsageDay: {
       payload: Prisma.$AiUsageDayPayload<ExtArgs>
       fields: Prisma.AiUsageDayFieldRefs
@@ -2040,7 +2115,10 @@ export const ArticleRawScalarFieldEnum = {
   imageUrl: 'imageUrl',
   publishedAt: 'publishedAt',
   rawJson: 'rawJson',
-  createdAt: 'createdAt'
+  createdAt: 'createdAt',
+  relevance: 'relevance',
+  relevanceReason: 'relevanceReason',
+  relevanceCheckedAt: 'relevanceCheckedAt'
 } as const
 
 export type ArticleRawScalarFieldEnum = (typeof ArticleRawScalarFieldEnum)[keyof typeof ArticleRawScalarFieldEnum]
@@ -2129,6 +2207,15 @@ export const AssistantMemoryScalarFieldEnum = {
 } as const
 
 export type AssistantMemoryScalarFieldEnum = (typeof AssistantMemoryScalarFieldEnum)[keyof typeof AssistantMemoryScalarFieldEnum]
+
+
+export const PageConfigScalarFieldEnum = {
+  key: 'key',
+  value: 'value',
+  updatedAt: 'updatedAt'
+} as const
+
+export type PageConfigScalarFieldEnum = (typeof PageConfigScalarFieldEnum)[keyof typeof PageConfigScalarFieldEnum]
 
 
 export const AiUsageDayScalarFieldEnum = {
@@ -2368,6 +2455,7 @@ export type GlobalOmitConfig = {
   adminApiKey?: Prisma.AdminApiKeyOmit
   adminUser?: Prisma.AdminUserOmit
   assistantMemory?: Prisma.AssistantMemoryOmit
+  pageConfig?: Prisma.PageConfigOmit
   aiUsageDay?: Prisma.AiUsageDayOmit
   integrationConfig?: Prisma.IntegrationConfigOmit
 }

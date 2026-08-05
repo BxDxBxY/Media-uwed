@@ -170,6 +170,7 @@ model Source {
   articles      ArticleRaw[]
 
   @@index([enabled, createdAt])
+  @@index([enabled, lastFetchedAt])
   @@map("sources")
 }
 
@@ -185,10 +186,17 @@ model ArticleRaw {
   publishedAt DateTime?
   rawJson     String?
   createdAt   DateTime          @default(now())
+  /// Topical triage against the admin's editorial brief: "relevant" | "rejected".
+  /// Null means not yet judged. Stored so a rejected item is not re-judged on every run —
+  /// re-judging would spend the free tier's daily request budget on the same headlines.
+  relevance         String?
+  relevanceReason   String?
+  relevanceCheckedAt DateTime?
   processed   ArticleProcessed?
   source      Source            @relation(fields: [sourceId], references: [id], onDelete: Cascade)
 
   @@unique([sourceId, guid])
+  @@index([relevance, createdAt])
   @@map("articles_raw")
 }
 
@@ -209,6 +217,7 @@ model ArticleProcessed {
   createdAt  DateTime   @default(now())
   raw        ArticleRaw @relation(fields: [rawId], references: [id], onDelete: Cascade)
 
+  @@index([status])
   @@map("articles_processed")
 }
 
@@ -281,6 +290,21 @@ model AssistantMemory {
 
   @@index([kind, createdAt])
   @@map("assistant_memory")
+}
+
+/// Editable page configuration that is a document rather than a set of columns —
+/// currently the About page (mission, team, contact block).
+///
+/// It used to live in `contact_messages` under the magic subject `__about_page_config__`,
+/// with every save inserting a **new** row, so internal configuration accumulated inside
+/// the public contact inbox forever. Same reasoning as moving assistant memory out of that
+/// table in the 2026-07-31 hardening pass.
+model PageConfig {
+  key       String   @id // e.g. "about"
+  value     String // JSON document
+  updatedAt DateTime @updatedAt
+
+  @@map("page_configs")
 }
 
 /// Requests sent to the AI provider per UTC day.
