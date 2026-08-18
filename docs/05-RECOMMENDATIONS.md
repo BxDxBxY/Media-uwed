@@ -32,7 +32,7 @@
 
 **Verified 2026-08-01:** `prisma/` now contains only `generated`, `migrations`, `schema.prisma`, `scripts`. The dead UI components (`hero-section.tsx`, `news-grid.tsx`, `comments-section.tsx`) and `lib/mock-data.ts` are gone too.
 
-**Still open from this item:** `SiteSettings.enableComments` / `moderateComments` remain exposed in Settings and still do nothing — there is no comment model. Either implement comments or remove the toggles.
+**Closed 2026-08-01:** the two comment toggles were removed from Settings — there is no comment model, endpoint or UI, so they did nothing. The columns remain on `SiteSettings`, annotated `NOT IMPLEMENTED`.
 
 ---
 
@@ -120,7 +120,7 @@
 ## 6. Code Quality
 
 ### Testing
-- Add unit tests for `lib/` modules (especially ai.ts, security.ts, admin-auth.ts)
+- ✅ **Partly done 2026-08-01:** `check:security` covers `security.ts` and `admin-auth.ts` (41 assertions); `check:ai`, `check:rss` and `check:triage` cover the pipeline. ❌ Still open: route-level and end-to-end tests.
 - Add API integration tests (using Vitest or Jest)
 - Add E2E tests with Playwright for critical flows
 - Set up test coverage reporting
@@ -149,7 +149,7 @@
 | 🔴 High | Remove old SQLite files | 2 min | Low | ✅ done (verified 2026-08-01) |
 | 🟡 Medium | Add rate limiting to login | 30 min | High | ✅ done 2026-07-31 (`lib/rate-limit.ts`, 10/min on auth) |
 | 🟡 Medium | Implement SWR caching | 1 hour | Medium | ⏳ dependency added, not used for page data |
-| 🟢 Low | Add request IDs to logs | 30 min | Medium | ❌ open |
+| 🟢 Low | Add request IDs to logs | 30 min | Medium | ✅ done 2026-08-01 (`AsyncLocalStorage`, all four cron routes; also moved the ingest path off `console.*`) |
 | 🟢 Low | Add health endpoint details | 15 min | Low | ✅ done (`/api/health` returns queue counts) |
 
 ### New quick wins (2026-07-31)
@@ -182,3 +182,4 @@ Append an entry here whenever a batch of the above is completed, so the next ses
 | 2026-08-01 | **Editorial brief replaces keyword derivation; About page stops publishing fiction.** `deriveTermsFromInstructions` deleted — it filtered nothing in Cyrillic and inverted negations; topical triage now batches 40 headlines per request and fails open. About defaults no longer assert a founding year, a US phone number or a masthead of film characters; its config moved from `contact_messages` into `page_configs`. Empty sections seeded, homepage sections hidden when empty, missing indexes added | `check:triage` 14/14, live triage run (50 headlines → 1 request, 28 rejected with reasons), pages fetched from a running server to confirm the fabricated names are gone, `migrate status` clean at 16 migrations |
 | 2026-08-01 | **Deployment fixed and two review defects closed** (PR #12). Vercel rejected the deploy twice: Hobby allows one cron run per day, and the build itself needed database access — `prisma migrate deploy` chained with `&&`, plus a prerendered `/sitemap.xml` querying Prisma. Sitemap is now dynamic and fails soft; `vercel-build` validates configuration and explains what to fix; a GitHub Actions workflow carries the 30-minute cadence. Also: `/api/cron/automation` exported only POST while Vercel Cron sends GET, the approvals migration locked out every existing admin, and the last super-admin could demote themselves | Vercel check green on `9056188`; `next build` verified to complete with an unresolvable `DATABASE_URL`; GET/POST probed against a running server (401 without the secret, 200 with it); lockout reproduced against the live database and the backfill confirmed to restore access; `npm run check` passing |
 | 2026-08-01 | **Public-page metadata and admin visibility.** Five of six public pages were client components and could not export `metadata`, so all shared one title and a canonical pointing at `/`; each now has a server wrapper. News archive localized with locale-aware dates. Admin gained a last-run panel (per-feed errors, model vs heuristics, off-brief and thin-source counts, daily budget bar) and triage verdicts became visible and reversible via a show/restore flow | Six distinct titles and canonicals measured against a running server; all 15 admin screens and every GET endpoint probed with a real session; off-brief hide/reveal/restore verified end to end (48 hidden, none leaking, restore returned one and the count fell to 47); `npm run check` and a production build |
+| 2026-08-01 | **Security primitives tested, dead settings removed, logs made traceable.** 41 assertions on secret encryption and admin auth — which found a real `decryptSecret` bug rejecting a structurally valid payload; the two comment toggles that did nothing were removed; a request id now flows through the logger via `AsyncLocalStorage` and the ingest path moved off `console.*`. The global-context over-fetch was closed by measurement (17 KB per page load) rather than refactored | `check:security` 41/41 with the failing assertion fixed in code; stored OpenRouter key verified to decrypt before and after; two concurrent pull runs producing two distinct request ids; `npm run check` (106 assertions) and a production build |
