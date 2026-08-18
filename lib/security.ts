@@ -23,8 +23,13 @@ export function encryptSecret(value: string): string {
 
 export function decryptSecret(payload: string | null | undefined): string | null {
   if (!payload) return null;
-  const [ivPart, tagPart, contentPart] = payload.split(".");
-  if (!ivPart || !tagPart || !contentPart) return null;
+  // Structure check, not truthiness: an empty ciphertext is what a stored empty string
+  // legitimately looks like, and rejecting it here made `encryptSecret("")` un-decryptable
+  // — a valid payload reported as if it were corrupt.
+  const parts = payload.split(".");
+  if (parts.length !== 3) return null;
+  const [ivPart, tagPart, contentPart] = parts;
+  if (!ivPart || !tagPart) return null;
 
   try {
     const iv = Buffer.from(ivPart, "base64url");

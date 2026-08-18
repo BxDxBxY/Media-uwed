@@ -28,7 +28,8 @@
     "check:triage": "tsx scripts/check-triage.mts",
     "seed:sources": "tsx scripts/seed-sources.mts",
     "seed:demo": "tsx scripts/seed-demo-content.mts",
-    "check": "npm run typecheck && npm run lint && npm run check:ai && npm run check:rss && npm run check:triage"
+    "check": "npm run typecheck && npm run lint && npm run check:ai && npm run check:rss && npm run check:triage && npm run check:security",
+    "check:security": "tsx scripts/check-security.mts"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.4.1",
