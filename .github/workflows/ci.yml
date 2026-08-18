@@ -46,8 +46,19 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: AI pipeline smoke check
+      # Every offline suite runs as its own step so a failure names itself in the CI log
+      # rather than hiding inside an aggregate command.
+      - name: AI pipeline checks
         run: npm run check:ai
+
+      - name: RSS ingestion checks
+        run: npm run check:rss
+
+      - name: Topical triage checks
+        run: npm run check:triage
+
+      - name: Security primitive checks
+        run: npm run check:security
 
       - name: Migrations reproduce the schema
         run: |
@@ -60,3 +71,21 @@ jobs:
 
       - name: Production build
         run: npx next build
+
+      # The authorization guarantees are the ones worth failing a pull request over: the
+      # original audit found content CRUD and the pipeline endpoints open to anonymous
+      # callers. Running this against the built app means a removed guard cannot merge.
+      - name: Authorization checks against the built app
+        run: |
+          npx next start &
+          server_pid=$!
+          trap "kill $server_pid" EXIT
+
+          for i in $(seq 1 60); do
+            if curl -sf -o /dev/null http://localhost:3000/api/health; then break; fi
+            sleep 1
+          done
+
+          npm run check:routes
+        env:
+          BASE_URL: http://localhost:3000
