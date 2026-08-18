@@ -69,6 +69,11 @@ jobs:
             --to-schema prisma/schema.prisma \
             --exit-code
 
+      # Needs the schema, so it runs after migrations. On a fresh CI database no Telegram
+      # integration row exists, so the script's own refusal guard stays out of the way.
+      - name: Publish behaviour checks
+        run: npm run check:publish
+
       - name: Production build
         run: npx next build
 

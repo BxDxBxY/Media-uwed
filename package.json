@@ -30,7 +30,8 @@
     "seed:demo": "tsx scripts/seed-demo-content.mts",
     "check": "npm run typecheck && npm run lint && npm run check:ai && npm run check:rss && npm run check:triage && npm run check:security",
     "check:security": "tsx scripts/check-security.mts",
-    "check:routes": "tsx scripts/check-routes.mts"
+    "check:routes": "tsx scripts/check-routes.mts",
+    "check:publish": "tsx scripts/check-publish.mts"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.4.1",
