@@ -10,7 +10,7 @@
     "dev": "next dev --webpack",
     "build": "prisma generate && next build",
     "build:webpack": "prisma generate && next build --webpack",
-    "vercel-build": "prisma generate && prisma migrate deploy && next build",
+    "vercel-build": "node scripts/vercel-build.mjs",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
