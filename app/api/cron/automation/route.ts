@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { runPull } from "@/lib/pipeline/pull";
 import { runProcess } from "@/lib/pipeline/process";
 import { authorizeCronRequest } from "@/lib/cron-auth";
+import { withRequestId } from "@/lib/logger";
 
 export const maxDuration = 300;
 
@@ -62,7 +63,7 @@ async function runScheduler(request: Request, forceRun: boolean) {
 
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => ({}))) as { force?: boolean };
-  return runScheduler(request, body?.force === true);
+  return withRequestId(request, () => runScheduler(request, body?.force === true));
 }
 
 /**
@@ -72,5 +73,5 @@ export async function POST(request: Request) {
  */
 export async function GET(request: Request) {
   const force = new URL(request.url).searchParams.get("force") === "true";
-  return runScheduler(request, force);
+  return withRequestId(request, () => runScheduler(request, force));
 }

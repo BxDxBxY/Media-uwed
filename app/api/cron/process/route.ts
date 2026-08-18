@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { authorizeCronRequest } from "@/lib/cron-auth";
 import { enforceRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { runProcess, type ProcessInput } from "@/lib/pipeline/process";
+import { withRequestId } from "@/lib/logger";
 
 export const maxDuration = 300; // 5 minutes for AI processing
 
-export async function POST(request: Request) {
+async function handlePost(request: Request) {
   const unauthorized = authorizeCronRequest(request);
   if (unauthorized) return unauthorized;
 
@@ -26,4 +27,9 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+}
+
+/** Wrapped so every log line from one pipeline run shares a request id. */
+export async function POST(request: Request) {
+  return withRequestId(request, () => handlePost(request));
 }

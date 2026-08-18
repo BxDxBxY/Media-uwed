@@ -151,6 +151,9 @@ model SiteSettings {
   keywords            String   @default("university, news, events, campus life, research, education")
   defaultLanguage     String   @default("en")
   enableNotifications Boolean  @default(true)
+  /// NOT IMPLEMENTED. There is no comment model, endpoint or UI; these two columns are
+  /// storage waiting for a feature. The admin toggles that used to write them were removed
+  /// because they did nothing. Do not surface them again until comments exist.
   enableComments      Boolean  @default(true)
   moderateComments    Boolean  @default(true)
   themeMode           String   @default("system")

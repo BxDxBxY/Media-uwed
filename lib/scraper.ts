@@ -1,6 +1,7 @@
 import axios from "axios";
 import * as cheerio from "cheerio";
 import { assertPublicUrl } from "@/lib/safe-fetch";
+import { logger } from "@/lib/logger";
 
 const DEFAULT_HEADERS = {
   "User-Agent":
@@ -69,7 +70,10 @@ export async function scrapeOgImage(url: string): Promise<string | null> {
 
     return null;
   } catch (error) {
-    console.error(`Scraper error for ${url}:`, error);
+    logger.warn("Could not read an image from the page", {
+      url,
+      message: error instanceof Error ? error.message : String(error),
+    });
     return null;
   }
 }
@@ -303,7 +307,10 @@ export async function scrapeArticleDetails(url: string): Promise<{ content: stri
       imageUrls,
     };
   } catch (error) {
-    console.error(`Article detail scraper error for ${url}:`, error);
+    logger.warn("Could not scrape the article body", {
+      url,
+      message: error instanceof Error ? error.message : String(error),
+    });
     return { content: null, imageUrl: null, imageUrls: [] };
   }
 }

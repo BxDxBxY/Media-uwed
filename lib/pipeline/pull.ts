@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { fetchMultipleFeeds } from "@/lib/rss";
 import { matchesRequirements, normalizeKeywords } from "@/lib/automation-filters";
+import { logger } from "@/lib/logger";
 
 /**
  * Keeps the scraped body and image list from a previous run while taking the feed's
@@ -162,7 +163,11 @@ export async function runPull(input: PullInput = {}) {
             continue;
           }
 
-          console.error(`Error upserting article from ${source.name}:`, error);
+          logger.error("Failed to store a feed item", {
+            source: source.name,
+            url: item.url,
+            message: error instanceof Error ? error.message : String(error),
+          });
         }
       }
 
@@ -173,6 +178,15 @@ export async function runPull(input: PullInput = {}) {
     }
 
     const duration = Date.now() - startTime;
+
+    logger.info("Feed pull finished", {
+      sources: sources.length,
+      itemsFetched: totalItemsFetched,
+      newInserted: totalNewInserted,
+      refreshed: totalRefreshed,
+      failedFeeds: errors.length,
+      durationMs: duration,
+    });
 
     return {
       sourcesChecked: sources.length,
