@@ -47,6 +47,30 @@ function renderInlineMarkdownLinks(text: string) {
  * unfurls. This component only owns interactive concerns: language switching, font
  * size, sharing and the view counter.
  */
+/**
+ * Articles published from a feed item that carried no picture get `image: ""` — the column
+ * is required, so an empty string is how "no image" is stored. Passing that to `next/image`
+ * logs `Image is missing required "src" property` and, per the browser warning, an empty
+ * `src` can make the browser re-download the whole page. Every article image therefore goes
+ * through this guard rather than straight into `<Image>`.
+ */
+function ArticleImage({
+  src,
+  alt,
+  sizes,
+  className,
+}: {
+  src: string | null | undefined;
+  alt: string;
+  sizes: string;
+  className?: string;
+}) {
+  if (!src) {
+    return <div className="h-full w-full bg-gradient-to-br from-muted to-muted/40" />;
+  }
+  return <Image src={src} alt={alt} fill unoptimized sizes={sizes} className={className} />;
+}
+
 export default function ArticleView({ article }: { article: Article }) {
   const { articles, language, recordArticleView } = useGlobalContext();
   const router = useRouter();
@@ -145,7 +169,7 @@ export default function ArticleView({ article }: { article: Article }) {
         <figure className="max-w-6xl mx-auto mb-12">
           <div className="aspect-[21/9] rounded-3xl overflow-hidden border border-border/40 shadow-xl relative">
             {article.image ? (
-              <Image src={article.image} alt={title} fill unoptimized sizes="100vw" className="object-cover" />
+              <ArticleImage src={article.image} alt={title} sizes="100vw" className="object-cover" />
             ) : (
               <div className="h-full w-full bg-gradient-to-br from-muted to-muted/40" />
             )}
@@ -219,7 +243,7 @@ export default function ArticleView({ article }: { article: Article }) {
                 {relatedArticles.map((rel) => (
                   <Link key={rel.id} href={`/article/${rel.slug}`} className="group">
                     <div className="aspect-[16/10] overflow-hidden rounded-2xl mb-4 border border-border/40 shadow-sm relative">
-                      <Image src={rel.image} alt={rel.title} fill unoptimized sizes="(max-width: 768px) 100vw, 25vw" className="object-cover transition-transform group-hover:scale-105" />
+                      <ArticleImage src={rel.image} alt={rel.title} sizes="(max-width: 768px) 100vw, 25vw" className="object-cover transition-transform group-hover:scale-105" />
                     </div>
                     <span className="text-[10px] font-bold text-primary uppercase tracking-widest mb-2 block">{rel.category}</span>
                     <h3 className="font-bold text-lg leading-tight group-hover:text-primary transition-colors line-clamp-2">

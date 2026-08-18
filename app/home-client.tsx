@@ -58,6 +58,30 @@ function getTopCategoryNames(articles: Article[], limit: number) {
     .map(([name]) => name);
 }
 
+/**
+ * Articles published from a feed item that carried no picture get `image: ""` — the column
+ * is required, so an empty string is how "no image" is stored. Passing that to `next/image`
+ * logs `Image is missing required "src" property` and, per the browser warning, an empty
+ * `src` can make the browser re-download the whole page. Every article image therefore goes
+ * through this guard rather than straight into `<Image>`.
+ */
+function ArticleImage({
+  src,
+  alt,
+  sizes,
+  className,
+}: {
+  src: string | null | undefined;
+  alt: string;
+  sizes: string;
+  className?: string;
+}) {
+  if (!src) {
+    return <div className="h-full w-full bg-gradient-to-br from-muted to-muted/40" />;
+  }
+  return <Image src={src} alt={alt} fill unoptimized sizes={sizes} className={className} />;
+}
+
 export default function Home() {
   const { articles, isLoading, media, language, addSubscriber } = useGlobalContext();
   const [newsletterMessage, setNewsletterMessage] = useState<"" | "thanks" | "animating">("");
@@ -246,7 +270,7 @@ export default function Home() {
             {featuredArticle ? (
               <Link href={`/article/${featuredArticle.slug}`} className="group block relative overflow-hidden rounded-3xl border border-border/40 bg-card shadow-sm hover:shadow-xl transition-all duration-500">
                 <div className="aspect-[16/9] overflow-hidden relative">
-                  <Image src={featuredArticle.image} alt={localizedText(featuredArticle, language, "title")} fill unoptimized sizes="(max-width: 1024px) 100vw, 66vw" className="object-cover transition-transform duration-700 group-hover:scale-105" />
+                  <ArticleImage src={featuredArticle.image} alt={localizedText(featuredArticle, language, "title")} sizes="(max-width: 1024px) 100vw, 66vw" className="object-cover transition-transform duration-700 group-hover:scale-105" />
                 </div>
                 <div className="p-6 md:p-10">
                   <span className="inline-block bg-primary/10 text-primary text-xs font-bold px-3 py-1 rounded-full mb-4 uppercase tracking-wider">{getPrimaryCategory(featuredArticle)}</span>
@@ -337,7 +361,7 @@ export default function Home() {
               <div className={`grid grid-cols-1 lg:grid-cols-12 gap-6 ${block.reverse ? "lg:[&>*:first-child]:order-2" : ""}`}>
                 <Link href={`/article/${lead.slug}`} className="lg:col-span-6 group rounded-2xl border border-border/40 overflow-hidden bg-card">
                   <div className="aspect-[16/10] overflow-hidden relative">
-                    <Image src={lead.image} alt={localizedText(lead, language, "title")} fill unoptimized sizes="(max-width: 1024px) 100vw, 50vw" className="object-cover group-hover:scale-105 transition-transform duration-500" />
+                    <ArticleImage src={lead.image} alt={localizedText(lead, language, "title")} sizes="(max-width: 1024px) 100vw, 50vw" className="object-cover group-hover:scale-105 transition-transform duration-500" />
                   </div>
                   <div className="p-4">
                     <h4 className="text-2xl font-bold leading-tight mb-3 group-hover:text-primary transition-colors">{localizedText(lead, language, "title")}</h4>
@@ -349,7 +373,7 @@ export default function Home() {
                   {side.map((item) => (
                     <Link key={item.id} href={`/article/${item.slug}`} className="group rounded-xl border border-border/40 overflow-hidden bg-card/50">
                       <div className="aspect-[16/10] overflow-hidden relative">
-                        <Image src={item.image} alt={localizedText(item, language, "title")} fill unoptimized sizes="(max-width: 768px) 100vw, 25vw" className="object-cover group-hover:scale-105 transition-transform duration-500" />
+                        <ArticleImage src={item.image} alt={localizedText(item, language, "title")} sizes="(max-width: 768px) 100vw, 25vw" className="object-cover group-hover:scale-105 transition-transform duration-500" />
                       </div>
                       <div className="p-3">
                         <span className="text-[10px] font-bold text-primary uppercase">{getPrimaryCategory(item)}</span>
@@ -379,7 +403,7 @@ export default function Home() {
                 {lead && (
                   <Link href={`/article/${lead.slug}`} className="block group">
                     <div className="aspect-[16/10] overflow-hidden bg-muted relative">
-                      <Image src={lead.image} alt={localizedText(lead, language, "title")} fill unoptimized sizes="(max-width: 768px) 100vw, 50vw" className="object-cover group-hover:scale-105 transition-transform" />
+                      <ArticleImage src={lead.image} alt={localizedText(lead, language, "title")} sizes="(max-width: 768px) 100vw, 50vw" className="object-cover group-hover:scale-105 transition-transform" />
                     </div>
                     <h4 className="text-2xl font-serif font-bold mt-3 leading-tight group-hover:text-primary transition-colors">{localizedText(lead, language, "title")}</h4>
                     <p className="text-base text-muted-foreground mt-2 line-clamp-3">{localizedText(lead, language, "summary")}</p>
