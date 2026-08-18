@@ -14,7 +14,7 @@ export const maxDuration = 300;
  *   curl -X POST https://<host>/api/cron/automation \
  *        -H "x-automation-secret: $AUTOMATION_CRON_SECRET"
  */
-export async function POST(request: Request) {
+async function runScheduler(request: Request, forceRun: boolean) {
   const unauthorized = authorizeCronRequest(request);
   if (unauthorized) return unauthorized;
 
@@ -22,9 +22,6 @@ export async function POST(request: Request) {
   if (!settings) {
     return NextResponse.json({ error: "Automation settings not initialized" }, { status: 400 });
   }
-
-  const body = (await request.json().catch(() => ({}))) as { force?: boolean };
-  const forceRun = body?.force === true;
 
   const periodMinutes = Math.min(1440, Math.max(5, settings.fetchPeriodMinutes || 30));
   const lastRunAt = settings.lastScheduledRunAt ? new Date(settings.lastScheduledRunAt) : null;
@@ -61,4 +58,19 @@ export async function POST(request: Request) {
     processResult,
     note: "Published items still require human approval in Admin → Automation.",
   });
+}
+
+export async function POST(request: Request) {
+  const body = (await request.json().catch(() => ({}))) as { force?: boolean };
+  return runScheduler(request, body?.force === true);
+}
+
+/**
+ * Vercel Cron invokes scheduled paths with **GET**, not POST — a POST-only route answers
+ * 405 and the pipeline silently never runs in production. Same guard, same work; `force`
+ * comes from the query string because a GET has no body.
+ */
+export async function GET(request: Request) {
+  const force = new URL(request.url).searchParams.get("force") === "true";
+  return runScheduler(request, force);
 }

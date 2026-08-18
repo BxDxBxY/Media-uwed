@@ -83,9 +83,22 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "User not found" }, { status: 404 });
       }
 
-      // Check if trying to demote the default admin
-      if (targetUser.email === "admin@university.edu" && targetUser.isSuperAdmin) {
-        return NextResponse.json({ error: "Cannot demote default super admin" }, { status: 400 });
+      // Demoting the last super-admin bricks the instance: `checkSuperAdmin` would then
+      // reject every caller of this route, so nobody could approve accounts or promote
+      // anyone back — including the person who just demoted themselves. The delete handler
+      // below already counts super-admins; this must do the same, because the bootstrap
+      // email is configurable and cannot be relied on as the guard.
+      if (targetUser.isSuperAdmin) {
+        const remainingSuperAdmins = await prisma.adminUser.count({
+          where: { isSuperAdmin: true, approved: true, id: { not: targetUser.id } },
+        });
+
+        if (remainingSuperAdmins === 0) {
+          return NextResponse.json(
+            { error: "Cannot demote the only remaining super admin. Promote another one first." },
+            { status: 400 },
+          );
+        }
       }
 
       const updatedUser = await prisma.adminUser.update({

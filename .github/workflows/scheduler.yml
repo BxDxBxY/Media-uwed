@@ -1,0 +1,66 @@
+# Sub-daily scheduler for the content pipeline.
+#
+# Vercel's Hobby plan allows **one cron run per day**, which is why `vercel.json` schedules
+# `/api/cron/automation` daily. That is far too slow for a news pipeline, so this workflow
+# calls the same endpoint every 30 minutes. GitHub-hosted schedules are free.
+#
+# The endpoint enforces its own cadence from `AutomationConfig.fetchPeriodMinutes`, so
+# calling it more often than needed is harmless — it answers `period_not_elapsed` and does
+# no work.
+#
+# Setup (Settings -> Secrets and variables -> Actions):
+#   APP_URL                  https://your-deployment.vercel.app
+#   AUTOMATION_CRON_SECRET   the same value as in the deployment environment
+#
+# Until both are set the job exits successfully without calling anything, so a fork or a
+# fresh clone does not show a permanently red workflow.
+name: Pipeline scheduler
+
+on:
+  schedule:
+    # Every 30 minutes. GitHub may delay runs under load; the endpoint is idempotent.
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Ignore the configured cadence and run now"
+        type: boolean
+        default: false
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Call the automation endpoint
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          AUTOMATION_CRON_SECRET: ${{ secrets.AUTOMATION_CRON_SECRET }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          if [ -z "$APP_URL" ] || [ -z "$AUTOMATION_CRON_SECRET" ]; then
+            echo "APP_URL or AUTOMATION_CRON_SECRET is not configured — nothing to do."
+            echo "See the comment at the top of this workflow for setup."
+            exit 0
+          fi
+
+          url="${APP_URL%/}/api/cron/automation"
+          if [ "$FORCE" = "true" ]; then
+            url="$url?force=true"
+          fi
+
+          # -sS keeps the log quiet but still prints errors; the secret goes in a header,
+          # never in the URL, so it cannot leak through logs or redirects.
+          status=$(curl -sS -o response.json -w "%{http_code}" \
+            -H "x-automation-secret: $AUTOMATION_CRON_SECRET" \
+            --max-time 300 \
+            "$url")
+
+          echo "HTTP $status"
+          cat response.json || true
+          echo
+
+          if [ "$status" -ge 400 ]; then
+            echo "::error::Scheduler call failed with HTTP $status"
+            exit 1
+          fi
