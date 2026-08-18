@@ -49,6 +49,16 @@ export default function AutomationPage() {
     const [translationProgress, setTranslationProgress] = useState(0);
     const [processedItems, setProcessedItems] = useState<any[]>([]);
     const [rawItems, setRawItems] = useState<any[]>([]);
+    /**
+     * The pipeline reports far more than "N processed": how many articles the editorial
+     * brief rejected, how many fell back to the offline heuristics, how much of the daily
+     * provider budget is left, and which feeds failed. All of it used to be collapsed into
+     * a toast that disappears after a few seconds, so an operator could not tell a healthy
+     * run from one that quietly produced nothing.
+     */
+    const [lastRun, setLastRun] = useState<{ kind: "pull" | "process"; at: string; data: any } | null>(null);
+    const [showRejected, setShowRejected] = useState(false);
+    const [rejectedCount, setRejectedCount] = useState(0);
     const [isLoadingReview, setIsLoadingReview] = useState(false);
     const [isLoadingRaw, setIsLoadingRaw] = useState(false);
     const [activeTab, setActiveTab] = useState<Tab>("review");
@@ -161,13 +171,34 @@ export default function AutomationPage() {
             console.error("Failed to load integration configs", error);
         }
     };
-    const fetchRawItems = async () => {
+    const restoreRejected = async (ids: string[]) => {
+        if (ids.length === 0) return;
+        try {
+            const res = await fetch("/api/admin/automation/raw", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ ids }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok) {
+                toast.success(`Restored ${data.restoredCount ?? ids.length} article(s) to the queue`);
+                fetchRawItems();
+            } else {
+                toast.error(data.error || "Could not restore");
+            }
+        } catch {
+            toast.error("Network error while restoring");
+        }
+    };
+
+    const fetchRawItems = async (includeRejected = showRejected) => {
         setIsLoadingRaw(true);
         try {
-            const res = await fetch(`/api/admin/automation/raw`);
+            const res = await fetch(`/api/admin/automation/raw${includeRejected ? "?showRejected=1" : ""}`);
             if (!res.ok) return;
             const data = await res.json();
             setRawItems(data.items || []);
+            setRejectedCount(data.rejectedOffBrief ?? 0);
         } catch (e) {
             console.error("Failed to fetch raw items", e);
         } finally {
@@ -246,7 +277,12 @@ export default function AutomationPage() {
             });
             const data = await res.json().catch(() => ({}));
             if (res.ok) {
-                toast.success(`Sync complete: Fetched ${data.itemsFetched ?? "?"} items.`);
+                setLastRun({ kind: "pull", at: new Date().toLocaleTimeString(), data });
+                if (data.errors?.length) {
+                    toast.warning(`Fetched ${data.itemsFetched ?? 0} items; ${data.errors.length} feed(s) failed.`);
+                } else {
+                    toast.success(`Sync complete: Fetched ${data.itemsFetched ?? "?"} items.`);
+                }
                 refreshData();
                 fetchRawItems();
             } else {
@@ -271,6 +307,7 @@ export default function AutomationPage() {
             const data = await res.json().catch(() => ({}));
             if (res.ok) {
                 setTranslationProgress(100);
+                setLastRun({ kind: "process", at: new Date().toLocaleTimeString(), data });
                 toast.success(`Processing complete: ${data.processedCount ?? "?"} items processed.`);
                 fetchReviewItems();
                 fetchRawItems();
@@ -826,7 +863,85 @@ export default function AutomationPage() {
                 <div className="lg:col-span-2 space-y-4">
                     {/* Tabs */}
                     <div className="flex items-center justify-between border-b border-border/40 pb-2">
-                        <div className="flex items-center gap-6">
+                                            {lastRun && (
+                        <div className="mb-4 rounded-xl border border-border/40 bg-card p-4 text-sm">
+                            <div className="flex items-center justify-between mb-2">
+                                <h3 className="font-semibold">
+                                    Last {lastRun.kind === "pull" ? "fetch" : "processing"} run · {lastRun.at}
+                                </h3>
+                                <button type="button" onClick={() => setLastRun(null)} className="text-xs text-muted-foreground hover:text-foreground">dismiss</button>
+                            </div>
+
+                            {lastRun.kind === "pull" ? (
+                                <div className="space-y-2">
+                                    <p className="text-muted-foreground">
+                                        {lastRun.data.sourcesChecked ?? 0} source(s) checked ·{" "}
+                                        <strong className="text-foreground">{lastRun.data.newInserted ?? 0} new</strong> ·{" "}
+                                        {lastRun.data.refreshed ?? 0} refreshed
+                                    </p>
+                                    {/* A feed that 404s is invisible otherwise: the run still "succeeds". */}
+                                    {lastRun.data.errors?.length ? (
+                                        <div className="rounded-md border border-destructive/40 bg-destructive/5 p-2">
+                                            <p className="font-semibold text-destructive mb-1">
+                                                {lastRun.data.errors.length} feed(s) failed and were skipped
+                                            </p>
+                                            <ul className="space-y-0.5 text-xs text-muted-foreground">
+                                                {lastRun.data.errors.map((e: any, i: number) => (
+                                                    <li key={i}><strong>{e.source}</strong> — {e.error}</li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    ) : (
+                                        <p className="text-xs text-muted-foreground">All feeds responded.</p>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground">
+                                        <span><strong className="text-foreground">{lastRun.data.processedCount ?? 0}</strong> processed</span>
+                                        <span>{lastRun.data.llmArticles ?? 0} via the model</span>
+                                        {/* Heuristic output is publishable but visibly weaker, so it must not be silent. */}
+                                        {(lastRun.data.heuristicArticles ?? 0) > 0 && (
+                                            <span className="text-amber-600 dark:text-amber-500">
+                                                {lastRun.data.heuristicArticles} via offline heuristics
+                                            </span>
+                                        )}
+                                        {(lastRun.data.rejectedOffBrief ?? 0) > 0 && (
+                                            <span>{lastRun.data.rejectedOffBrief} rejected as off-brief</span>
+                                        )}
+                                        {(lastRun.data.skippedThinSource ?? 0) > 0 && (
+                                            <span>{lastRun.data.skippedThinSource} skipped (headline only)</span>
+                                        )}
+                                        {(lastRun.data.failedCount ?? 0) > 0 && (
+                                            <span className="text-destructive">{lastRun.data.failedCount} failed</span>
+                                        )}
+                                    </div>
+
+                                    {lastRun.data.aiBudget && (
+                                        <div>
+                                            <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                                                <span>
+                                                    Daily AI requests: {lastRun.data.aiBudget.used}/{lastRun.data.aiBudget.limit}
+                                                    {" "}({lastRun.data.aiBudget.remaining} left, resets 00:00 UTC)
+                                                </span>
+                                                <span>{lastRun.data.aiBudget.spentThisRun} spent this run</span>
+                                            </div>
+                                            <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                                                <div
+                                                    className={`h-full ${lastRun.data.aiBudget.remaining === 0 ? "bg-destructive" : "bg-primary"}`}
+                                                    style={{ width: `${Math.min(100, Math.round((lastRun.data.aiBudget.used / Math.max(1, lastRun.data.aiBudget.limit)) * 100))}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <p className="text-xs text-muted-foreground">{lastRun.data.message}</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+<div className="flex items-center gap-6">
                             <button
                                 onClick={() => setActiveTab("review")}
                                 className={`pb-2 text-sm font-bold transition-all relative ${activeTab === "review"
@@ -847,6 +962,21 @@ export default function AutomationPage() {
                             >
                                 Raw Items ({rawItems.length})
                             </button>
+                            {rejectedCount > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const next = !showRejected;
+                                        setShowRejected(next);
+                                        setActiveTab("raw");
+                                        fetchRawItems(next);
+                                    }}
+                                    className="pb-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
+                                    title="Articles the editorial brief rejected as off-topic"
+                                >
+                                    {showRejected ? "Hide" : "Show"} off-brief ({rejectedCount})
+                                </button>
+                            )}
                         </div>
                         {activeTab === "review" ? (
                             <div className="flex items-center gap-2 flex-wrap justify-end">
@@ -1130,6 +1260,19 @@ export default function AutomationPage() {
                                                                 <span>• {new Date(item.publishedAt).toLocaleString()}</span>
                                                             )}
                                                             {item.language && <span className="uppercase font-bold">• {String(item.language)}</span>}
+                                                            {/* Why an article is not being processed has to be visible, and reversible. */}
+                                                            {item.relevance === "rejected" && (
+                                                                <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-amber-700 dark:text-amber-500">
+                                                                    off-brief{item.relevanceReason ? `: ${item.relevanceReason}` : ""}
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => restoreRejected([item.id])}
+                                                                        className="underline hover:no-underline font-semibold"
+                                                                    >
+                                                                        restore
+                                                                    </button>
+                                                                </span>
+                                                            )}
                                                         </div>
                                                         <div className="font-bold text-sm mt-1 truncate">{item.title || "Untitled"}</div>
                                                         <div className="text-xs text-muted-foreground line-clamp-2 mt-1">

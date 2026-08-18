@@ -83,3 +83,30 @@ export async function DELETE(request: Request) {
     );
   }
 }
+
+/**
+ * Clears the topical verdict on queued articles, so the next processing run considers them
+ * again. Triage is a model's opinion about an editor's brief; an editor has to be able to
+ * overrule it, otherwise a wrong rejection is permanent and invisible.
+ */
+export async function PATCH(request: Request) {
+  try {
+    const unauthorized = requireAdmin(request);
+    if (unauthorized) return unauthorized;
+
+    const { ids } = await request.json();
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return NextResponse.json({ error: "Provide ids array" }, { status: 400 });
+    }
+
+    const result = await prisma.articleRaw.updateMany({
+      where: { id: { in: ids } },
+      data: { relevance: null, relevanceReason: null, relevanceCheckedAt: null },
+    });
+
+    return NextResponse.json({ restoredCount: result.count });
+  } catch (error) {
+    console.error("Failed to restore raw items:", error);
+    return NextResponse.json({ error: "Failed to restore raw items" }, { status: 500 });
+  }
+}
