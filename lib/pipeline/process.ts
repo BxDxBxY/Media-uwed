@@ -238,18 +238,24 @@ export async function runProcess(input: ProcessInput = {}) {
       dailyBudget: budgetApplies ? `${usage.used}/${usage.limit}` : "unmetered",
     });
 
-    for (const raw of filteredArticles) {
-      if (budgetApplies && requestsSpent >= usage.remaining) {
-        // Leaving the rest queued beats processing them with the weak heuristic path:
-        // they keep their place and get a real editorial pass tomorrow.
-        stoppedForBudget = true;
-        logger.warn("Stopping the batch: daily AI request budget reached", {
-          requestsSpent,
-          budgetRemaining: usage.remaining,
-        });
-        break;
-      }
+    /**
+     * Articles are processed concurrently.
+     *
+     * They used to run strictly one at a time, and each editorial pass takes roughly 75
+     * seconds against a free model. `/api/cron/automation` declares `maxDuration = 300`, so
+     * a sequential run could never finish more than about four articles before the platform
+     * killed it — the scheduled pipeline was capped at four articles per run regardless of
+     * how many were queued. OpenRouter's free tier allows 20 requests a minute, so a small
+     * pool stays well inside the rate limit while cutting wall-clock time by the pool size.
+     *
+     * Shared counters are safe to mutate here: JavaScript runs one task at a time, so the
+     * increments below cannot interleave mid-statement. The budget is re-checked before each
+     * article is claimed, which is what keeps the pool from overshooting the daily quota.
+     */
+    const concurrency = Math.max(1, Math.min(8, Number(process.env.AI_PROCESS_CONCURRENCY || 4)));
+    const queue = [...filteredArticles];
 
+    const processOne = async (raw: (typeof filteredArticles)[number]) => {
       try {
         let detailedContent = "";
         let finalImageUrl = raw.imageUrl;
@@ -310,7 +316,7 @@ export async function runProcess(input: ProcessInput = {}) {
             url: raw.url,
             chars: sourceMaterial.trim().length,
           });
-          continue;
+          return;
         }
 
         const sourceLang = detectSourceLanguage(sourceMaterial);
@@ -352,7 +358,7 @@ export async function runProcess(input: ProcessInput = {}) {
 
         if (!aiResult) {
           failedCount++;
-          continue;
+          return;
         }
 
         const sourceCategory = (raw.source?.category || "").trim();
@@ -417,10 +423,32 @@ export async function runProcess(input: ProcessInput = {}) {
 
         processedCount++;
       } catch (error) {
-        console.error(`Error processing article ${raw.id}:`, error);
+        logger.error("Failed to process an article", {
+          id: raw.id,
+          url: raw.url,
+          message: error instanceof Error ? error.message : String(error),
+        });
         failedCount++;
       }
-    }
+    };
+
+    const worker = async () => {
+      for (;;) {
+        if (budgetApplies && requestsSpent >= usage.remaining) {
+          // Leaving the rest queued beats processing them with the weak heuristic path:
+          // they keep their place and get a real editorial pass tomorrow.
+          stoppedForBudget = true;
+          return;
+        }
+        const raw = queue.shift();
+        if (!raw) return;
+        await processOne(raw);
+      }
+    };
+
+    await Promise.all(
+      Array.from({ length: Math.min(concurrency, queue.length) }, () => worker()),
+    );
 
     // Flush whatever the per-article write missed, e.g. an article that threw.
     if (requestsSpent > requestsRecorded) {

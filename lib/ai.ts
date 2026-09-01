@@ -106,6 +106,33 @@ export const MIN_SOURCE_CHARS = 120;
 const OPENROUTER_REFERER = process.env.OPENROUTER_REFERER || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 const OPENROUTER_TITLE = process.env.OPENROUTER_TITLE || "University Media AI";
 
+/**
+ * Total-deadline wrapper for a provider request.
+ *
+ * axios's `timeout` in Node is an inactivity timeout, not a wall-clock one: while the
+ * connection keeps trickling bytes it never fires. On a congested free endpoint that means
+ * a request can hang for many minutes — measured at over five, against a `timeout` of two —
+ * and because the pipeline processes articles one at a time, a single hung request stalls
+ * the whole batch. An AbortController gives a hard ceiling regardless of what the socket
+ * does.
+ */
+export const PROVIDER_DEADLINE_MS = Number(process.env.AI_REQUEST_TIMEOUT_MS || 90_000);
+
+export async function postWithDeadline(
+  url: string,
+  body: unknown,
+  headers: Record<string, string>,
+  deadlineMs: number = PROVIDER_DEADLINE_MS,
+) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), deadlineMs);
+  try {
+    return await axios.post(url, body, { headers, signal: controller.signal, timeout: deadlineMs });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export function parseModelList(value: string | null | undefined): string[] {
   return String(value || "")
     .split(",")
@@ -689,14 +716,11 @@ async function callEditorialModel(args: {
     try {
       logger.debug("AI editorial pass request", { url, model: candidate, jsonMode: strict });
 
-      const res = await axios.post(url, body, {
-        timeout: 120_000,
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-          "HTTP-Referer": OPENROUTER_REFERER,
-          "X-Title": OPENROUTER_TITLE,
-        },
+      const res = await postWithDeadline(url, body, {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": OPENROUTER_REFERER,
+        "X-Title": OPENROUTER_TITLE,
       });
 
       onProviderRequest({ model: candidate, status: res.status, ok: true });

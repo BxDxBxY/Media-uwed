@@ -1,0 +1,6 @@
+обрабатываю 22 статей, параллельно по 4
+[DEBUG] Processing batch with AI provider {"hasProviderKey":true,"integrationEnabled":true,"providerName":"openrouter","providerModel":"nvidia/nemotron-3-ultra-550b-a55b:free","articles":22,"dailyBudget":"0/40"}
+[DEBUG] AI editorial pass request {"url":"https://openrouter.ai/api/v1/chat/completions","model":"nvidia/nemotron-3-ultra-550b-a55b:free","jsonMode":true}
+[DEBUG] AI editorial pass request {"url":"https://openrouter.ai/api/v1/chat/completions","model":"nvidia/nemotron-3-ultra-550b-a55b:free","jsonMode":true}
+[DEBUG] AI editorial pass request {"url":"https://openrouter.ai/api/v1/chat/completions","model":"nvidia/nemotron-3-ultra-550b-a55b:free","jsonMode":true}
+[DEBUG] AI editorial pass request {"url":"https://openrouter.ai/api/v1/chat/completions","model":"nvidia/nemotron-3-ultra-550b-a55b:free","jsonMode":true}

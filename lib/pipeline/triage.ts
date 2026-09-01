@@ -1,6 +1,12 @@
 import axios from "axios";
 import { logger } from "@/lib/logger";
-import { DEFAULT_AI_MODEL, DEFAULT_FALLBACK_MODELS, parseModelList, type AiTaskConfig } from "@/lib/ai";
+import {
+  DEFAULT_AI_MODEL,
+  DEFAULT_FALLBACK_MODELS,
+  parseModelList,
+  postWithDeadline,
+  type AiTaskConfig,
+} from "@/lib/ai";
 
 /**
  * Topical triage: decides which queued articles belong on this site, using the editorial
@@ -162,7 +168,7 @@ async function judgeBatch(
 
   for (const model of candidates) {
     try {
-      const res = await axios.post(
+      const res = await postWithDeadline(
         url,
         {
           model,
@@ -175,11 +181,8 @@ async function judgeBatch(
           stream: false,
         },
         {
-          timeout: 120_000,
-          headers: {
-            Authorization: `Bearer ${safeKey}`,
-            "Content-Type": "application/json",
-          },
+          Authorization: `Bearer ${safeKey}`,
+          "Content-Type": "application/json",
         },
       );
 
