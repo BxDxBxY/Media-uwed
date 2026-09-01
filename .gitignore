@@ -43,3 +43,8 @@ yarn-error.log*
 next-env.d.ts
 
 /app/generated/prisma
+
+# Scratch files from manual pipeline runs — never source.
+*.tmp.mts
+*.tmp.json
+batch.log
