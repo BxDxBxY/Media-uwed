@@ -9,6 +9,27 @@ import Image from "next/image";
 import { useMemo, useState } from "react";
 
 export default function EventsPage() {
+  /**
+   * Events store `date` as a plain string, and the seed writes ISO ("2026-09-20") while
+   * hand-entered events may use anything. Rendering it raw showed "2026-09-02" on a page
+   * whose every other label is translated, and `date.split(" ")` — used for the day/month
+   * badge — produced nothing at all for an ISO date. Parse first, fall back to the stored
+   * string when it is not a date.
+   */
+  const eventDateParts = (value: string) => {
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      const [a, b] = value.split(" ");
+      return { month: a || value, day: (b || "").replace(",", ""), full: value };
+    }
+    const locale = language === "ru" ? "ru-RU" : language === "uz" ? "uz-UZ" : "en-GB";
+    return {
+      month: parsed.toLocaleDateString(locale, { month: "short" }).toUpperCase(),
+      day: String(parsed.getDate()),
+      full: parsed.toLocaleDateString(locale, { day: "numeric", month: "long", year: "numeric" }),
+    };
+  };
+
   const { events, isLoading, language } = useGlobalContext();
   const [activeTab, setActiveTab] = useState<"upcoming" | "past">("upcoming");
   const [nowTs] = useState(() => Date.now());
@@ -110,8 +131,8 @@ export default function EventsPage() {
                 className="object-cover transition-transform duration-700 group-hover:scale-110"
               />
               <div className="absolute top-4 left-4 bg-card/90 text-foreground backdrop-blur-md px-3 py-1.5 rounded-xl border border-border/60 shadow-sm flex flex-col items-center min-w-[50px]">
-                <span className="text-[10px] font-black uppercase text-primary leading-none">{event.date.split(" ")[0]}</span>
-                <span className="text-lg font-serif font-black text-foreground leading-none mt-1">{event.date.split(" ")[1]?.replace(",", "")}</span>
+                <span className="text-[10px] font-black uppercase text-primary leading-none">{eventDateParts(event.date).month}</span>
+                <span className="text-lg font-serif font-black text-foreground leading-none mt-1">{eventDateParts(event.date).day}</span>
               </div>
             </div>
 
@@ -131,7 +152,7 @@ export default function EventsPage() {
                   <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center text-primary group-hover:bg-primary/10 transition-colors">
                     <Calendar className="h-4 w-4" />
                   </div>
-                  <span className="font-medium">{event.date} • {event.time}</span>
+                  <span className="font-medium">{eventDateParts(event.date).full} • {event.time}</span>
                 </div>
               </div>
 
