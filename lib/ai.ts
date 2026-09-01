@@ -60,7 +60,7 @@ const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
  * Switching to a paid model is one field: `OPENROUTER_TRANSLATE_MODEL`, or the model
  * box in Admin → Automation → Integrations.
  */
-export const DEFAULT_AI_MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free";
+export const DEFAULT_AI_MODEL = "minimax/minimax-m3:free";
 const OPENROUTER_MODEL = process.env.OPENROUTER_TRANSLATE_MODEL || DEFAULT_AI_MODEL;
 
 /**
@@ -69,20 +69,21 @@ const OPENROUTER_MODEL = process.env.OPENROUTER_TRANSLATE_MODEL || DEFAULT_AI_MO
  * busy, so a single-model configuration falls through to the weak heuristic pipeline far
  * more often than it has to. Override with `OPENROUTER_FALLBACK_MODELS` (comma-separated).
  *
- * Order comes from `npm run check:models` on a real 1292-character article (2026-08-01),
- * and is by Uzbek quality rather than speed, because Uzbek is what gets published under
- * the university's name and the weakest models mangle it:
- *  - nemotron-3-ultra-550b (75s) — fluent Uzbek, every fact traceable to the source;
- *  - gpt-oss-20b (250s) — good Uzbek, but turned a federal-budget surplus into "market
- *    profit from lending", and is too slow for a serverless function's time limit;
- *  - nemotron-3-super-120b (28s) — fastest, but its Uzbek came back salted with Dutch and
- *    Turkish words ("Kremlda gehouden", "1 iyulga geldik"), so it is a last resort.
- * `google/gemma-4-31b-it:free` was dropped: 429 from the shared upstream pool on both
- * attempts.
+ * Re-measured with `npm run check:models` on 2026-08-19, after the free catalogue changed
+ * and the previous default proved unusable in practice:
+ *  - minimax-m3 (8s) — all three languages, a genuine rewrite, fluent Uzbek. The default.
+ *  - nemotron-3-super-120b, glm-5.2 — both answered 429 from the shared pool that day, which
+ *    is exactly why a chain exists rather than a single model.
+ * Two findings forced the change. `openai/gpt-oss-20b:free` was **removed from the
+ * catalogue** and returned 404 as the first fallback. And `nemotron-3-ultra-550b`, the
+ * previous default, does not advertise `response_format` at all: it was being asked for JSON
+ * mode it cannot honour, and a full three-language article took it 75-94 seconds, longer
+ * than any workable request deadline. Candidates are now chosen from models that actually
+ * support `response_format`.
  */
 export const DEFAULT_FALLBACK_MODELS = [
-  "openai/gpt-oss-20b:free",
   "nvidia/nemotron-3-super-120b-a12b:free",
+  "z-ai/glm-5.2:free",
 ];
 
 /**
@@ -116,7 +117,7 @@ const OPENROUTER_TITLE = process.env.OPENROUTER_TITLE || "University Media AI";
  * the whole batch. An AbortController gives a hard ceiling regardless of what the socket
  * does.
  */
-export const PROVIDER_DEADLINE_MS = Number(process.env.AI_REQUEST_TIMEOUT_MS || 90_000);
+export const PROVIDER_DEADLINE_MS = Number(process.env.AI_REQUEST_TIMEOUT_MS || 120_000);
 
 export async function postWithDeadline(
   url: string,
@@ -567,7 +568,13 @@ async function processNewsWithLlm(
         "A shorter, accurate item is correct; padding it out is a factual error."
       : policy === "summary_only"
         ? `- "content": full article only in ${LANGUAGE_NAMES[sourceLanguage]}; for the other languages repeat the summary.`
-        : '- "content": the full article, 3-6 paragraphs separated by a blank line. Do not truncate mid-sentence.',
+        : '- "content": 2-3 tight paragraphs separated by a blank line, about 120 words per language. ' +
+          "Cover who, what, where, when and why it matters, and stop. Do not truncate mid-sentence.",
+    // Output length is the binding constraint on a free endpoint: three languages of a
+    // 3-6 paragraph article is roughly 3000 tokens, and generating that reliably took
+    // longer than any sane request deadline — every call was aborted and the article fell
+    // back to the weak heuristic path. A news brief in three languages is both what this
+    // site publishes and what the free tier can actually deliver.
     taskConfig.categorizationEnabled === false
       ? '- `categories`: return exactly ["News"].'
       : `- \`categories\`: chosen ONLY from this list: ${CATEGORY_VOCABULARY.join(", ")}. ` +
@@ -708,9 +715,9 @@ async function callEditorialModel(args: {
 
     if (strict) {
       body.response_format = { type: "json_object" };
-      // Three languages of article body do not fit in the default completion cap of
-      // several free endpoints, which truncates the JSON mid-string.
-      body.max_tokens = 8000;
+      // Enough for three languages of a short news item with headroom, and low enough that
+      // generation finishes inside the request deadline on a congested free endpoint.
+      body.max_tokens = 4000;
     }
 
     try {
