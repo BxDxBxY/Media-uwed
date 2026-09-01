@@ -36,6 +36,9 @@ export type ArticleRawMinAggregateOutputType = {
   publishedAt: Date | null
   rawJson: string | null
   createdAt: Date | null
+  relevance: string | null
+  relevanceReason: string | null
+  relevanceCheckedAt: Date | null
 }
 
 export type ArticleRawMaxAggregateOutputType = {
@@ -50,6 +53,9 @@ export type ArticleRawMaxAggregateOutputType = {
   publishedAt: Date | null
   rawJson: string | null
   createdAt: Date | null
+  relevance: string | null
+  relevanceReason: string | null
+  relevanceCheckedAt: Date | null
 }
 
 export type ArticleRawCountAggregateOutputType = {
@@ -64,6 +70,9 @@ export type ArticleRawCountAggregateOutputType = {
   publishedAt: number
   rawJson: number
   createdAt: number
+  relevance: number
+  relevanceReason: number
+  relevanceCheckedAt: number
   _all: number
 }
 
@@ -80,6 +89,9 @@ export type ArticleRawMinAggregateInputType = {
   publishedAt?: true
   rawJson?: true
   createdAt?: true
+  relevance?: true
+  relevanceReason?: true
+  relevanceCheckedAt?: true
 }
 
 export type ArticleRawMaxAggregateInputType = {
@@ -94,6 +106,9 @@ export type ArticleRawMaxAggregateInputType = {
   publishedAt?: true
   rawJson?: true
   createdAt?: true
+  relevance?: true
+  relevanceReason?: true
+  relevanceCheckedAt?: true
 }
 
 export type ArticleRawCountAggregateInputType = {
@@ -108,6 +123,9 @@ export type ArticleRawCountAggregateInputType = {
   publishedAt?: true
   rawJson?: true
   createdAt?: true
+  relevance?: true
+  relevanceReason?: true
+  relevanceCheckedAt?: true
   _all?: true
 }
 
@@ -195,6 +213,9 @@ export type ArticleRawGroupByOutputType = {
   publishedAt: Date | null
   rawJson: string | null
   createdAt: Date
+  relevance: string | null
+  relevanceReason: string | null
+  relevanceCheckedAt: Date | null
   _count: ArticleRawCountAggregateOutputType | null
   _min: ArticleRawMinAggregateOutputType | null
   _max: ArticleRawMaxAggregateOutputType | null
@@ -230,6 +251,9 @@ export type ArticleRawWhereInput = {
   publishedAt?: Prisma.DateTimeNullableFilter<"ArticleRaw"> | Date | string | null
   rawJson?: Prisma.StringNullableFilter<"ArticleRaw"> | string | null
   createdAt?: Prisma.DateTimeFilter<"ArticleRaw"> | Date | string
+  relevance?: Prisma.StringNullableFilter<"ArticleRaw"> | string | null
+  relevanceReason?: Prisma.StringNullableFilter<"ArticleRaw"> | string | null
+  relevanceCheckedAt?: Prisma.DateTimeNullableFilter<"ArticleRaw"> | Date | string | null
   processed?: Prisma.XOR<Prisma.ArticleProcessedNullableScalarRelationFilter, Prisma.ArticleProcessedWhereInput> | null
   source?: Prisma.XOR<Prisma.SourceScalarRelationFilter, Prisma.SourceWhereInput>
 }
@@ -246,6 +270,9 @@ export type ArticleRawOrderByWithRelationInput = {
   publishedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   rawJson?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  relevance?: Prisma.SortOrderInput | Prisma.SortOrder
+  relevanceReason?: Prisma.SortOrderInput | Prisma.SortOrder
+  relevanceCheckedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   processed?: Prisma.ArticleProcessedOrderByWithRelationInput
   source?: Prisma.SourceOrderByWithRelationInput
 }
@@ -266,6 +293,9 @@ export type ArticleRawWhereUniqueInput = Prisma.AtLeast<{
   publishedAt?: Prisma.DateTimeNullableFilter<"ArticleRaw"> | Date | string | null
   rawJson?: Prisma.StringNullableFilter<"ArticleRaw"> | string | null
   createdAt?: Prisma.DateTimeFilter<"ArticleRaw"> | Date | string
+  relevance?: Prisma.StringNullableFilter<"ArticleRaw"> | string | null
+  relevanceReason?: Prisma.StringNullableFilter<"ArticleRaw"> | string | null
+  relevanceCheckedAt?: Prisma.DateTimeNullableFilter<"ArticleRaw"> | Date | string | null
   processed?: Prisma.XOR<Prisma.ArticleProcessedNullableScalarRelationFilter, Prisma.ArticleProcessedWhereInput> | null
   source?: Prisma.XOR<Prisma.SourceScalarRelationFilter, Prisma.SourceWhereInput>
 }, "id" | "url" | "sourceId_guid">
@@ -282,6 +312,9 @@ export type ArticleRawOrderByWithAggregationInput = {
   publishedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   rawJson?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  relevance?: Prisma.SortOrderInput | Prisma.SortOrder
+  relevanceReason?: Prisma.SortOrderInput | Prisma.SortOrder
+  relevanceCheckedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   _count?: Prisma.ArticleRawCountOrderByAggregateInput
   _max?: Prisma.ArticleRawMaxOrderByAggregateInput
   _min?: Prisma.ArticleRawMinOrderByAggregateInput
@@ -302,6 +335,9 @@ export type ArticleRawScalarWhereWithAggregatesInput = {
   publishedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"ArticleRaw"> | Date | string | null
   rawJson?: Prisma.StringNullableWithAggregatesFilter<"ArticleRaw"> | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"ArticleRaw"> | Date | string
+  relevance?: Prisma.StringNullableWithAggregatesFilter<"ArticleRaw"> | string | null
+  relevanceReason?: Prisma.StringNullableWithAggregatesFilter<"ArticleRaw"> | string | null
+  relevanceCheckedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"ArticleRaw"> | Date | string | null
 }
 
 export type ArticleRawCreateInput = {
@@ -315,6 +351,9 @@ export type ArticleRawCreateInput = {
   publishedAt?: Date | string | null
   rawJson?: string | null
   createdAt?: Date | string
+  relevance?: string | null
+  relevanceReason?: string | null
+  relevanceCheckedAt?: Date | string | null
   processed?: Prisma.ArticleProcessedCreateNestedOneWithoutRawInput
   source: Prisma.SourceCreateNestedOneWithoutArticlesInput
 }
@@ -331,6 +370,9 @@ export type ArticleRawUncheckedCreateInput = {
   publishedAt?: Date | string | null
   rawJson?: string | null
   createdAt?: Date | string
+  relevance?: string | null
+  relevanceReason?: string | null
+  relevanceCheckedAt?: Date | string | null
   processed?: Prisma.ArticleProcessedUncheckedCreateNestedOneWithoutRawInput
 }
 
@@ -345,6 +387,9 @@ export type ArticleRawUpdateInput = {
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   rawJson?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  relevance?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  relevanceReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  relevanceCheckedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   processed?: Prisma.ArticleProcessedUpdateOneWithoutRawNestedInput
   source?: Prisma.SourceUpdateOneRequiredWithoutArticlesNestedInput
 }
@@ -361,6 +406,9 @@ export type ArticleRawUncheckedUpdateInput = {
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   rawJson?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  relevance?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  relevanceReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  relevanceCheckedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   processed?: Prisma.ArticleProcessedUncheckedUpdateOneWithoutRawNestedInput
 }
 
@@ -376,6 +424,9 @@ export type ArticleRawCreateManyInput = {
   publishedAt?: Date | string | null
   rawJson?: string | null
   createdAt?: Date | string
+  relevance?: string | null
+  relevanceReason?: string | null
+  relevanceCheckedAt?: Date | string | null
 }
 
 export type ArticleRawUpdateManyMutationInput = {
@@ -389,6 +440,9 @@ export type ArticleRawUpdateManyMutationInput = {
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   rawJson?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  relevance?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  relevanceReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  relevanceCheckedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type ArticleRawUncheckedUpdateManyInput = {
@@ -403,6 +457,9 @@ export type ArticleRawUncheckedUpdateManyInput = {
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   rawJson?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  relevance?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  relevanceReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  relevanceCheckedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type ArticleRawListRelationFilter = {
@@ -432,6 +489,9 @@ export type ArticleRawCountOrderByAggregateInput = {
   publishedAt?: Prisma.SortOrder
   rawJson?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  relevance?: Prisma.SortOrder
+  relevanceReason?: Prisma.SortOrder
+  relevanceCheckedAt?: Prisma.SortOrder
 }
 
 export type ArticleRawMaxOrderByAggregateInput = {
@@ -446,6 +506,9 @@ export type ArticleRawMaxOrderByAggregateInput = {
   publishedAt?: Prisma.SortOrder
   rawJson?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  relevance?: Prisma.SortOrder
+  relevanceReason?: Prisma.SortOrder
+  relevanceCheckedAt?: Prisma.SortOrder
 }
 
 export type ArticleRawMinOrderByAggregateInput = {
@@ -460,6 +523,9 @@ export type ArticleRawMinOrderByAggregateInput = {
   publishedAt?: Prisma.SortOrder
   rawJson?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  relevance?: Prisma.SortOrder
+  relevanceReason?: Prisma.SortOrder
+  relevanceCheckedAt?: Prisma.SortOrder
 }
 
 export type ArticleRawScalarRelationFilter = {
@@ -534,6 +600,9 @@ export type ArticleRawCreateWithoutSourceInput = {
   publishedAt?: Date | string | null
   rawJson?: string | null
   createdAt?: Date | string
+  relevance?: string | null
+  relevanceReason?: string | null
+  relevanceCheckedAt?: Date | string | null
   processed?: Prisma.ArticleProcessedCreateNestedOneWithoutRawInput
 }
 
@@ -548,6 +617,9 @@ export type ArticleRawUncheckedCreateWithoutSourceInput = {
   publishedAt?: Date | string | null
   rawJson?: string | null
   createdAt?: Date | string
+  relevance?: string | null
+  relevanceReason?: string | null
+  relevanceCheckedAt?: Date | string | null
   processed?: Prisma.ArticleProcessedUncheckedCreateNestedOneWithoutRawInput
 }
 
@@ -592,6 +664,9 @@ export type ArticleRawScalarWhereInput = {
   publishedAt?: Prisma.DateTimeNullableFilter<"ArticleRaw"> | Date | string | null
   rawJson?: Prisma.StringNullableFilter<"ArticleRaw"> | string | null
   createdAt?: Prisma.DateTimeFilter<"ArticleRaw"> | Date | string
+  relevance?: Prisma.StringNullableFilter<"ArticleRaw"> | string | null
+  relevanceReason?: Prisma.StringNullableFilter<"ArticleRaw"> | string | null
+  relevanceCheckedAt?: Prisma.DateTimeNullableFilter<"ArticleRaw"> | Date | string | null
 }
 
 export type ArticleRawCreateWithoutProcessedInput = {
@@ -605,6 +680,9 @@ export type ArticleRawCreateWithoutProcessedInput = {
   publishedAt?: Date | string | null
   rawJson?: string | null
   createdAt?: Date | string
+  relevance?: string | null
+  relevanceReason?: string | null
+  relevanceCheckedAt?: Date | string | null
   source: Prisma.SourceCreateNestedOneWithoutArticlesInput
 }
 
@@ -620,6 +698,9 @@ export type ArticleRawUncheckedCreateWithoutProcessedInput = {
   publishedAt?: Date | string | null
   rawJson?: string | null
   createdAt?: Date | string
+  relevance?: string | null
+  relevanceReason?: string | null
+  relevanceCheckedAt?: Date | string | null
 }
 
 export type ArticleRawCreateOrConnectWithoutProcessedInput = {
@@ -649,6 +730,9 @@ export type ArticleRawUpdateWithoutProcessedInput = {
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   rawJson?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  relevance?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  relevanceReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  relevanceCheckedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   source?: Prisma.SourceUpdateOneRequiredWithoutArticlesNestedInput
 }
 
@@ -664,6 +748,9 @@ export type ArticleRawUncheckedUpdateWithoutProcessedInput = {
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   rawJson?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  relevance?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  relevanceReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  relevanceCheckedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type ArticleRawCreateManySourceInput = {
@@ -677,6 +764,9 @@ export type ArticleRawCreateManySourceInput = {
   publishedAt?: Date | string | null
   rawJson?: string | null
   createdAt?: Date | string
+  relevance?: string | null
+  relevanceReason?: string | null
+  relevanceCheckedAt?: Date | string | null
 }
 
 export type ArticleRawUpdateWithoutSourceInput = {
@@ -690,6 +780,9 @@ export type ArticleRawUpdateWithoutSourceInput = {
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   rawJson?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  relevance?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  relevanceReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  relevanceCheckedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   processed?: Prisma.ArticleProcessedUpdateOneWithoutRawNestedInput
 }
 
@@ -704,6 +797,9 @@ export type ArticleRawUncheckedUpdateWithoutSourceInput = {
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   rawJson?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  relevance?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  relevanceReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  relevanceCheckedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   processed?: Prisma.ArticleProcessedUncheckedUpdateOneWithoutRawNestedInput
 }
 
@@ -718,6 +814,9 @@ export type ArticleRawUncheckedUpdateManyWithoutSourceInput = {
   publishedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   rawJson?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  relevance?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  relevanceReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  relevanceCheckedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 
@@ -734,6 +833,9 @@ export type ArticleRawSelect<ExtArgs extends runtime.Types.Extensions.InternalAr
   publishedAt?: boolean
   rawJson?: boolean
   createdAt?: boolean
+  relevance?: boolean
+  relevanceReason?: boolean
+  relevanceCheckedAt?: boolean
   processed?: boolean | Prisma.ArticleRaw$processedArgs<ExtArgs>
   source?: boolean | Prisma.SourceDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["articleRaw"]>
@@ -750,6 +852,9 @@ export type ArticleRawSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ex
   publishedAt?: boolean
   rawJson?: boolean
   createdAt?: boolean
+  relevance?: boolean
+  relevanceReason?: boolean
+  relevanceCheckedAt?: boolean
   source?: boolean | Prisma.SourceDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["articleRaw"]>
 
@@ -765,6 +870,9 @@ export type ArticleRawSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ex
   publishedAt?: boolean
   rawJson?: boolean
   createdAt?: boolean
+  relevance?: boolean
+  relevanceReason?: boolean
+  relevanceCheckedAt?: boolean
   source?: boolean | Prisma.SourceDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["articleRaw"]>
 
@@ -780,9 +888,12 @@ export type ArticleRawSelectScalar = {
   publishedAt?: boolean
   rawJson?: boolean
   createdAt?: boolean
+  relevance?: boolean
+  relevanceReason?: boolean
+  relevanceCheckedAt?: boolean
 }
 
-export type ArticleRawOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "sourceId" | "guid" | "url" | "title" | "description" | "author" | "imageUrl" | "publishedAt" | "rawJson" | "createdAt", ExtArgs["result"]["articleRaw"]>
+export type ArticleRawOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "sourceId" | "guid" | "url" | "title" | "description" | "author" | "imageUrl" | "publishedAt" | "rawJson" | "createdAt" | "relevance" | "relevanceReason" | "relevanceCheckedAt", ExtArgs["result"]["articleRaw"]>
 export type ArticleRawInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   processed?: boolean | Prisma.ArticleRaw$processedArgs<ExtArgs>
   source?: boolean | Prisma.SourceDefaultArgs<ExtArgs>
@@ -812,6 +923,14 @@ export type $ArticleRawPayload<ExtArgs extends runtime.Types.Extensions.Internal
     publishedAt: Date | null
     rawJson: string | null
     createdAt: Date
+    /**
+     * Topical triage against the admin's editorial brief: "relevant" | "rejected".
+     * Null means not yet judged. Stored so a rejected item is not re-judged on every run —
+     * re-judging would spend the free tier's daily request budget on the same headlines.
+     */
+    relevance: string | null
+    relevanceReason: string | null
+    relevanceCheckedAt: Date | null
   }, ExtArgs["result"]["articleRaw"]>
   composites: {}
 }
@@ -1248,6 +1367,9 @@ export interface ArticleRawFieldRefs {
   readonly publishedAt: Prisma.FieldRef<"ArticleRaw", 'DateTime'>
   readonly rawJson: Prisma.FieldRef<"ArticleRaw", 'String'>
   readonly createdAt: Prisma.FieldRef<"ArticleRaw", 'DateTime'>
+  readonly relevance: Prisma.FieldRef<"ArticleRaw", 'String'>
+  readonly relevanceReason: Prisma.FieldRef<"ArticleRaw", 'String'>
+  readonly relevanceCheckedAt: Prisma.FieldRef<"ArticleRaw", 'DateTime'>
 }
     
 

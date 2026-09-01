@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { Prisma } from "@/prisma/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/admin-auth";
 
 function parsePositiveInt(value: string | null, fallback: number) {
   const parsed = Number.parseInt(value || "", 10);
@@ -160,8 +161,11 @@ export async function GET(request: Request) {
   }
 }
 
-// POST /api/frontend/articles - Create new article
+// POST /api/frontend/articles - Create new article (admin only)
 export async function POST(request: Request) {
+  const unauthorized = requireAdmin(request);
+  if (unauthorized) return unauthorized;
+
   try {
     const body = await request.json();
     const {
@@ -193,7 +197,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const categoryList = categories || (category ? [category] : ["News"]);
+    const rawCategoryList = Array.isArray(categories) ? categories : category ? [category] : ["News"];
+    const categoryList = Array.from(new Set(rawCategoryList.map((name: string) => String(name || "").trim()).filter(Boolean))).slice(0, 3);
     const categoryConnect = await Promise.all(
       categoryList.map(async (name: string) => {
         const cat = await prisma.category.upsert({

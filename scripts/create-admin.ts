@@ -23,12 +23,16 @@ async function main() {
       username,
       passwordHash: hashPassword(password),
       role: "admin",
+      approved: true,
+      isSuperAdmin: true,
     },
     create: {
       username,
       email,
       passwordHash: hashPassword(password),
       role: "admin",
+      approved: true,
+      isSuperAdmin: true,
     },
   });
 

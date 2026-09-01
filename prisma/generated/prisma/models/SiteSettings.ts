@@ -539,6 +539,11 @@ export type $SiteSettingsPayload<ExtArgs extends runtime.Types.Extensions.Intern
     keywords: string
     defaultLanguage: string
     enableNotifications: boolean
+    /**
+     * NOT IMPLEMENTED. There is no comment model, endpoint or UI; these two columns are
+     * storage waiting for a feature. The admin toggles that used to write them were removed
+     * because they did nothing. Do not surface them again until comments exist.
+     */
     enableComments: boolean
     moderateComments: boolean
     themeMode: string

@@ -1,19 +1,23 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { POST as pullPost } from "@/app/api/cron/pull/route";
-import { POST as processPost } from "@/app/api/cron/process/route";
+import { runPull } from "@/lib/pipeline/pull";
+import { runProcess } from "@/lib/pipeline/process";
+import { authorizeCronRequest } from "@/lib/cron-auth";
+import { withRequestId } from "@/lib/logger";
 
-function canRunCron(request: Request) {
-  const expected = process.env.AUTOMATION_CRON_SECRET?.trim();
-  if (!expected) return true;
-  const provided = request.headers.get("x-automation-secret")?.trim();
-  return provided && provided === expected;
-}
+export const maxDuration = 300;
 
-export async function POST(request: Request) {
-  if (!canRunCron(request)) {
-    return NextResponse.json({ error: "Unauthorized cron trigger" }, { status: 401 });
-  }
+/**
+ * Scheduler entry point. Point an external cron at this endpoint; it enforces the
+ * cadence stored in `AutomationConfig.fetchPeriodMinutes` itself, so calling it more
+ * often than needed is harmless.
+ *
+ *   curl -X POST https://<host>/api/cron/automation \
+ *        -H "x-automation-secret: $AUTOMATION_CRON_SECRET"
+ */
+async function runScheduler(request: Request, forceRun: boolean) {
+  const unauthorized = authorizeCronRequest(request);
+  if (unauthorized) return unauthorized;
 
   const settings = await prisma.automationConfig.findUnique({ where: { id: "default" } });
   if (!settings) {
@@ -24,7 +28,7 @@ export async function POST(request: Request) {
   const lastRunAt = settings.lastScheduledRunAt ? new Date(settings.lastScheduledRunAt) : null;
   const now = new Date();
 
-  if (lastRunAt && now.getTime() - lastRunAt.getTime() < periodMinutes * 60_000) {
+  if (!forceRun && lastRunAt && now.getTime() - lastRunAt.getTime() < periodMinutes * 60_000) {
     return NextResponse.json({
       ran: false,
       reason: "period_not_elapsed",
@@ -33,27 +37,41 @@ export async function POST(request: Request) {
     });
   }
 
-  const pullResponse = settings.automatedPull
-    ? await pullPost(new Request("http://internal/api/cron/pull", { method: "POST", body: JSON.stringify({ force: true }) }))
-    : NextResponse.json({ message: "pull_disabled" });
-
-  const processResponse = settings.processing
-    ? await processPost(new Request("http://internal/api/cron/process", { method: "POST", body: JSON.stringify({ force: true }) }))
-    : NextResponse.json({ message: "process_disabled" });
-
-  const pullResult = await pullResponse.json().catch(() => ({}));
-  const processResult = await processResponse.json().catch(() => ({}));
-
+  // Claim the slot before doing the work, so two overlapping scheduler calls cannot
+  // both run the pipeline.
   await prisma.automationConfig.update({
     where: { id: "default" },
     data: { lastScheduledRunAt: now },
   });
+
+  const pullResult = settings.automatedPull
+    ? await runPull({ force: true })
+    : { message: "pull_disabled" };
+
+  const processResult = settings.processing
+    ? await runProcess({ force: true })
+    : { message: "process_disabled" };
 
   return NextResponse.json({
     ran: true,
     periodMinutes,
     pullResult,
     processResult,
-    note: "Configure an external scheduler (e.g. Vercel Cron) to call this endpoint periodically.",
+    note: "Published items still require human approval in Admin → Automation.",
   });
+}
+
+export async function POST(request: Request) {
+  const body = (await request.json().catch(() => ({}))) as { force?: boolean };
+  return withRequestId(request, () => runScheduler(request, body?.force === true));
+}
+
+/**
+ * Vercel Cron invokes scheduled paths with **GET**, not POST — a POST-only route answers
+ * 405 and the pipeline silently never runs in production. Same guard, same work; `force`
+ * comes from the query string because a GET has no body.
+ */
+export async function GET(request: Request) {
+  const force = new URL(request.url).searchParams.get("force") === "true";
+  return withRequestId(request, () => runScheduler(request, force));
 }

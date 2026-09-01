@@ -1,4 +1,5 @@
 import type { IntegrationConfig } from "../prisma/generated/prisma/client";
+import { DEFAULT_AI_MODEL } from "@/lib/ai";
 
 export type IntegrationType = "ai" | "telegram";
 
@@ -7,6 +8,7 @@ export type IntegrationConfigPayload = {
   enabled: boolean;
   provider?: string;
   providerModel?: string;
+  providerBaseUrl?: string;
   channelId?: string;
   sendOnPublish?: boolean;
   aiSummarization?: boolean;
@@ -25,7 +27,8 @@ export type IntegrationSecretPayload = {
 export const DEFAULT_AI_CONFIG: Omit<IntegrationConfigPayload, "integrationType"> = {
   enabled: true,
   provider: "openrouter",
-  providerModel: "openai/gpt-4o-mini",
+  providerModel: DEFAULT_AI_MODEL,
+  providerBaseUrl: "https://openrouter.ai/api/v1",
   aiSummarization: true,
   aiCategorization: true,
   translationPolicy: "full",
@@ -56,6 +59,7 @@ export function normalizeIntegrationPayload(input: unknown): IntegrationConfigPa
     enabled: Boolean(body.enabled),
     provider: typeof body.provider === "string" ? body.provider.trim() : undefined,
     providerModel: typeof body.providerModel === "string" ? body.providerModel.trim() : undefined,
+    providerBaseUrl: typeof body.providerBaseUrl === "string" ? body.providerBaseUrl.trim() : undefined,
     channelId: typeof body.channelId === "string" ? body.channelId.trim() : undefined,
     sendOnPublish: Boolean(body.sendOnPublish),
     aiSummarization: body.aiSummarization === undefined ? true : Boolean(body.aiSummarization),
@@ -87,6 +91,7 @@ export function formatIntegrationForClient(config: IntegrationConfig) {
     enabled: config.enabled,
     provider: config.provider || "",
     providerModel: config.providerModel || "",
+    providerBaseUrl: (config as any).providerBaseUrl || "",
     channelId: config.channelId || "",
     sendOnPublish: config.sendOnPublish,
     aiSummarization: config.aiSummarization,

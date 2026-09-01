@@ -120,6 +120,34 @@ export type AdminApiKey = Prisma.AdminApiKeyModel
  */
 export type AdminUser = Prisma.AdminUserModel
 /**
+ * Model AssistantMemory
+ * Admin assistant chat memory and pending confirmation tokens.
+ * Previously these rows lived in `contact_messages` behind magic subject values,
+ * which mixed internal state into the public inbox.
+ */
+export type AssistantMemory = Prisma.AssistantMemoryModel
+/**
+ * Model PageConfig
+ * Editable page configuration that is a document rather than a set of columns —
+ * currently the About page (mission, team, contact block).
+ * 
+ * It used to live in `contact_messages` under the magic subject `__about_page_config__`,
+ * with every save inserting a **new** row, so internal configuration accumulated inside
+ * the public contact inbox forever. Same reasoning as moving assistant memory out of that
+ * table in the 2026-07-31 hardening pass.
+ */
+export type PageConfig = Prisma.PageConfigModel
+/**
+ * Model AiUsageDay
+ * Requests sent to the AI provider per UTC day.
+ * 
+ * Exists because the deployment runs on OpenRouter's free tier: 50 requests/day shared
+ * across every `:free` model. Without a counter the first cron run of the day would
+ * spend the whole quota on one batch and every later article would silently degrade to
+ * the heuristic pipeline. One row per day; old rows are harmless history.
+ */
+export type AiUsageDay = Prisma.AiUsageDayModel
+/**
  * Model IntegrationConfig
  * 
  */

@@ -151,6 +151,9 @@ model SiteSettings {
   keywords            String   @default("university, news, events, campus life, research, education")
   defaultLanguage     String   @default("en")
   enableNotifications Boolean  @default(true)
+  /// NOT IMPLEMENTED. There is no comment model, endpoint or UI; these two columns are
+  /// storage waiting for a feature. The admin toggles that used to write them were removed
+  /// because they did nothing. Do not surface them again until comments exist.
   enableComments      Boolean  @default(true)
   moderateComments    Boolean  @default(true)
   themeMode           String   @default("system")
@@ -170,6 +173,7 @@ model Source {
   articles      ArticleRaw[]
 
   @@index([enabled, createdAt])
+  @@index([enabled, lastFetchedAt])
   @@map("sources")
 }
 
@@ -185,10 +189,17 @@ model ArticleRaw {
   publishedAt DateTime?
   rawJson     String?
   createdAt   DateTime          @default(now())
+  /// Topical triage against the admin's editorial brief: "relevant" | "rejected".
+  /// Null means not yet judged. Stored so a rejected item is not re-judged on every run —
+  /// re-judging would spend the free tier's daily request budget on the same headlines.
+  relevance         String?
+  relevanceReason   String?
+  relevanceCheckedAt DateTime?
   processed   ArticleProcessed?
   source      Source            @relation(fields: [sourceId], references: [id], onDelete: Cascade)
 
   @@unique([sourceId, guid])
+  @@index([relevance, createdAt])
   @@map("articles_raw")
 }
 
@@ -209,6 +220,7 @@ model ArticleProcessed {
   createdAt  DateTime   @default(now())
   raw        ArticleRaw @relation(fields: [rawId], references: [id], onDelete: Cascade)
 
+  @@index([status])
   @@map("articles_processed")
 }
 
@@ -247,16 +259,69 @@ model AdminApiKey {
 }
 
 model AdminUser {
-  id           String   @id @default(uuid())
-  username     String   @unique
-  email        String   @unique
-  passwordHash String
-  role         String   @default("admin")
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime      @updatedAt
-  apiKeys      AdminApiKey[]
+  id                String        @id @default(uuid())
+  username          String        @unique
+  email             String        @unique
+  passwordHash      String
+  role              String        @default("admin")
+  approved          Boolean       @default(false)
+  resetToken        String?       @unique
+  resetTokenExpires DateTime?
+  isSuperAdmin      Boolean       @default(false)
+  /// Sessions issued before this moment are refused when entering the admin UI.
+  passwordChangedAt DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  apiKeys           AdminApiKey[]
 
   @@map("admin_users")
+}
+
+/// Admin assistant chat memory and pending confirmation tokens.
+/// Previously these rows lived in `contact_messages` behind magic subject values,
+/// which mixed internal state into the public inbox.
+model AssistantMemory {
+  id         String    @id @default(uuid())
+  kind       String // "message" | "action"
+  role       String? // "user" | "assistant" (kind = "message")
+  content    String
+  token      String?   @unique // kind = "action"
+  actionType String? // "publish" | "delete"
+  target     String?
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([kind, createdAt])
+  @@map("assistant_memory")
+}
+
+/// Editable page configuration that is a document rather than a set of columns —
+/// currently the About page (mission, team, contact block).
+///
+/// It used to live in `contact_messages` under the magic subject `__about_page_config__`,
+/// with every save inserting a **new** row, so internal configuration accumulated inside
+/// the public contact inbox forever. Same reasoning as moving assistant memory out of that
+/// table in the 2026-07-31 hardening pass.
+model PageConfig {
+  key       String   @id // e.g. "about"
+  value     String // JSON document
+  updatedAt DateTime @updatedAt
+
+  @@map("page_configs")
+}
+
+/// Requests sent to the AI provider per UTC day.
+///
+/// Exists because the deployment runs on OpenRouter's free tier: 50 requests/day shared
+/// across every `:free` model. Without a counter the first cron run of the day would
+/// spend the whole quota on one batch and every later article would silently degrade to
+/// the heuristic pipeline. One row per day; old rows are harmless history.
+model AiUsageDay {
+  day       String   @id // UTC calendar day, "YYYY-MM-DD"
+  requests  Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@map("ai_usage_days")
 }
 
 model IntegrationConfig {
@@ -267,6 +332,7 @@ model IntegrationConfig {
   providerModel           String?
   providerApiKeyEncrypted String?
   providerApiKeyHash      String?
+  providerBaseUrl         String?  @default("https://openrouter.ai/api/v1")
   channelId               String?
   webhookTokenEncrypted   String?
   sendOnPublish           Boolean  @default(false)
