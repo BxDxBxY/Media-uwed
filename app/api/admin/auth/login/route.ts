@@ -5,8 +5,12 @@ import {
   setAdminSessionCookie,
   verifyPassword,
 } from "@/lib/admin-auth";
+import { enforceRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
+  const limited = enforceRateLimit(request, "login", RATE_LIMITS.auth);
+  if (limited) return limited;
+
   try {
     const body = await request.json();
     const incomingIdentity = body.identity ?? body.username ?? body.email;
@@ -31,6 +35,13 @@ export async function POST(request: Request) {
 
     if (!admin || !verifyPassword(password, admin.passwordHash)) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+    }
+
+    if (!admin.approved) {
+      return NextResponse.json(
+        { error: "Your account is pending administrator approval." },
+        { status: 403 }
+      );
     }
 
     const token = createAdminSessionToken({

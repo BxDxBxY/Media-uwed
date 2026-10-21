@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/admin-auth";
 
-// PUT /api/frontend/events/[id] - Update event
+// PUT /api/frontend/events/[id] - Update event (admin only)
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const unauthorized = requireAdmin(request);
+  if (unauthorized) return unauthorized;
+
   try {
     const { id } = await params;
     const body = await request.json();
@@ -61,11 +65,14 @@ export async function PUT(
   }
 }
 
-// DELETE /api/frontend/events/[id] - Delete event
+// DELETE /api/frontend/events/[id] - Delete event (admin only)
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const unauthorized = requireAdmin(request);
+  if (unauthorized) return unauthorized;
+
   try {
     const { id } = await params;
     await prisma.event.delete({

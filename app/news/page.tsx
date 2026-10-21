@@ -1,5 +1,13 @@
 import { Suspense } from "react";
 import NewsClientPage from "./news-client";
+import { buildPageMetadata } from "@/lib/page-metadata";
+
+export const metadata = buildPageMetadata({
+  title: "News",
+  description:
+    "The full news archive: university news, Uzbekistan's diplomacy and economy, and Central Asian affairs — searchable and filterable by category and date.",
+  path: "/news",
+});
 
 function NewsPageFallback() {
   return (

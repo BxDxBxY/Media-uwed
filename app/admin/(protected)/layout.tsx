@@ -5,15 +5,18 @@ import {
   FileText,
   Calendar,
   Settings,
+  BarChart3,
   PlusCircle,
   Bot,
   ShieldCheck,
   FileBadge,
+  Users,
 } from "lucide-react";
 import { AdminLogoutButton } from "@/components/admin-logout-button";
-import { getAdminSessionFromCookies } from "@/lib/admin-auth";
+import { getAdminSessionFromCookies, isSessionStale } from "@/lib/admin-auth";
 import { AdminAssistantChat } from "@/components/admin-assistant-chat";
 import { ModeToggle } from "@/components/mode-toggle";
+import { prisma } from "@/lib/prisma";
 
 export default async function AdminLayout({
   children,
@@ -24,6 +27,19 @@ export default async function AdminLayout({
   if (!session || session.role !== "admin") {
     redirect("/admin/login");
   }
+
+  // This query also serves as the stateful half of session validation: the account
+  // must still exist, still be approved, and the session must not predate a password
+  // change. API routes use the cheaper stateless check (see isSessionStale).
+  const currentUser = await prisma.adminUser.findUnique({
+    where: { id: session.userId },
+  });
+
+  if (!currentUser || !currentUser.approved || isSessionStale(session, currentUser)) {
+    redirect("/admin/login");
+  }
+
+  const isSuperAdmin = currentUser.isSuperAdmin;
 
   return (
     <div className="flex min-h-screen">
@@ -55,12 +71,25 @@ export default async function AdminLayout({
           <NavItem href="/admin/automation" icon={<Bot className="h-4 w-4" />}>
             Automation
           </NavItem>
+          {/* Both stats screens existed and worked but were reachable only by typing the
+              URL — nothing in the navigation pointed at them. */}
+          <NavItem href="/admin/stats/visits" icon={<BarChart3 className="h-4 w-4" />}>
+            Traffic
+          </NavItem>
+          <NavItem href="/admin/stats/views" icon={<BarChart3 className="h-4 w-4" />}>
+            Article Views
+          </NavItem>
           <NavItem href="/admin/privacy-policy" icon={<ShieldCheck className="h-4 w-4" />}>
             Privacy Policy
           </NavItem>
           <NavItem href="/admin/terms-of-use" icon={<FileBadge className="h-4 w-4" />}>
             Terms of Use
           </NavItem>
+          {isSuperAdmin && (
+            <NavItem href="/admin/approvals" icon={<Users className="h-4 w-4" />}>
+              Approvals
+            </NavItem>
+          )}
           <NavItem href="/admin/settings" icon={<Settings className="h-4 w-4" />}>
             Settings
           </NavItem>

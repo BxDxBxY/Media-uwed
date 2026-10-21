@@ -32,6 +32,8 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# ...but the documented template must be committed.
+!.env.example
 
 # vercel
 .vercel
@@ -41,3 +43,8 @@ yarn-error.log*
 next-env.d.ts
 
 /app/generated/prisma
+
+# Scratch files from manual pipeline runs — never source.
+*.tmp.mts
+*.tmp.json
+batch.log

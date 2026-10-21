@@ -233,11 +233,16 @@ export default function AdminSettingsPage() {
         </section>
 
         <section className="space-y-4 rounded-xl border border-border/40 bg-card p-6">
+          {/* Comment toggles used to live here. They were removed rather than left in place:
+              there is no comment model, no endpoint and nothing rendering comments on the
+              site, so ticking "Enable comments on articles" did nothing at all. A control
+              that silently does nothing is worse than a missing feature — it tells the
+              operator the site behaves in a way it does not. The `enableComments` and
+              `moderateComments` columns are still on SiteSettings for whenever comments are
+              actually built. */}
           <h3 className="flex items-center gap-2 text-lg font-semibold"><Bell className="h-5 w-5" />Features & Preferences</h3>
           <div className="space-y-3">
             <label className="flex cursor-pointer items-center justify-between rounded-md border border-border/40 p-3 transition-colors hover:bg-muted/50"><span className="text-sm font-medium">Enable push notifications</span><input type="checkbox" className="h-4 w-4" checked={settings.enableNotifications} onChange={(e) => setSettings({ ...settings, enableNotifications: e.target.checked })} /></label>
-            <label className="flex cursor-pointer items-center justify-between rounded-md border border-border/40 p-3 transition-colors hover:bg-muted/50"><span className="text-sm font-medium">Enable comments on articles</span><input type="checkbox" className="h-4 w-4" checked={settings.enableComments} onChange={(e) => setSettings({ ...settings, enableComments: e.target.checked })} /></label>
-            <label className="flex cursor-pointer items-center justify-between rounded-md border border-border/40 p-3 transition-colors hover:bg-muted/50"><span className="text-sm font-medium">Moderate comments before publishing</span><input type="checkbox" className="h-4 w-4" checked={settings.moderateComments} onChange={(e) => setSettings({ ...settings, moderateComments: e.target.checked })} disabled={!settings.enableComments} /></label>
           </div>
         </section>
 

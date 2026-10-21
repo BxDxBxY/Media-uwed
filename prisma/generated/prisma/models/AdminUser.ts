@@ -30,6 +30,11 @@ export type AdminUserMinAggregateOutputType = {
   email: string | null
   passwordHash: string | null
   role: string | null
+  approved: boolean | null
+  resetToken: string | null
+  resetTokenExpires: Date | null
+  isSuperAdmin: boolean | null
+  passwordChangedAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -40,6 +45,11 @@ export type AdminUserMaxAggregateOutputType = {
   email: string | null
   passwordHash: string | null
   role: string | null
+  approved: boolean | null
+  resetToken: string | null
+  resetTokenExpires: Date | null
+  isSuperAdmin: boolean | null
+  passwordChangedAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -50,6 +60,11 @@ export type AdminUserCountAggregateOutputType = {
   email: number
   passwordHash: number
   role: number
+  approved: number
+  resetToken: number
+  resetTokenExpires: number
+  isSuperAdmin: number
+  passwordChangedAt: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -62,6 +77,11 @@ export type AdminUserMinAggregateInputType = {
   email?: true
   passwordHash?: true
   role?: true
+  approved?: true
+  resetToken?: true
+  resetTokenExpires?: true
+  isSuperAdmin?: true
+  passwordChangedAt?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -72,6 +92,11 @@ export type AdminUserMaxAggregateInputType = {
   email?: true
   passwordHash?: true
   role?: true
+  approved?: true
+  resetToken?: true
+  resetTokenExpires?: true
+  isSuperAdmin?: true
+  passwordChangedAt?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -82,6 +107,11 @@ export type AdminUserCountAggregateInputType = {
   email?: true
   passwordHash?: true
   role?: true
+  approved?: true
+  resetToken?: true
+  resetTokenExpires?: true
+  isSuperAdmin?: true
+  passwordChangedAt?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -165,6 +195,11 @@ export type AdminUserGroupByOutputType = {
   email: string
   passwordHash: string
   role: string
+  approved: boolean
+  resetToken: string | null
+  resetTokenExpires: Date | null
+  isSuperAdmin: boolean
+  passwordChangedAt: Date | null
   createdAt: Date
   updatedAt: Date
   _count: AdminUserCountAggregateOutputType | null
@@ -196,6 +231,11 @@ export type AdminUserWhereInput = {
   email?: Prisma.StringFilter<"AdminUser"> | string
   passwordHash?: Prisma.StringFilter<"AdminUser"> | string
   role?: Prisma.StringFilter<"AdminUser"> | string
+  approved?: Prisma.BoolFilter<"AdminUser"> | boolean
+  resetToken?: Prisma.StringNullableFilter<"AdminUser"> | string | null
+  resetTokenExpires?: Prisma.DateTimeNullableFilter<"AdminUser"> | Date | string | null
+  isSuperAdmin?: Prisma.BoolFilter<"AdminUser"> | boolean
+  passwordChangedAt?: Prisma.DateTimeNullableFilter<"AdminUser"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"AdminUser"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"AdminUser"> | Date | string
   apiKeys?: Prisma.AdminApiKeyListRelationFilter
@@ -207,6 +247,11 @@ export type AdminUserOrderByWithRelationInput = {
   email?: Prisma.SortOrder
   passwordHash?: Prisma.SortOrder
   role?: Prisma.SortOrder
+  approved?: Prisma.SortOrder
+  resetToken?: Prisma.SortOrderInput | Prisma.SortOrder
+  resetTokenExpires?: Prisma.SortOrderInput | Prisma.SortOrder
+  isSuperAdmin?: Prisma.SortOrder
+  passwordChangedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   apiKeys?: Prisma.AdminApiKeyOrderByRelationAggregateInput
@@ -216,15 +261,20 @@ export type AdminUserWhereUniqueInput = Prisma.AtLeast<{
   id?: string
   username?: string
   email?: string
+  resetToken?: string
   AND?: Prisma.AdminUserWhereInput | Prisma.AdminUserWhereInput[]
   OR?: Prisma.AdminUserWhereInput[]
   NOT?: Prisma.AdminUserWhereInput | Prisma.AdminUserWhereInput[]
   passwordHash?: Prisma.StringFilter<"AdminUser"> | string
   role?: Prisma.StringFilter<"AdminUser"> | string
+  approved?: Prisma.BoolFilter<"AdminUser"> | boolean
+  resetTokenExpires?: Prisma.DateTimeNullableFilter<"AdminUser"> | Date | string | null
+  isSuperAdmin?: Prisma.BoolFilter<"AdminUser"> | boolean
+  passwordChangedAt?: Prisma.DateTimeNullableFilter<"AdminUser"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"AdminUser"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"AdminUser"> | Date | string
   apiKeys?: Prisma.AdminApiKeyListRelationFilter
-}, "id" | "username" | "email">
+}, "id" | "username" | "email" | "resetToken">
 
 export type AdminUserOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
@@ -232,6 +282,11 @@ export type AdminUserOrderByWithAggregationInput = {
   email?: Prisma.SortOrder
   passwordHash?: Prisma.SortOrder
   role?: Prisma.SortOrder
+  approved?: Prisma.SortOrder
+  resetToken?: Prisma.SortOrderInput | Prisma.SortOrder
+  resetTokenExpires?: Prisma.SortOrderInput | Prisma.SortOrder
+  isSuperAdmin?: Prisma.SortOrder
+  passwordChangedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.AdminUserCountOrderByAggregateInput
@@ -248,6 +303,11 @@ export type AdminUserScalarWhereWithAggregatesInput = {
   email?: Prisma.StringWithAggregatesFilter<"AdminUser"> | string
   passwordHash?: Prisma.StringWithAggregatesFilter<"AdminUser"> | string
   role?: Prisma.StringWithAggregatesFilter<"AdminUser"> | string
+  approved?: Prisma.BoolWithAggregatesFilter<"AdminUser"> | boolean
+  resetToken?: Prisma.StringNullableWithAggregatesFilter<"AdminUser"> | string | null
+  resetTokenExpires?: Prisma.DateTimeNullableWithAggregatesFilter<"AdminUser"> | Date | string | null
+  isSuperAdmin?: Prisma.BoolWithAggregatesFilter<"AdminUser"> | boolean
+  passwordChangedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"AdminUser"> | Date | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"AdminUser"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"AdminUser"> | Date | string
 }
@@ -258,6 +318,11 @@ export type AdminUserCreateInput = {
   email: string
   passwordHash: string
   role?: string
+  approved?: boolean
+  resetToken?: string | null
+  resetTokenExpires?: Date | string | null
+  isSuperAdmin?: boolean
+  passwordChangedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   apiKeys?: Prisma.AdminApiKeyCreateNestedManyWithoutCreatedByInput
@@ -269,6 +334,11 @@ export type AdminUserUncheckedCreateInput = {
   email: string
   passwordHash: string
   role?: string
+  approved?: boolean
+  resetToken?: string | null
+  resetTokenExpires?: Date | string | null
+  isSuperAdmin?: boolean
+  passwordChangedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   apiKeys?: Prisma.AdminApiKeyUncheckedCreateNestedManyWithoutCreatedByInput
@@ -280,6 +350,11 @@ export type AdminUserUpdateInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.StringFieldUpdateOperationsInput | string
+  approved?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  resetToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resetTokenExpires?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  isSuperAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  passwordChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   apiKeys?: Prisma.AdminApiKeyUpdateManyWithoutCreatedByNestedInput
@@ -291,6 +366,11 @@ export type AdminUserUncheckedUpdateInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.StringFieldUpdateOperationsInput | string
+  approved?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  resetToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resetTokenExpires?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  isSuperAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  passwordChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   apiKeys?: Prisma.AdminApiKeyUncheckedUpdateManyWithoutCreatedByNestedInput
@@ -302,6 +382,11 @@ export type AdminUserCreateManyInput = {
   email: string
   passwordHash: string
   role?: string
+  approved?: boolean
+  resetToken?: string | null
+  resetTokenExpires?: Date | string | null
+  isSuperAdmin?: boolean
+  passwordChangedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -312,6 +397,11 @@ export type AdminUserUpdateManyMutationInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.StringFieldUpdateOperationsInput | string
+  approved?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  resetToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resetTokenExpires?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  isSuperAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  passwordChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -322,6 +412,11 @@ export type AdminUserUncheckedUpdateManyInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.StringFieldUpdateOperationsInput | string
+  approved?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  resetToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resetTokenExpires?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  isSuperAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  passwordChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -337,6 +432,11 @@ export type AdminUserCountOrderByAggregateInput = {
   email?: Prisma.SortOrder
   passwordHash?: Prisma.SortOrder
   role?: Prisma.SortOrder
+  approved?: Prisma.SortOrder
+  resetToken?: Prisma.SortOrder
+  resetTokenExpires?: Prisma.SortOrder
+  isSuperAdmin?: Prisma.SortOrder
+  passwordChangedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -347,6 +447,11 @@ export type AdminUserMaxOrderByAggregateInput = {
   email?: Prisma.SortOrder
   passwordHash?: Prisma.SortOrder
   role?: Prisma.SortOrder
+  approved?: Prisma.SortOrder
+  resetToken?: Prisma.SortOrder
+  resetTokenExpires?: Prisma.SortOrder
+  isSuperAdmin?: Prisma.SortOrder
+  passwordChangedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -357,6 +462,11 @@ export type AdminUserMinOrderByAggregateInput = {
   email?: Prisma.SortOrder
   passwordHash?: Prisma.SortOrder
   role?: Prisma.SortOrder
+  approved?: Prisma.SortOrder
+  resetToken?: Prisma.SortOrder
+  resetTokenExpires?: Prisma.SortOrder
+  isSuperAdmin?: Prisma.SortOrder
+  passwordChangedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -381,6 +491,11 @@ export type AdminUserCreateWithoutApiKeysInput = {
   email: string
   passwordHash: string
   role?: string
+  approved?: boolean
+  resetToken?: string | null
+  resetTokenExpires?: Date | string | null
+  isSuperAdmin?: boolean
+  passwordChangedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -391,6 +506,11 @@ export type AdminUserUncheckedCreateWithoutApiKeysInput = {
   email: string
   passwordHash: string
   role?: string
+  approved?: boolean
+  resetToken?: string | null
+  resetTokenExpires?: Date | string | null
+  isSuperAdmin?: boolean
+  passwordChangedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -417,6 +537,11 @@ export type AdminUserUpdateWithoutApiKeysInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.StringFieldUpdateOperationsInput | string
+  approved?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  resetToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resetTokenExpires?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  isSuperAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  passwordChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -427,6 +552,11 @@ export type AdminUserUncheckedUpdateWithoutApiKeysInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.StringFieldUpdateOperationsInput | string
+  approved?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  resetToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resetTokenExpires?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  isSuperAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  passwordChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -468,6 +598,11 @@ export type AdminUserSelect<ExtArgs extends runtime.Types.Extensions.InternalArg
   email?: boolean
   passwordHash?: boolean
   role?: boolean
+  approved?: boolean
+  resetToken?: boolean
+  resetTokenExpires?: boolean
+  isSuperAdmin?: boolean
+  passwordChangedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   apiKeys?: boolean | Prisma.AdminUser$apiKeysArgs<ExtArgs>
@@ -480,6 +615,11 @@ export type AdminUserSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ext
   email?: boolean
   passwordHash?: boolean
   role?: boolean
+  approved?: boolean
+  resetToken?: boolean
+  resetTokenExpires?: boolean
+  isSuperAdmin?: boolean
+  passwordChangedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["adminUser"]>
@@ -490,6 +630,11 @@ export type AdminUserSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ext
   email?: boolean
   passwordHash?: boolean
   role?: boolean
+  approved?: boolean
+  resetToken?: boolean
+  resetTokenExpires?: boolean
+  isSuperAdmin?: boolean
+  passwordChangedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["adminUser"]>
@@ -500,11 +645,16 @@ export type AdminUserSelectScalar = {
   email?: boolean
   passwordHash?: boolean
   role?: boolean
+  approved?: boolean
+  resetToken?: boolean
+  resetTokenExpires?: boolean
+  isSuperAdmin?: boolean
+  passwordChangedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type AdminUserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "username" | "email" | "passwordHash" | "role" | "createdAt" | "updatedAt", ExtArgs["result"]["adminUser"]>
+export type AdminUserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "username" | "email" | "passwordHash" | "role" | "approved" | "resetToken" | "resetTokenExpires" | "isSuperAdmin" | "passwordChangedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["adminUser"]>
 export type AdminUserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   apiKeys?: boolean | Prisma.AdminUser$apiKeysArgs<ExtArgs>
   _count?: boolean | Prisma.AdminUserCountOutputTypeDefaultArgs<ExtArgs>
@@ -523,6 +673,14 @@ export type $AdminUserPayload<ExtArgs extends runtime.Types.Extensions.InternalA
     email: string
     passwordHash: string
     role: string
+    approved: boolean
+    resetToken: string | null
+    resetTokenExpires: Date | null
+    isSuperAdmin: boolean
+    /**
+     * Sessions issued before this moment are refused when entering the admin UI.
+     */
+    passwordChangedAt: Date | null
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["adminUser"]>
@@ -954,6 +1112,11 @@ export interface AdminUserFieldRefs {
   readonly email: Prisma.FieldRef<"AdminUser", 'String'>
   readonly passwordHash: Prisma.FieldRef<"AdminUser", 'String'>
   readonly role: Prisma.FieldRef<"AdminUser", 'String'>
+  readonly approved: Prisma.FieldRef<"AdminUser", 'Boolean'>
+  readonly resetToken: Prisma.FieldRef<"AdminUser", 'String'>
+  readonly resetTokenExpires: Prisma.FieldRef<"AdminUser", 'DateTime'>
+  readonly isSuperAdmin: Prisma.FieldRef<"AdminUser", 'Boolean'>
+  readonly passwordChangedAt: Prisma.FieldRef<"AdminUser", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"AdminUser", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"AdminUser", 'DateTime'>
 }

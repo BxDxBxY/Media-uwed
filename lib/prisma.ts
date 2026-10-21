@@ -1,7 +1,5 @@
 import "dotenv/config";
 import { PrismaClient } from "../prisma/generated/prisma/client";
-// import { PrismaClient } from "@prisma/client";
-// import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 const globalForPrisma = globalThis as unknown as {
@@ -11,11 +9,10 @@ const globalForPrisma = globalThis as unknown as {
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
   throw new Error(
-    "DATABASE_URL is missing. Check web/.env (e.g. file:./prisma/dev.db).",
+    "DATABASE_URL is missing. Set it in .env, e.g. postgresql://user:pass@localhost:5432/media_uwed?schema=public",
   );
 }
 
-// const adapter = new PrismaBetterSqlite3({ url: databaseUrl });
 const adapter = new PrismaPg({ connectionString: databaseUrl });
 
 export const prisma =
@@ -25,35 +22,8 @@ export const prisma =
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
   });
 
+// Reuse a single client across hot reloads in development; creating one per reload
+// exhausts the database connection pool.
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
 }
-
-// import { PrismaClient } from "@prisma/client";
-// import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
-
-// const globalForPrisma = globalThis as unknown as {
-//   prisma: PrismaClient | undefined;
-// };
-
-// const databaseUrl = process.env.DATABASE_URL;
-// if (!databaseUrl) {
-//   throw new Error(
-//     "DATABASE_URL is missing. Set it in your .env (e.g. file:./dev.db).",
-//   );
-// }
-
-// const adapter = new PrismaBetterSqlite3({
-//   url: databaseUrl,
-// });
-
-// export const prisma =
-//   globalForPrisma.prisma ??
-//   new PrismaClient({
-//     adapter,
-//     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
-//   });
-
-// if (process.env.NODE_ENV !== "production") {
-//   globalForPrisma.prisma = prisma;
-// }

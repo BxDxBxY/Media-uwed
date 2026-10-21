@@ -7,9 +7,10 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev": "next dev",
-    "build": "DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@127.0.0.1:5432/postgres} prisma generate && next build",
-    "vercel-build": "prisma generate && prisma migrate deploy && next build",
+    "dev": "next dev --webpack",
+    "build": "prisma generate && next build",
+    "build:webpack": "prisma generate && next build --webpack",
+    "vercel-build": "node scripts/vercel-build.mjs",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
@@ -20,8 +21,17 @@
     "pull:local": "node -e \"fetch('http://localhost:3000/api/cron/pull', {method: 'POST'}).then(r => r.json()).then(console.log)\"",
     "process:local": "node -e \"fetch('http://localhost:3000/api/cron/process', {method: 'POST'}).then(r => r.json()).then(console.log)\"",
     "postinstall": "prisma generate",
-    "vercel-build:with-migrate": "prisma generate && prisma migrate deploy && next build",
-    "admin:create": "tsx scripts/create-admin.ts"
+    "admin:create": "tsx scripts/create-admin.ts",
+    "check:ai": "tsx scripts/check-ai-pipeline.mts",
+    "check:models": "tsx scripts/compare-free-models.mts",
+    "check:rss": "tsx scripts/check-rss.mts",
+    "check:triage": "tsx scripts/check-triage.mts",
+    "seed:sources": "tsx scripts/seed-sources.mts",
+    "seed:demo": "tsx scripts/seed-demo-content.mts",
+    "check": "npm run typecheck && npm run lint && npm run check:ai && npm run check:rss && npm run check:triage && npm run check:security",
+    "check:security": "tsx scripts/check-security.mts",
+    "check:routes": "tsx scripts/check-routes.mts",
+    "check:publish": "tsx scripts/check-publish.mts"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.4.1",

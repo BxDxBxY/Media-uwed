@@ -8,29 +8,44 @@ type VisitsDetail = {
   uniqueVisitors: number;
   daily: { date: string; count: number }[];
   countries: { country: string; visits: number }[];
+  countryDaily?: { country: string; daily: { date: string; count: number }[] }[];
   latestRecordedAt: string | null;
   windowDays: number;
 };
 
-const GEO_COORDS: Record<string, { x: number; y: number; w: number; h: number }> = {
-  US: { x: 10, y: 24, w: 8, h: 5 },
-  CA: { x: 10, y: 18, w: 8, h: 5 },
-  MX: { x: 12, y: 30, w: 6, h: 4 },
-  BR: { x: 24, y: 38, w: 8, h: 8 },
-  AR: { x: 26, y: 49, w: 6, h: 7 },
-  GB: { x: 46, y: 20, w: 4, h: 4 },
-  FR: { x: 48, y: 24, w: 5, h: 4 },
-  DE: { x: 53, y: 23, w: 5, h: 4 },
-  ES: { x: 46, y: 28, w: 5, h: 4 },
-  RU: { x: 60, y: 16, w: 20, h: 8 },
-  TR: { x: 56, y: 28, w: 6, h: 4 },
-  UZ: { x: 64, y: 26, w: 6, h: 4 },
-  KZ: { x: 66, y: 21, w: 10, h: 4 },
-  IN: { x: 66, y: 34, w: 7, h: 7 },
-  CN: { x: 74, y: 28, w: 10, h: 7 },
-  SG: { x: 76, y: 40, w: 4, h: 4 },
-  AU: { x: 82, y: 48, w: 10, h: 8 },
+type Marker = { x: number; y: number };
+
+const COUNTRY_MARKERS: Record<string, Marker> = {
+  US: { x: 18, y: 24 },
+  CA: { x: 18, y: 16 },
+  MX: { x: 19, y: 31 },
+  BR: { x: 30, y: 43 },
+  AR: { x: 30, y: 53 },
+  GB: { x: 46, y: 20 },
+  FR: { x: 47, y: 24 },
+  DE: { x: 50, y: 22 },
+  ES: { x: 45, y: 28 },
+  RU: { x: 64, y: 17 },
+  TR: { x: 54, y: 27 },
+  UZ: { x: 61, y: 27 },
+  KZ: { x: 61, y: 22 },
+  IN: { x: 65, y: 35 },
+  CN: { x: 71, y: 28 },
+  SG: { x: 73, y: 41 },
+  AU: { x: 82, y: 50 },
+  UA: { x: 54, y: 22 },
+  IR: { x: 57, y: 29 },
 };
+
+const CONTINENT_PATHS = [
+  "M5 12 L24 10 L31 16 L30 31 L23 34 L17 30 L12 27 L8 22 Z",
+  "M23 34 L30 36 L33 48 L30 57 L24 53 L22 43 Z",
+  "M38 14 L52 12 L58 18 L58 27 L52 31 L42 30 L38 24 Z",
+  "M46 31 L53 34 L56 45 L52 55 L46 49 L44 39 Z",
+  "M52 12 L82 11 L92 18 L91 30 L83 37 L69 38 L58 33 L57 26 Z",
+  "M68 38 L78 39 L86 45 L87 55 L78 58 L69 52 L65 45 Z",
+  "M79 51 L90 50 L95 55 L93 59 L82 59 L78 55 Z",
+];
 
 function countryName(code: string) {
   if (code === "ZZ") return "Unknown";
@@ -41,15 +56,15 @@ function countryName(code: string) {
   }
 }
 
-function getMarkerPosition(code: string, index: number) {
-  if (GEO_COORDS[code]) return GEO_COORDS[code];
-  const row = Math.floor(index / 7);
-  const col = index % 7;
-  return { x: 6 + col * 12.5, y: 52 + row * 6, w: 8, h: 4 };
+function getMarkerPosition(code: string, index: number): Marker {
+  if (COUNTRY_MARKERS[code]) return COUNTRY_MARKERS[code];
+  return { x: 8 + (index % 10) * 8.5, y: 46 + Math.floor(index / 10) * 4 };
 }
 
 export default function VisitsDetailPage() {
   const [data, setData] = useState<VisitsDetail | null>(null);
+  const [hoveredCountry, setHoveredCountry] = useState<string | null>(null);
+  const [selectedCountry, setSelectedCountry] = useState<string>("ALL");
 
   useEffect(() => {
     fetch("/api/admin/stats/visits-detail")
@@ -58,15 +73,27 @@ export default function VisitsDetailPage() {
       .catch(() => setData(null));
   }, []);
 
-  const maxDaily = useMemo(() => Math.max(1, ...(data?.daily || []).map((d) => d.count)), [data]);
   const maxCountry = useMemo(() => Math.max(1, ...(data?.countries || []).map((c) => c.visits)), [data]);
+
+  const selectedSeries = useMemo(() => {
+    if (!data) return [] as { date: string; count: number }[];
+    if (selectedCountry === "ALL") return data.daily || [];
+    const perCountry = data.countryDaily?.find((x) => x.country === selectedCountry);
+    return perCountry?.daily || [];
+  }, [data, selectedCountry]);
+
+  const maxSeries = useMemo(() => Math.max(1, ...selectedSeries.map((d) => d.count)), [selectedSeries]);
+  const selectedCountryVisits = useMemo(() => {
+    if (!data || selectedCountry === "ALL") return data?.totalVisits || 0;
+    return data.countries.find((c) => c.country === selectedCountry)?.visits || 0;
+  }, [data, selectedCountry]);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-serif font-bold">Site Visits Details</h1>
-          <p className="text-sm text-muted-foreground">Last 30 days trend, geography and unique visitors.</p>
+          <p className="text-sm text-muted-foreground">Interactive geo view + per-country trend for the last 30 days.</p>
         </div>
         <Link href="/admin" className="text-sm text-primary hover:underline">Back to dashboard</Link>
       </div>
@@ -77,85 +104,78 @@ export default function VisitsDetailPage() {
         <div className="rounded-xl border border-border/40 bg-card p-4"><p className="text-xs text-muted-foreground">Latest Record</p><p className="text-sm font-medium">{data?.latestRecordedAt ? new Date(data.latestRecordedAt).toLocaleString() : "N/A"}</p></div>
       </div>
 
-      <div className="rounded-xl border border-border/40 bg-card p-6 space-y-4">
-        <h2 className="font-semibold">Last {data?.windowDays || 30} days visits chart</h2>
-        <div className="overflow-x-auto pb-2">
-          <div className="min-w-[980px] flex items-end gap-2 h-64 px-2">
-            {(data?.daily || []).map((item) => {
-              const height = Math.max(6, Math.round((item.count / maxDaily) * 220));
-              return (
-                <div key={item.date} className="flex-1 min-w-6 flex flex-col items-center justify-end gap-1">
-                  <span className="text-[10px] font-semibold text-foreground/80">{item.count}</span>
-                  <div
-                    className="w-full rounded-t-md border border-primary/30 bg-gradient-to-t from-primary to-primary/40 transition-all duration-500"
-                    style={{ height }}
-                    title={`${item.date}: ${item.count}`}
-                  />
-                  <span className="text-[10px] text-muted-foreground">{item.date.slice(5)}</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="rounded-xl border border-border/40 bg-card p-6 space-y-4">
-          <h2 className="font-semibold">World map by country visits</h2>
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="font-semibold">World visits map</h2>
+            <button
+              onClick={() => setSelectedCountry("ALL")}
+              className={`text-xs rounded-md border px-2 py-1 ${selectedCountry === "ALL" ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
+            >
+              Show all countries
+            </button>
+          </div>
           <div className="relative rounded-lg border border-border/40 bg-background p-3">
             <svg viewBox="0 0 100 60" className="w-full h-auto" role="img" aria-label="World visits map">
-              <rect x="0" y="0" width="100" height="60" rx="2" fill="hsl(var(--muted) / 0.2)" />
-              <path d="M9 19h18l3 3v7l-5 3H12l-3-4z" fill="hsl(var(--border) / 0.6)" />
-              <path d="M24 34h10l3 4v11l-3 3h-9l-2-3z" fill="hsl(var(--border) / 0.6)" />
-              <path d="M41 20h19l3 4v6l-2 3H44l-3-3z" fill="hsl(var(--border) / 0.6)" />
-              <path d="M51 34h10l2 3v11l-3 3h-8l-2-2z" fill="hsl(var(--border) / 0.6)" />
-              <path d="M62 18h22l2 3v11l-3 4H66l-4-4z" fill="hsl(var(--border) / 0.6)" />
-              <path d="M69 36h16l2 3v9l-3 2H72l-3-3z" fill="hsl(var(--border) / 0.6)" />
-              <path d="M80 49h10l2 2v5l-2 2h-8l-2-2z" fill="hsl(var(--border) / 0.6)" />
+              <rect x="0" y="0" width="100" height="60" rx="2" fill="hsl(var(--muted) / 0.15)" />
+              {CONTINENT_PATHS.map((path) => (
+                <path key={path} d={path} fill="hsl(var(--muted) / 0.5)" stroke="hsl(var(--border) / 0.9)" strokeWidth="0.3" />
+              ))}
 
-              {(data?.countries || []).slice(0, 24).map((entry, index) => {
+              {(data?.countries || []).slice(0, 40).map((entry, index) => {
                 const pos = getMarkerPosition(entry.country, index);
-                const intensity = 0.2 + (entry.visits / maxCountry) * 0.8;
+                const intensity = 0.3 + (entry.visits / maxCountry) * 0.7;
+                const active = selectedCountry === entry.country;
                 return (
-                  <g key={entry.country}>
-                    <rect
-                      x={pos.x}
-                      y={pos.y}
-                      width={pos.w}
-                      height={pos.h}
-                      rx="1"
+                  <g
+                    key={entry.country}
+                    onMouseEnter={() => setHoveredCountry(entry.country)}
+                    onMouseLeave={() => setHoveredCountry((prev) => (prev === entry.country ? null : prev))}
+                    onClick={() => setSelectedCountry(entry.country)}
+                    className="cursor-pointer"
+                  >
+                    <circle
+                      cx={pos.x}
+                      cy={pos.y}
+                      r={active ? 2.4 : 1.8}
                       fill={`hsl(var(--primary) / ${intensity})`}
-                      stroke="hsl(var(--primary) / 0.95)"
-                      strokeWidth="0.35"
+                      stroke={active ? "hsl(var(--primary))" : "hsl(var(--primary) / 0.7)"}
+                      strokeWidth={active ? "0.7" : "0.4"}
                     />
-                    <text x={pos.x + pos.w / 2} y={pos.y + pos.h / 2 + 0.6} textAnchor="middle" fontSize="1.6" fill="hsl(var(--primary-foreground))" style={{ fontWeight: 700 }}>
+                    <text x={pos.x + 2.2} y={pos.y + 0.2} fontSize="1.9" fill="hsl(var(--foreground))" style={{ fontWeight: 700 }}>
                       {entry.country}
                     </text>
+                    <title>{`${countryName(entry.country)} (${entry.country}): ${entry.visits} visits`}</title>
                   </g>
                 );
               })}
             </svg>
+
+            {hoveredCountry && (
+              <div className="absolute left-3 top-3 rounded-md border border-border bg-card px-2 py-1 text-xs shadow-sm">
+                <span className="font-semibold">{countryName(hoveredCountry)}</span> ({hoveredCountry})
+              </div>
+            )}
           </div>
+          <p className="text-xs text-muted-foreground">Hover to see country names and click a country to update the trend chart.</p>
         </div>
 
         <div className="rounded-xl border border-border/40 bg-card p-6 space-y-4">
-          <h2 className="font-semibold">Country list</h2>
-          <div className="space-y-2 max-h-80 overflow-auto pr-1">
-            {(data?.countries || []).map((entry) => {
-              const progress = Math.max(4, (entry.visits / maxCountry) * 100);
-              return (
-                <div key={entry.country} className="rounded-md border border-border/40 p-2 text-sm">
-                  <div className="flex items-center justify-between mb-1">
-                    <span>{countryName(entry.country)}</span>
-                    <span className="font-semibold">{entry.visits}</span>
+          <h2 className="font-semibold">{selectedCountry === "ALL" ? "All countries" : `${countryName(selectedCountry)} (${selectedCountry})`} trend</h2>
+          <p className="text-xs text-muted-foreground">Visits: {selectedCountryVisits.toLocaleString()} over last {data?.windowDays || 30} days.</p>
+          <div className="overflow-x-auto pb-2">
+            <div className="min-w-[980px] flex items-end gap-2 h-64 px-2">
+              {selectedSeries.map((item) => {
+                const height = Math.max(6, Math.round((item.count / maxSeries) * 220));
+                return (
+                  <div key={`${selectedCountry}-${item.date}`} className="flex-1 min-w-6 flex flex-col items-center justify-end gap-1">
+                    <span className="text-[10px] font-semibold text-foreground/80">{item.count}</span>
+                    <div className="w-full rounded-t-md border border-primary/30 bg-gradient-to-t from-primary to-primary/40 transition-all duration-500" style={{ height }} title={`${item.date}: ${item.count}`} />
+                    <span className="text-[10px] text-muted-foreground">{item.date.slice(5)}</span>
                   </div>
-                  <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                    <div className="h-full rounded-full bg-primary" style={{ width: `${progress}%` }} />
-                  </div>
-                </div>
-              );
-            })}
-            {(data?.countries || []).length === 0 && <p className="text-sm text-muted-foreground">No country data yet.</p>}
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>

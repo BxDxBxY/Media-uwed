@@ -67,6 +67,9 @@ export const ModelName = {
   AutomationConfig: 'AutomationConfig',
   AdminApiKey: 'AdminApiKey',
   AdminUser: 'AdminUser',
+  AssistantMemory: 'AssistantMemory',
+  PageConfig: 'PageConfig',
+  AiUsageDay: 'AiUsageDay',
   IntegrationConfig: 'IntegrationConfig'
 } as const
 
@@ -259,7 +262,10 @@ export const ArticleRawScalarFieldEnum = {
   imageUrl: 'imageUrl',
   publishedAt: 'publishedAt',
   rawJson: 'rawJson',
-  createdAt: 'createdAt'
+  createdAt: 'createdAt',
+  relevance: 'relevance',
+  relevanceReason: 'relevanceReason',
+  relevanceCheckedAt: 'relevanceCheckedAt'
 } as const
 
 export type ArticleRawScalarFieldEnum = (typeof ArticleRawScalarFieldEnum)[keyof typeof ArticleRawScalarFieldEnum]
@@ -323,11 +329,49 @@ export const AdminUserScalarFieldEnum = {
   email: 'email',
   passwordHash: 'passwordHash',
   role: 'role',
+  approved: 'approved',
+  resetToken: 'resetToken',
+  resetTokenExpires: 'resetTokenExpires',
+  isSuperAdmin: 'isSuperAdmin',
+  passwordChangedAt: 'passwordChangedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
 
 export type AdminUserScalarFieldEnum = (typeof AdminUserScalarFieldEnum)[keyof typeof AdminUserScalarFieldEnum]
+
+
+export const AssistantMemoryScalarFieldEnum = {
+  id: 'id',
+  kind: 'kind',
+  role: 'role',
+  content: 'content',
+  token: 'token',
+  actionType: 'actionType',
+  target: 'target',
+  consumedAt: 'consumedAt',
+  createdAt: 'createdAt'
+} as const
+
+export type AssistantMemoryScalarFieldEnum = (typeof AssistantMemoryScalarFieldEnum)[keyof typeof AssistantMemoryScalarFieldEnum]
+
+
+export const PageConfigScalarFieldEnum = {
+  key: 'key',
+  value: 'value',
+  updatedAt: 'updatedAt'
+} as const
+
+export type PageConfigScalarFieldEnum = (typeof PageConfigScalarFieldEnum)[keyof typeof PageConfigScalarFieldEnum]
+
+
+export const AiUsageDayScalarFieldEnum = {
+  day: 'day',
+  requests: 'requests',
+  updatedAt: 'updatedAt'
+} as const
+
+export type AiUsageDayScalarFieldEnum = (typeof AiUsageDayScalarFieldEnum)[keyof typeof AiUsageDayScalarFieldEnum]
 
 
 export const IntegrationConfigScalarFieldEnum = {
@@ -338,6 +382,7 @@ export const IntegrationConfigScalarFieldEnum = {
   providerModel: 'providerModel',
   providerApiKeyEncrypted: 'providerApiKeyEncrypted',
   providerApiKeyHash: 'providerApiKeyHash',
+  providerBaseUrl: 'providerBaseUrl',
   channelId: 'channelId',
   webhookTokenEncrypted: 'webhookTokenEncrypted',
   sendOnPublish: 'sendOnPublish',

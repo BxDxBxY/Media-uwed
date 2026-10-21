@@ -172,7 +172,10 @@ export function GlobalProvider({ children }: { children: ReactNode }) {
         if (showLoader) setIsLoading(true);
         try {
             const [artRes, eveRes, medRes, abtRes] = await Promise.all([
-                fetch(`/api/frontend/articles?page=1&limit=${includeAdminData ? 100 : 24}${includeAdminData ? '&full=1' : ''}`),
+                // Metadata only — article bodies are fetched per article by the reading
+                // view and the admin editor. Requesting `full=1` here meant every admin
+                // page load transferred 100 complete article bodies.
+                fetch(`/api/frontend/articles?page=1&limit=${includeAdminData ? 100 : 24}`),
                 fetch('/api/frontend/events'),
                 fetch('/api/frontend/media'),
                 fetch('/api/frontend/about'),
@@ -233,19 +236,17 @@ export function GlobalProvider({ children }: { children: ReactNode }) {
     };
 
     useEffect(() => {
-        refreshData(true, false);
-        recordVisit();
-
         const storedLang = localStorage.getItem('language') as Language;
         if (storedLang && ["en", "uz", "ru"].includes(storedLang)) {
             setLanguage(storedLang);
         }
     }, []);
 
+    // One fetch per route class. Previously a mount effect and an `isAdminRoute`
+    // effect both fired on admin pages, loading everything twice.
     useEffect(() => {
-        if (isAdminRoute) {
-            refreshData(true, true);
-        }
+        refreshData(true, isAdminRoute);
+        if (!isAdminRoute) recordVisit();
     }, [isAdminRoute]);
 
     useEffect(() => {

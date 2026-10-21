@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin-auth";
+import { RESERVED_MESSAGE_SUBJECTS } from "@/lib/assistant-memory";
 
 export async function GET(request: Request) {
   try {
@@ -23,7 +24,9 @@ export async function GET(request: Request) {
       prisma.event.count(),
       prisma.media.count(),
       prisma.subscriber.count(),
-      prisma.contactMessage.count({ where: { archivedAt: null, subject: { not: "__assistant_memory__" } } }),
+      prisma.contactMessage.count({
+        where: { archivedAt: null, subject: { notIn: [...RESERVED_MESSAGE_SUBJECTS] } },
+      }),
       prisma.source.count(),
       prisma.siteVisit.count(),
       prisma.articleView.count(),

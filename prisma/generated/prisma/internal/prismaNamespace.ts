@@ -400,6 +400,9 @@ export const ModelName = {
   AutomationConfig: 'AutomationConfig',
   AdminApiKey: 'AdminApiKey',
   AdminUser: 'AdminUser',
+  AssistantMemory: 'AssistantMemory',
+  PageConfig: 'PageConfig',
+  AiUsageDay: 'AiUsageDay',
   IntegrationConfig: 'IntegrationConfig'
 } as const
 
@@ -416,7 +419,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "article" | "category" | "aboutContent" | "siteVisit" | "articleView" | "event" | "media" | "subscriber" | "contactMessage" | "siteSettings" | "source" | "articleRaw" | "articleProcessed" | "automationConfig" | "adminApiKey" | "adminUser" | "integrationConfig"
+    modelProps: "article" | "category" | "aboutContent" | "siteVisit" | "articleView" | "event" | "media" | "subscriber" | "contactMessage" | "siteSettings" | "source" | "articleRaw" | "articleProcessed" | "automationConfig" | "adminApiKey" | "adminUser" | "assistantMemory" | "pageConfig" | "aiUsageDay" | "integrationConfig"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1604,6 +1607,228 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    AssistantMemory: {
+      payload: Prisma.$AssistantMemoryPayload<ExtArgs>
+      fields: Prisma.AssistantMemoryFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.AssistantMemoryFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AssistantMemoryPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.AssistantMemoryFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AssistantMemoryPayload>
+        }
+        findFirst: {
+          args: Prisma.AssistantMemoryFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AssistantMemoryPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.AssistantMemoryFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AssistantMemoryPayload>
+        }
+        findMany: {
+          args: Prisma.AssistantMemoryFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AssistantMemoryPayload>[]
+        }
+        create: {
+          args: Prisma.AssistantMemoryCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AssistantMemoryPayload>
+        }
+        createMany: {
+          args: Prisma.AssistantMemoryCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.AssistantMemoryCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AssistantMemoryPayload>[]
+        }
+        delete: {
+          args: Prisma.AssistantMemoryDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AssistantMemoryPayload>
+        }
+        update: {
+          args: Prisma.AssistantMemoryUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AssistantMemoryPayload>
+        }
+        deleteMany: {
+          args: Prisma.AssistantMemoryDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.AssistantMemoryUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.AssistantMemoryUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AssistantMemoryPayload>[]
+        }
+        upsert: {
+          args: Prisma.AssistantMemoryUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AssistantMemoryPayload>
+        }
+        aggregate: {
+          args: Prisma.AssistantMemoryAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateAssistantMemory>
+        }
+        groupBy: {
+          args: Prisma.AssistantMemoryGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AssistantMemoryGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.AssistantMemoryCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AssistantMemoryCountAggregateOutputType> | number
+        }
+      }
+    }
+    PageConfig: {
+      payload: Prisma.$PageConfigPayload<ExtArgs>
+      fields: Prisma.PageConfigFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.PageConfigFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PageConfigPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.PageConfigFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PageConfigPayload>
+        }
+        findFirst: {
+          args: Prisma.PageConfigFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PageConfigPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.PageConfigFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PageConfigPayload>
+        }
+        findMany: {
+          args: Prisma.PageConfigFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PageConfigPayload>[]
+        }
+        create: {
+          args: Prisma.PageConfigCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PageConfigPayload>
+        }
+        createMany: {
+          args: Prisma.PageConfigCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.PageConfigCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PageConfigPayload>[]
+        }
+        delete: {
+          args: Prisma.PageConfigDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PageConfigPayload>
+        }
+        update: {
+          args: Prisma.PageConfigUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PageConfigPayload>
+        }
+        deleteMany: {
+          args: Prisma.PageConfigDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.PageConfigUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.PageConfigUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PageConfigPayload>[]
+        }
+        upsert: {
+          args: Prisma.PageConfigUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PageConfigPayload>
+        }
+        aggregate: {
+          args: Prisma.PageConfigAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregatePageConfig>
+        }
+        groupBy: {
+          args: Prisma.PageConfigGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PageConfigGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.PageConfigCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PageConfigCountAggregateOutputType> | number
+        }
+      }
+    }
+    AiUsageDay: {
+      payload: Prisma.$AiUsageDayPayload<ExtArgs>
+      fields: Prisma.AiUsageDayFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.AiUsageDayFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AiUsageDayPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.AiUsageDayFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AiUsageDayPayload>
+        }
+        findFirst: {
+          args: Prisma.AiUsageDayFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AiUsageDayPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.AiUsageDayFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AiUsageDayPayload>
+        }
+        findMany: {
+          args: Prisma.AiUsageDayFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AiUsageDayPayload>[]
+        }
+        create: {
+          args: Prisma.AiUsageDayCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AiUsageDayPayload>
+        }
+        createMany: {
+          args: Prisma.AiUsageDayCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.AiUsageDayCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AiUsageDayPayload>[]
+        }
+        delete: {
+          args: Prisma.AiUsageDayDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AiUsageDayPayload>
+        }
+        update: {
+          args: Prisma.AiUsageDayUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AiUsageDayPayload>
+        }
+        deleteMany: {
+          args: Prisma.AiUsageDayDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.AiUsageDayUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.AiUsageDayUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AiUsageDayPayload>[]
+        }
+        upsert: {
+          args: Prisma.AiUsageDayUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AiUsageDayPayload>
+        }
+        aggregate: {
+          args: Prisma.AiUsageDayAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateAiUsageDay>
+        }
+        groupBy: {
+          args: Prisma.AiUsageDayGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AiUsageDayGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.AiUsageDayCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AiUsageDayCountAggregateOutputType> | number
+        }
+      }
+    }
     IntegrationConfig: {
       payload: Prisma.$IntegrationConfigPayload<ExtArgs>
       fields: Prisma.IntegrationConfigFieldRefs
@@ -1890,7 +2115,10 @@ export const ArticleRawScalarFieldEnum = {
   imageUrl: 'imageUrl',
   publishedAt: 'publishedAt',
   rawJson: 'rawJson',
-  createdAt: 'createdAt'
+  createdAt: 'createdAt',
+  relevance: 'relevance',
+  relevanceReason: 'relevanceReason',
+  relevanceCheckedAt: 'relevanceCheckedAt'
 } as const
 
 export type ArticleRawScalarFieldEnum = (typeof ArticleRawScalarFieldEnum)[keyof typeof ArticleRawScalarFieldEnum]
@@ -1954,11 +2182,49 @@ export const AdminUserScalarFieldEnum = {
   email: 'email',
   passwordHash: 'passwordHash',
   role: 'role',
+  approved: 'approved',
+  resetToken: 'resetToken',
+  resetTokenExpires: 'resetTokenExpires',
+  isSuperAdmin: 'isSuperAdmin',
+  passwordChangedAt: 'passwordChangedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
 
 export type AdminUserScalarFieldEnum = (typeof AdminUserScalarFieldEnum)[keyof typeof AdminUserScalarFieldEnum]
+
+
+export const AssistantMemoryScalarFieldEnum = {
+  id: 'id',
+  kind: 'kind',
+  role: 'role',
+  content: 'content',
+  token: 'token',
+  actionType: 'actionType',
+  target: 'target',
+  consumedAt: 'consumedAt',
+  createdAt: 'createdAt'
+} as const
+
+export type AssistantMemoryScalarFieldEnum = (typeof AssistantMemoryScalarFieldEnum)[keyof typeof AssistantMemoryScalarFieldEnum]
+
+
+export const PageConfigScalarFieldEnum = {
+  key: 'key',
+  value: 'value',
+  updatedAt: 'updatedAt'
+} as const
+
+export type PageConfigScalarFieldEnum = (typeof PageConfigScalarFieldEnum)[keyof typeof PageConfigScalarFieldEnum]
+
+
+export const AiUsageDayScalarFieldEnum = {
+  day: 'day',
+  requests: 'requests',
+  updatedAt: 'updatedAt'
+} as const
+
+export type AiUsageDayScalarFieldEnum = (typeof AiUsageDayScalarFieldEnum)[keyof typeof AiUsageDayScalarFieldEnum]
 
 
 export const IntegrationConfigScalarFieldEnum = {
@@ -1969,6 +2235,7 @@ export const IntegrationConfigScalarFieldEnum = {
   providerModel: 'providerModel',
   providerApiKeyEncrypted: 'providerApiKeyEncrypted',
   providerApiKeyHash: 'providerApiKeyHash',
+  providerBaseUrl: 'providerBaseUrl',
   channelId: 'channelId',
   webhookTokenEncrypted: 'webhookTokenEncrypted',
   sendOnPublish: 'sendOnPublish',
@@ -2187,6 +2454,9 @@ export type GlobalOmitConfig = {
   automationConfig?: Prisma.AutomationConfigOmit
   adminApiKey?: Prisma.AdminApiKeyOmit
   adminUser?: Prisma.AdminUserOmit
+  assistantMemory?: Prisma.AssistantMemoryOmit
+  pageConfig?: Prisma.PageConfigOmit
+  aiUsageDay?: Prisma.AiUsageDayOmit
   integrationConfig?: Prisma.IntegrationConfigOmit
 }
 

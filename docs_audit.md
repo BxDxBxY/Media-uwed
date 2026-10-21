@@ -3,6 +3,8 @@
 Date: 2026-03-13
 Scope: Public website + shared data layer + exposed API routes.
 
+> ⏳ **Status check 2026-07-31:** the two headline findings of this audit — the client-side global context re-fetching broad datasets on route changes, and the SEO consequences of client-only rendering — are **still open**. `lib/context.tsx:175` still requests `limit=100&full=1` plus events/media/about on mount, and no public page has per-article metadata. Tracked as **H6**/**H7** in [docs/06-AUDIT-2026-07-31.md](docs/06-AUDIT-2026-07-31.md). Current documentation index: [docs/README.md](docs/README.md).
+
 ## Executive Summary
 
 The project currently centralizes most data loading in a client-side global context and re-fetches broad datasets on route changes. This architecture is likely the root cause of perceived heaviness with 240+ news items and will continue to degrade as content grows.

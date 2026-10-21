@@ -6,6 +6,7 @@ import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { Toaster } from "sonner";
 import Script from "next/script";
+import { getPublicSiteUrl } from "@/lib/site-url";
 
 const inter = Inter({
   variable: "--font-sans",
@@ -18,7 +19,7 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"),
+  metadataBase: new URL(getPublicSiteUrl()),
   title: {
     default: "Media Uwed",
     template: "%s | Media Uwed",

@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 
-const ABOUT_CONFIG_SUBJECT = "__about_page_config__";
+const ABOUT_CONFIG_KEY = "about";
 
 type LangText = {
   en: string;
@@ -29,16 +29,26 @@ export type AboutPageConfig = {
   team: TeamMember[];
 };
 
+/**
+ * Fallback shown until an editor fills the About page in.
+ *
+ * Deliberately contains **no claims that cannot be verified from this repository**: no
+ * founding year, no street address, no named staff. The previous defaults asserted
+ * "Established in 1995", a US phone number, "Student Center, Room 304", and a team of
+ * "Sarah Connor", "James T. Kirk" and "Nyota Uhura" — template placeholders that were
+ * being rendered to the public as fact, because `about_content` is empty. Inventing
+ * details about a real institution is worse than an obviously unfinished page.
+ */
 export const defaultAboutPageConfig: AboutPageConfig = {
   missionTitle: {
-    en: "Our Mission",
-    ru: "Наша миссия",
-    uz: "Bizning missiyamiz",
+    en: "About this portal",
+    ru: "Об этом портале",
+    uz: "Bu portal haqida",
   },
   missionBody: {
-    en: "Established in 1995, our mission is to provide a platform for student voices and to keep the university community informed about the issues that matter. We believe in the power of storytelling to foster connection and drive positive change.\n\nWe cover everything from administrative decisions and student government to sports, arts, and campus culture. Our team is comprised of dedicated student journalists, photographers, and designers from diverse academic backgrounds.",
-    ru: "Основанная в 1995 году, наша миссия — предоставлять платформу для голосов студентов и держать университетское сообщество в курсе важных вопросов. Мы верим, что сила историй помогает объединять людей и создавать позитивные изменения.\n\nМы освещаем всё: от административных решений и студенческого самоуправления до спорта, искусства и кампусной культуры. Наша команда состоит из преданных своему делу студенческих журналистов, фотографов и дизайнеров из разных академических направлений.",
-    uz: "1995-yilda tashkil etilgan tashkilotimizning missiyasi — talabalar ovozi uchun maydon yaratish va universitet hamjamiyatini muhim mavzular haqida xabardor qilishdir. Biz hikoyachilik odamlarni bog‘lash va ijobiy o‘zgarishlar qilish kuchiga ega, deb ishonamiz.\n\nBiz ma’muriy qarorlar va talabalar kengashidan tortib sport, san’at va kampus madaniyatigacha bo‘lgan mavzularni yoritamiz. Jamoamiz turli yo‘nalishdagi fidoyi talaba jurnalistlar, fotograf va dizaynerlardan iborat.",
+    en: "This is the news and media portal of the University of World Economy and Diplomacy. It publishes university news alongside coverage of Uzbekistan's diplomacy, economy and higher education, and of Central Asian regional affairs.\n\nEvery article is published in English, Russian and Uzbek, and every article passes through an editor before it appears here — nothing reaches the site unreviewed.",
+    ru: "Это новостной и медиапортал Университета мировой экономики и дипломатии. Здесь публикуются новости университета, а также материалы о дипломатии, экономике и высшем образовании Узбекистана и о региональных делах Центральной Азии.\n\nКаждый материал выходит на английском, русском и узбекском языках и проходит через редактора — на сайт не попадает ничего непроверенного.",
+    uz: "Bu — Jahon iqtisodiyoti va diplomatiya universitetining yangiliklar va media portali. Bu yerda universitet yangiliklari, shuningdek O‘zbekiston diplomatiyasi, iqtisodiyoti va oliy ta’limi hamda Markaziy Osiyo mintaqasidagi voqealar yoritiladi.\n\nHar bir material ingliz, rus va o‘zbek tillarida chiqadi va muharrir ko‘rigidan o‘tadi — saytga tekshirilmagan hech narsa chiqmaydi.",
   },
   teamTitle: {
     en: "Meet the Team",
@@ -50,50 +60,28 @@ export const defaultAboutPageConfig: AboutPageConfig = {
     ru: "Свяжитесь с нами",
     uz: "Biz bilan bog'laning",
   },
-  contactEmail: "editor@university.edu",
+  // The university's own published address; nothing here is invented.
+  contactEmail: "info@uwed.uz",
   contactEmailHint: {
-    en: "For press releases & tips",
-    ru: "Для пресс-релизов и подсказок",
-    uz: "Press-reliz va maslahatlar uchun",
+    en: "For press releases and tips",
+    ru: "Для пресс-релизов и обращений",
+    uz: "Press-relizlar va murojaatlar uchun",
   },
-  contactPhone: "+1 (555) 123-4567",
+  contactPhone: "",
   contactPhoneHint: {
-    en: "Newsroom Direct Line",
-    ru: "Прямая линия редакции",
-    uz: "Tahririyatning to'g'ridan-to'g'ri liniyasi",
+    en: "Add the newsroom number in Admin → About",
+    ru: "Укажите телефон редакции в Админке → О нас",
+    uz: "Tahririyat raqamini Admin → Biz haqimizda bo‘limida kiriting",
   },
-  contactAddress: "Student Center, Room 304",
+  contactAddress: "uwed.uz",
   contactAddressHint: {
-    en: "University Campus",
-    ru: "Кампус университета",
-    uz: "Universitet kampusi",
+    en: "University of World Economy and Diplomacy, Tashkent",
+    ru: "Университет мировой экономики и дипломатии, Ташкент",
+    uz: "Jahon iqtisodiyoti va diplomatiya universiteti, Toshkent",
   },
-  team: [
-    {
-      name: "Dr. Alan Grant",
-      role: { en: "Faculty Advisor", ru: "Научный консультант", uz: "Fakultet maslahatchisi" },
-      email: "alan.grant@university.edu",
-      image: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=2670&auto=format&fit=crop",
-    },
-    {
-      name: "Sarah Connor",
-      role: { en: "Editor-in-Chief", ru: "Главный редактор", uz: "Bosh muharrir" },
-      email: "sarah.connor@university.edu",
-      image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=2670&auto=format&fit=crop",
-    },
-    {
-      name: "James T. Kirk",
-      role: { en: "Lead Photographer", ru: "Ведущий фотограф", uz: "Bosh fotograf" },
-      email: "james.kirk@university.edu",
-      image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=2670&auto=format&fit=crop",
-    },
-    {
-      name: "Nyota Uhura",
-      role: { en: "Head of Communications", ru: "Руководитель коммуникаций", uz: "Kommunikatsiya rahbari" },
-      email: "nyota.uhura@university.edu",
-      image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=2670&auto=format&fit=crop",
-    },
-  ],
+  // Empty on purpose: a real masthead is entered in Admin → About. The page hides the
+  // team section entirely rather than showing invented staff.
+  team: [],
 };
 
 function normalizeConfig(input: unknown): AboutPageConfig {
@@ -157,15 +145,12 @@ function normalizeConfig(input: unknown): AboutPageConfig {
 }
 
 export async function getAboutPageConfig(): Promise<AboutPageConfig> {
-  const row = await prisma.contactMessage.findFirst({
-    where: { subject: ABOUT_CONFIG_SUBJECT },
-    orderBy: { createdAt: "desc" },
-  });
+  const row = await prisma.pageConfig.findUnique({ where: { key: ABOUT_CONFIG_KEY } });
 
   if (!row) return defaultAboutPageConfig;
 
   try {
-    return normalizeConfig(JSON.parse(row.message));
+    return normalizeConfig(JSON.parse(row.value));
   } catch {
     return defaultAboutPageConfig;
   }
@@ -173,14 +158,13 @@ export async function getAboutPageConfig(): Promise<AboutPageConfig> {
 
 export async function setAboutPageConfig(input: AboutPageConfig): Promise<AboutPageConfig> {
   const normalized = normalizeConfig(input);
+  const value = JSON.stringify(normalized);
 
-  await prisma.contactMessage.create({
-    data: {
-      name: "System",
-      email: "system@local",
-      subject: ABOUT_CONFIG_SUBJECT,
-      message: JSON.stringify(normalized),
-    },
+  // Upsert, not insert: this is one document, not an event log.
+  await prisma.pageConfig.upsert({
+    where: { key: ABOUT_CONFIG_KEY },
+    create: { key: ABOUT_CONFIG_KEY, value },
+    update: { value },
   });
 
   return normalized;
