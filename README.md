@@ -1,9 +1,8 @@
 # University Media Platform
 
 > ## Project status (last worked on 2026-09-02)
-> **New here? Read [CLAUDE.md](CLAUDE.md) first.** All of the work below lives on
-> `fix/production-hardening` ([PR #12](https://github.com/BxDxBxY/Media-uwed/pull/12), open) —
-> `master` is still the pre-hardening code.
+> **New here? Read [CLAUDE.md](CLAUDE.md) first.** All of the work below is on `master`:
+> [PR #12](https://github.com/BxDxBxY/Media-uwed/pull/12) was merged on 2026-10-21.
 >
 > The security and correctness blockers from the [audit](docs/06-AUDIT-2026-07-31.md) are **fixed and verified** ([docs/07](docs/07-HARDENING-2026-07-31.md)), and the content pipeline has since been rebuilt around what news sources actually send ([docs/08](docs/08-AI-FREE-TIER-2026-08-01.md)).
 >

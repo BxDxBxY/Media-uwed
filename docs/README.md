@@ -9,9 +9,9 @@ branch it lives on, how to run it, and the open list in one page.
 
 ## Where the work stopped (2026-09-02, recorded 2026-10-21)
 
-All of it is on **`fix/production-hardening`**, 22 commits ahead of `master` and pushed, as
-[PR #12](https://github.com/BxDxBxY/Media-uwed/pull/12), **still open**. `master` is still the
-pre-hardening code. Last commit `dac02c5`, the full functional audit of 2026-09-02 (§2.22 of
+All of it is now on **`master`**: [PR #12](https://github.com/BxDxBxY/Media-uwed/pull/12) —
+23 commits from `fix/production-hardening`, CI green — was **merged on 2026-10-21** as
+`be08fd9`. Last substantive commit `dac02c5`, the full functional audit of 2026-09-02 (§2.22 of
 `08`): every feature exercised against a running server, two defects found and fixed (raw event
 dates with an empty day badge; both statistics screens unreachable from the navigation). Before
 it, `e66fdec` lifted the pipeline from ~4 articles per cron run to 20 in 75 seconds by replacing
