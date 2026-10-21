@@ -24,14 +24,13 @@ The long-form overview is [README.md](README.md). The documentation index is
 
 | | |
 |---|---|
-| Branch | `fix/production-hardening` — **22 commits ahead of `master`**, fully pushed to `origin` |
-| Pull request | [#12](https://github.com/BxDxBxY/Media-uwed/pull/12), **open, not merged** |
-| Last commit | `dac02c5`, 2026-09-02 — "Audit every feature against the running site, and fix what it found" |
+| Branch | **`master`** — everything below is on it |
+| Pull request | [#12](https://github.com/BxDxBxY/Media-uwed/pull/12), **merged 2026-10-21** as `be08fd9` (23 commits, CI green) |
+| Last substantive commit | `dac02c5`, 2026-09-02 — "Audit every feature against the running site, and fix what it found" |
 | Working tree | clean |
 
-**Almost all of the real work lives on that branch, not on `master`.** Anyone cloning the
-repo and checking out `master` gets the pre-hardening code. Check out
-`fix/production-hardening` first, and if the PR has since been merged, use `master`.
+`fix/production-hardening` was where all of this was written; it is now fully contained in
+`master` and kept only as history. **Work from `master`.**
 
 State of the product as of the last run against a live server:
 
@@ -45,8 +44,8 @@ State of the product as of the last run against a live server:
   server) and `check:publish` (22, needs a database).
 - Every one of the 15 admin screens and 6 public pages returned 200 in the 2026-09-02 audit.
 
-What has *not* happened: the PR has not been merged, the app has never been deployed to a
-real host with a real domain, and `APP_URL` is still unset.
+What has *not* happened: the app has never been deployed to a real host with a real domain,
+and `APP_URL` is still unset.
 
 ---
 
@@ -144,7 +143,8 @@ The authoritative list is [docs/08](docs/08-AI-FREE-TIER-2026-08-01.md) §4. Con
 
 **Blocks a public launch**
 
-1. **Merge PR #12.** Everything described here is on the branch.
+1. **Nothing is deployed.** The code is on `master` and the build succeeds, but no host, no
+   domain, no managed database — see 2 and 3.
 2. **`APP_URL` / `NEXT_PUBLIC_SITE_URL` are unset** — canonical links, Open Graph, the
    sitemap, Telegram post links and password-reset emails all point at `localhost`.
 3. **`DATABASE_URL` must be a managed Postgres** reachable from the deployment platform. A
