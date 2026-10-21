@@ -1,8 +1,25 @@
 # 📚 Media-uwed Documentation Index
 
+**New to the project? Read [../CLAUDE.md](../CLAUDE.md) first** — where the work stopped, what
+branch it lives on, how to run it, and the open list in one page.
+
 **Start here: [08-AI-FREE-TIER-2026-08-01.md](08-AI-FREE-TIER-2026-08-01.md)** for the content pipeline and the public pages as they work today, and [07-HARDENING-2026-07-31.md](07-HARDENING-2026-07-31.md) for the security and build work — what was fixed, how it was verified, and §6 "what still needs a human". Read [06-AUDIT-2026-07-31.md](06-AUDIT-2026-07-31.md) alongside them for *why* those things needed fixing.
 
 ---
+
+## Where the work stopped (2026-09-02, recorded 2026-10-21)
+
+All of it is on **`fix/production-hardening`**, 22 commits ahead of `master` and pushed, as
+[PR #12](https://github.com/BxDxBxY/Media-uwed/pull/12), **still open**. `master` is still the
+pre-hardening code. Last commit `dac02c5`, the full functional audit of 2026-09-02 (§2.22 of
+`08`): every feature exercised against a running server, two defects found and fixed (raw event
+dates with an empty day badge; both statistics screens unreachable from the navigation). Before
+it, `e66fdec` lifted the pipeline from ~4 articles per cron run to 20 in 75 seconds by replacing
+a model that could not honour `response_format`, and `dceaa7c` fixed the two throughput defects
+behind that ceiling (axios's inactivity timeout, and strictly sequential processing against a
+300-second `maxDuration`). The site stood at 32 articles, 27 trilingual. Nothing has been
+deployed to a real host; `APP_URL` is still unset. Open list: `08` §4, condensed in
+[../CLAUDE.md](../CLAUDE.md) §7.
 
 ## Current state in one paragraph (2026-08-01)
 
@@ -27,6 +44,7 @@ The audit's blocking defects are fixed and verified: content CRUD and the pipeli
 
 | File | Date | Purpose |
 |---|---|---|
+| [../CLAUDE.md](../CLAUDE.md) | 2026-10-21 | **Entry point for a new session.** Where the work stopped (branch, PR, last commit), how to run and check it, the map of the code, how to operate the pipeline, the condensed open list, and the traps that already cost time once |
 | [../README.md](../README.md) | 2026-08-01 | Product/architecture overview. Status block rewritten 2026-08-01: the earlier warnings no longer apply — the pipeline does a full editorial pass rather than translation alone, and `ADMIN_SECRET_ENCRYPTION_KEY` is set |
 | [../docs_audit.md](../docs_audit.md) | 2026-03-13 | First audit — performance / SEO / security / UX. SEO is largely closed (article SSR in `07` §H6, per-route metadata in `08` §2.16); **client-only listing pages and the global-context over-fetch remain open** |
 | [../docs_admin_panel_fixes.md](../docs_admin_panel_fixes.md) | — | Changelog of admin/news panel fixes |
